@@ -12,14 +12,12 @@ const STORES = [
 ];
 
 let db;
-let currentScreen = "home";
+let screen = "home";
 let cart = [];
-let orderDraft = [];
-let publicCart = [];
 let locked = false;
-let currentRole = "owner";
+let role = "owner";
 
-const appState = {
+const state = {
   products: [],
   clients: [],
   sales: [],
@@ -33,7 +31,6 @@ const appState = {
     phone: "",
     whatsapp: "",
     sinpe: "",
-    currency: "CRC",
     taxMode: "included",
     taxRate: 13,
     businessType: "food",
@@ -43,224 +40,303 @@ const appState = {
   }
 };
 
+const $ = q =>
+  document.querySelector(q);
 
-/* =========================================
-   UTILIDADES
-========================================= */
+const money = n =>
+  new Intl.NumberFormat(
+    "es-CR",
+    {
+      style: "currency",
+      currency: "CRC",
+      maximumFractionDigits: 0
+    }
+  ).format(
+    Number(n || 0)
+  );
 
-const money = value =>
-  new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
-
-
-function uid(prefix = "id") {
-  return `${prefix}_${Date.now()}_${Math.random()
+const uid = p =>
+  `${p}_${Date.now()}_${Math.random()
     .toString(36)
-    .slice(2, 8)}`;
-}
+    .slice(2, 7)}`;
+
+const esc = v =>
+  String(v ?? "").replace(
+    /[&<>"']/g,
+    c => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    })[c]
+  );
+
+const enc = v =>
+  encodeURIComponent(
+    String(v ?? "")
+  ).replace(
+    /'/g,
+    "%27"
+  );
 
 
-function escapeHtml(value = "") {
-  return String(value).replace(/[&<>"']/g, char => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;"
-  })[char]);
-}
-
-
-function escapeAttr(value = "") {
-  return escapeHtml(value);
-}
-
-
-function encoded(value = "") {
-  return encodeURIComponent(String(value))
-    .replace(/'/g, "%27");
-}
-
-
-/* =========================================
+/* ================================
    BASE DE DATOS LOCAL
-========================================= */
+================================ */
 
 function openDB() {
-  return new Promise((resolve, reject) => {
 
-    const request =
-      indexedDB.open(
-        DB_NAME,
-        DB_VERSION
-      );
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+
+      const request =
+        indexedDB.open(
+          DB_NAME,
+          DB_VERSION
+        );
 
 
-    request.onupgradeneeded = () => {
+      request.onupgradeneeded =
+        () => {
 
-      const database =
-        request.result;
+          STORES.forEach(
+            name => {
 
+              if (
+                !request.result
+                  .objectStoreNames
+                  .contains(name)
+              ) {
 
-      STORES.forEach(storeName => {
-
-        if (
-          !database
-            .objectStoreNames
-            .contains(storeName)
-        ) {
-
-          database
-            .createObjectStore(
-              storeName,
-              {
-                keyPath: "id"
+                request.result
+                  .createObjectStore(
+                    name,
+                    {
+                      keyPath: "id"
+                    }
+                  );
               }
-            );
-        }
-      });
-    };
+            }
+          );
+        };
 
 
-    request.onsuccess = () =>
-      resolve(request.result);
+      request.onsuccess =
+        () =>
+          resolve(
+            request.result
+          );
 
 
-    request.onerror = () =>
-      reject(request.error);
-  });
+      request.onerror =
+        () =>
+          reject(
+            request.error
+          );
+    }
+  );
 }
 
 
-function getStore(
+function store(
   name,
   mode = "readonly"
 ) {
 
   return db
-    .transaction(name, mode)
-    .objectStore(name);
+    .transaction(
+      name,
+      mode
+    )
+    .objectStore(
+      name
+    );
 }
 
 
-function idbPut(
-  storeName,
-  object
-) {
+function all(name) {
 
   return new Promise(
-    (resolve, reject) => {
+    (
+      resolve,
+      reject
+    ) => {
 
       const request =
-        getStore(
-          storeName,
-          "readwrite"
-        ).put(object);
+        store(name)
+          .getAll();
 
 
-      request.onsuccess = () =>
-        resolve(object);
+      request.onsuccess =
+        () =>
+          resolve(
+            request.result ||
+            []
+          );
 
 
-      request.onerror = () =>
-        reject(request.error);
+      request.onerror =
+        () =>
+          reject(
+            request.error
+          );
     }
   );
 }
 
 
-function idbDelete(
-  storeName,
+function put(
+  name,
+  value
+) {
+
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+
+      const request =
+        store(
+          name,
+          "readwrite"
+        ).put(
+          value
+        );
+
+
+      request.onsuccess =
+        () =>
+          resolve(
+            value
+          );
+
+
+      request.onerror =
+        () =>
+          reject(
+            request.error
+          );
+    }
+  );
+}
+
+
+function del(
+  name,
   id
 ) {
 
   return new Promise(
-    (resolve, reject) => {
+    (
+      resolve,
+      reject
+    ) => {
 
       const request =
-        getStore(
-          storeName,
+        store(
+          name,
           "readwrite"
-        ).delete(id);
-
-
-      request.onsuccess = () =>
-        resolve();
-
-
-      request.onerror = () =>
-        reject(request.error);
-    }
-  );
-}
-
-
-function idbAll(storeName) {
-
-  return new Promise(
-    (resolve, reject) => {
-
-      const request =
-        getStore(
-          storeName
-        ).getAll();
-
-
-      request.onsuccess = () =>
-        resolve(
-          request.result || []
+        ).delete(
+          id
         );
 
 
-      request.onerror = () =>
-        reject(request.error);
+      request.onsuccess =
+        () =>
+          resolve();
+
+
+      request.onerror =
+        () =>
+          reject(
+            request.error
+          );
     }
   );
 }
 
 
-/* =========================================
-   CARGAR DATOS
-========================================= */
+/* ================================
+   CARGAR INFORMACIÓN
+================================ */
 
-async function loadAll() {
+async function load() {
 
-  appState.products =
-    await idbAll("products");
+  for (
+    const name of [
+      "products",
+      "clients",
+      "sales",
+      "orders",
+      "cashMoves",
+      "cashSessions"
+    ]
+  ) {
 
-  appState.clients =
-    await idbAll("clients");
-
-  appState.sales =
-    await idbAll("sales");
-
-  appState.orders =
-    await idbAll("orders");
-
-  appState.cashMoves =
-    await idbAll("cashMoves");
-
-  appState.cashSessions =
-    await idbAll("cashSessions");
+    state[name] =
+      await all(name);
+  }
 
 
-  const settings =
-    await idbAll("settings");
+  const saved =
+    await all(
+      "settings"
+    );
 
 
-  if (settings.length) {
+  if (
+    saved[0]
+  ) {
 
-    appState.settings = {
-      ...appState.settings,
-      ...settings[0]
+    state.settings = {
+      ...state.settings,
+      ...saved[0]
     };
   }
 
 
-  if (!appState.products.length) {
+  /*
+    Convertimos configuraciones
+    de versiones anteriores.
+  */
+
+  if (
+    state.settings
+      .businessType ===
+    "general"
+  ) {
+
+    state.settings
+      .businessType =
+      "food";
+  }
+
+
+  if (
+    state.settings
+      .businessType ===
+    "retail"
+  ) {
+
+    state.settings
+      .businessType =
+      "products";
+  }
+
+
+  /*
+    Productos de ejemplo
+    solo si no existe ninguno.
+  */
+
+  if (
+    !state.products.length
+  ) {
 
     const demo = [
 
@@ -306,97 +382,92 @@ async function loadAll() {
     ];
 
 
-    for (const product of demo) {
+    for (
+      const product of demo
+    ) {
 
-      await idbPut(
+      await put(
         "products",
         product
       );
     }
 
 
-    appState.products =
+    state.products =
       demo;
   }
-}
 
 
-/* =========================================
-   TIPO DE NEGOCIO
-========================================= */
-
-function businessType() {
-
-  const type =
-    appState.settings
-      .businessType ||
-    "food";
-
-
-  return [
-    "food",
-    "products",
-    "services"
-  ].includes(type)
-    ? type
-    : "food";
-}
-
-
-function isFood() {
-  return businessType() === "food";
-}
-
-
-function isProducts() {
-  return businessType() === "products";
-}
-
-
-function isServices() {
-  return businessType() === "services";
-}
-
-
-/* =========================================
-   CAJA ACTUAL
-========================================= */
-
-function currentShift() {
-
-  return [
-    ...appState.cashSessions
-  ]
-    .reverse()
-    .find(
-      session =>
-        session.status ===
-        "open"
-    );
-}
-
-
-function canSell() {
-
-  /*
-    Comida necesita caja abierta.
-    Productos y servicios NO.
-  */
-
-  return (
-    !isFood() ||
-    Boolean(currentShift())
+  await put(
+    "settings",
+    state.settings
   );
 }
 
 
-/* =========================================
+/* ================================
+   TIPO DE NEGOCIO
+================================ */
+
+const type =
+  () =>
+    state.settings
+      .businessType ||
+    "food";
+
+
+const isFood =
+  () =>
+    type() ===
+    "food";
+
+
+const isProducts =
+  () =>
+    type() ===
+    "products";
+
+
+const isServices =
+  () =>
+    type() ===
+    "services";
+
+
+/* ================================
+   CAJA
+================================ */
+
+const currentShift =
+  () =>
+    [
+      ...state.cashSessions
+    ]
+      .reverse()
+      .find(
+        item =>
+          item.status ===
+          "open"
+      );
+
+
+const canSell =
+  () =>
+    !isFood() ||
+    Boolean(
+      currentShift()
+    );
+
+
+/* ================================
    CABECERA
-========================================= */
+================================ */
 
-function connectionBadge() {
+function badge() {
 
-  if (navigator.onLine) {
+  if (
+    navigator.onLine
+  ) {
 
     return `
       <span class="badge online">
@@ -414,8 +485,8 @@ function connectionBadge() {
 }
 
 
-function navButton(
-  screen,
+function navBtn(
+  target,
   label,
   active
 ) {
@@ -423,13 +494,13 @@ function navButton(
   return `
     <button
       class="${
-        active === screen
+        active === target
           ? "active"
           : ""
       }"
 
       onclick="
-        go('${screen}')
+        go('${target}')
       "
     >
       ${label}
@@ -443,6 +514,18 @@ function shell(
   active = "home"
 ) {
 
+  const third =
+    isFood()
+      ? [
+          "orders",
+          "Pedidos"
+        ]
+      : [
+          "sales",
+          "Mis ventas"
+        ];
+
+
   return `
 
     <main class="shell">
@@ -452,10 +535,9 @@ function shell(
         <div class="brand">
 
           <h1>
-            ${escapeHtml(
-              appState.settings
-                .businessName ||
-              "Mi Punto CR"
+            ${esc(
+              state.settings
+                .businessName
             )}
           </h1>
 
@@ -467,7 +549,7 @@ function shell(
 
 
         <div class="status-row">
-          ${connectionBadge()}
+          ${badge()}
         </div>
 
       </header>
@@ -478,11 +560,9 @@ function shell(
 
           ? `
             <div class="offline-note">
-
               Sin conexión.
               Tus datos siguen
               guardándose localmente.
-
             </div>
           `
 
@@ -492,20 +572,19 @@ function shell(
 
       ${content}
 
-
     </main>
 
 
     <nav class="bottom-nav">
 
-      ${navButton(
+      ${navBtn(
         "home",
         "Inicio",
         active
       )}
 
 
-      ${navButton(
+      ${navBtn(
         "sale",
         isServices()
           ? "Servicio"
@@ -514,20 +593,14 @@ function shell(
       )}
 
 
-      ${navButton(
-        isFood()
-          ? "orders"
-          : "sales",
-
-        isFood()
-          ? "Pedidos"
-          : "Mis ventas",
-
+      ${navBtn(
+        third[0],
+        third[1],
         active
       )}
 
 
-      ${navButton(
+      ${navBtn(
         "more",
         "Más",
         active
@@ -538,8 +611,8 @@ function shell(
 }
 
 
-function homeCard(
-  screen,
+function card(
+  target,
   title,
   subtitle,
   primary = false,
@@ -547,23 +620,29 @@ function homeCard(
 ) {
 
   return `
+
     <button
       class="
         big-card
-        ${primary ? "primary" : ""}
+        ${
+          primary
+            ? "primary"
+            : ""
+        }
       "
 
       ${
         disabled
-          ? "disabled"
-          : `onclick="go('${screen}')"`
+          ? `
+            disabled
+            style="opacity:.55"
+          `
+          : `
+            onclick="
+              go('${target}')
+            "
+          `
       }
-
-      style="${
-        disabled
-          ? "opacity:.55;cursor:not-allowed"
-          : ""
-      }"
     >
 
       <span>
@@ -588,14 +667,15 @@ function homeCard(
 }
 
 
-/* =========================================
+/* ================================
    NAVEGACIÓN
-========================================= */
+================================ */
 
-function go(screen) {
+window.go =
+target => {
 
   if (
-    screen === "sale" &&
+    target === "sale" &&
     !canSell()
   ) {
 
@@ -604,7 +684,7 @@ function go(screen) {
     );
 
 
-    currentScreen =
+    screen =
       "cash";
 
 
@@ -614,20 +694,19 @@ function go(screen) {
   }
 
 
-  currentScreen =
-    screen;
+  screen =
+    target;
 
 
   render();
-}
-
-
-window.go = go;
+};
 
 
 function render() {
 
-  if (locked) {
+  if (
+    locked
+  ) {
 
     renderLock();
 
@@ -635,79 +714,47 @@ function render() {
   }
 
 
-  if (
-    currentScreen === "home"
-  ) {
+  const routes = {
 
-    renderHome();
-  }
+    home:
+      renderHome,
 
-  else if (
-    currentScreen === "sale"
-  ) {
+    sale:
+      renderSale,
 
-    renderSale();
-  }
+    orders:
+      renderOrders,
 
-  else if (
-    currentScreen === "orders"
-  ) {
+    products:
+      renderProducts,
 
-    renderOrders();
-  }
+    clients:
+      renderClients,
 
-  else if (
-    currentScreen === "products"
-  ) {
+    cash:
+      renderCash,
 
-    renderProducts();
-  }
+    catalog:
+      renderCatalog,
 
-  else if (
-    currentScreen === "clients"
-  ) {
+    sales:
+      renderSales,
 
-    renderClients();
-  }
+    settings:
+      renderSettings
+  };
 
-  else if (
-    currentScreen === "cash"
-  ) {
 
-    renderCash();
-  }
-
-  else if (
-    currentScreen === "catalog"
-  ) {
-
-    renderCatalog();
-  }
-
-  else if (
-    currentScreen === "sales"
-  ) {
-
-    renderSalesHistory();
-  }
-
-  else if (
-    currentScreen === "settings"
-  ) {
-
-    renderSettings();
-  }
-
-  else {
-
-    renderMore();
-  }
+  (
+    routes[screen] ||
+    renderMore
+  )();
 }
 
 
-/* =========================================
+/* ================================
    INICIO
-========================================= */
+================================ */
 
 function renderHome() {
 
@@ -717,7 +764,7 @@ function renderHome() {
 
 
   const todaySales =
-    appState.sales.filter(
+    state.sales.filter(
       sale =>
         new Date(
           sale.createdAt
@@ -726,7 +773,7 @@ function renderHome() {
     );
 
 
-  const totalToday =
+  const sold =
     todaySales.reduce(
       (
         total,
@@ -740,8 +787,8 @@ function renderHome() {
     );
 
 
-  const pending =
-    appState.clients.reduce(
+  const credit =
+    state.clients.reduce(
       (
         total,
         client
@@ -760,16 +807,21 @@ function renderHome() {
     );
 
 
-  let cards = "";
+  let cards =
+    "";
 
 
-  /* COMIDA / SODA */
+  /*
+    COMIDA / SODA
+  */
 
-  if (isFood()) {
+  if (
+    isFood()
+  ) {
 
     cards = `
 
-      ${homeCard(
+      ${card(
         "sale",
 
         "Nueva venta",
@@ -784,55 +836,60 @@ function renderHome() {
       )}
 
 
-      ${homeCard(
+      ${card(
         "orders",
         "Pedidos",
         "Pendientes, preparando y listos"
       )}
 
 
-      ${homeCard(
+      ${card(
         "cash",
+
         shiftOpen
           ? "Caja abierta"
           : "Abrir caja",
 
         shiftOpen
-          ? "Ventas, efectivo y cierre"
+          ? "Ventas y cierre"
           : "Fondo inicial y apertura"
       )}
 
 
-      ${homeCard(
+      ${card(
         "products",
         "Productos",
         "Comidas, bebidas y stock"
       )}
 
 
-      ${homeCard(
+      ${card(
         "clients",
         "Clientes / Crédito",
         "Saldos y abonos"
       )}
 
 
-      ${homeCard(
+      ${card(
         "catalog",
         "Menú QR",
-        "Comparte tu menú"
+        "Vista y enlace del menú"
       )}
     `;
   }
 
 
-  /* ARTÍCULOS */
+  /*
+    VENTA DE ARTÍCULOS
+  */
 
-  if (isProducts()) {
+  if (
+    isProducts()
+  ) {
 
     cards = `
 
-      ${homeCard(
+      ${card(
         "sale",
         "Vender",
         "Selecciona artículos y genera comprobante",
@@ -840,43 +897,47 @@ function renderHome() {
       )}
 
 
-      ${homeCard(
+      ${card(
         "products",
         "Productos",
         "Artículos, variantes y stock"
       )}
 
 
-      ${homeCard(
-        "catalog",
-        "Catálogo QR",
-        "Comparte tus productos"
-      )}
-
-
-      ${homeCard(
-        "sales",
-        "Mis ventas",
-        "Comprobantes e historial"
-      )}
-
-
-      ${homeCard(
+      ${card(
         "clients",
         "Clientes / Crédito",
         "Saldos y abonos"
+      )}
+
+
+      ${card(
+        "catalog",
+        "Catálogo QR",
+        "Vista y enlace del catálogo"
+      )}
+
+
+      ${card(
+        "sales",
+        "Mis ventas",
+        "Comprobantes e historial"
       )}
     `;
   }
 
 
-  /* SERVICIOS */
+  /*
+    SERVICIOS
+  */
 
-  if (isServices()) {
+  if (
+    isServices()
+  ) {
 
     cards = `
 
-      ${homeCard(
+      ${card(
         "sale",
         "Nuevo servicio",
         "Selecciona servicio y genera comprobante",
@@ -884,39 +945,37 @@ function renderHome() {
       )}
 
 
-      ${homeCard(
+      ${card(
         "products",
         "Servicios",
         "Precios y categorías"
       )}
 
 
-      ${homeCard(
-        "catalog",
-        "Catálogo QR",
-        "Comparte tus servicios"
+      ${card(
+        "clients",
+        "Clientes",
+        "Contactos y crédito"
       )}
 
 
-      ${homeCard(
+      ${card(
+        "catalog",
+        "Catálogo QR",
+        "Vista y enlace de servicios"
+      )}
+
+
+      ${card(
         "sales",
         "Mis ventas",
         "Comprobantes e historial"
-      )}
-
-
-      ${homeCard(
-        "clients",
-        "Clientes",
-        "Contactos y crédito si lo usas"
       )}
     `;
   }
 
 
-  document
-    .querySelector("#app")
-    .innerHTML =
+  $("#app").innerHTML =
     shell(`
 
       <section class="screen-title">
@@ -955,7 +1014,7 @@ function renderHome() {
           </span>
 
           <strong>
-            ${money(totalToday)}
+            ${money(sold)}
           </strong>
 
         </button>
@@ -979,7 +1038,7 @@ function renderHome() {
           </span>
 
           <strong>
-            ${money(pending)}
+            ${money(credit)}
           </strong>
 
         </button>
@@ -997,9 +1056,9 @@ function renderHome() {
 
 
         ${
-          currentRole === "owner"
+          role === "owner"
 
-            ? homeCard(
+            ? card(
                 "settings",
                 "Configuración",
                 "Datos básicos del negocio"
@@ -1010,48 +1069,53 @@ function renderHome() {
 
       </div>
 
-    `, "home");
+    `,
+    "home"
+  );
 }
 
 
-/* =========================================
+/* ================================
    IMPUESTOS
-========================================= */
+================================ */
 
-function calculateTotals(
+function totals(
   subtotal
 ) {
 
   const rate =
     Number(
-      appState.settings
+      state.settings
         .taxRate || 0
     );
 
 
   const mode =
-    appState.settings
+    state.settings
       .taxMode;
-
-
-  let tax = 0;
-
-  let total =
-    subtotal;
 
 
   if (
     mode === "added"
   ) {
 
-    tax =
-      subtotal *
-      (rate / 100);
+    return {
 
+      subtotal,
 
-    total =
-      subtotal +
-      tax;
+      tax:
+        subtotal *
+        rate /
+        100,
+
+      total:
+        subtotal *
+        (
+          1 +
+          rate /
+          100
+        )
+    };
   }
 
 
@@ -1060,42 +1124,50 @@ function calculateTotals(
     rate > 0
   ) {
 
-    tax =
-      subtotal -
-      subtotal /
-      (
-        1 +
-        rate / 100
-      );
-  }
+    return {
 
+      subtotal,
 
-  if (
-    mode === "exempt"
-  ) {
+      tax:
+        subtotal -
+        subtotal /
+        (
+          1 +
+          rate /
+          100
+        ),
 
-    tax = 0;
+      total:
+        subtotal
+    };
   }
 
 
   return {
+
     subtotal,
-    tax,
-    total
+
+    tax: 0,
+
+    total:
+      subtotal
   };
 }
 
 
-/* =========================================
+/* ================================
    VENTA
-========================================= */
+================================ */
 
 function renderSale() {
 
-  if (!canSell()) {
+  if (
+    !canSell()
+  ) {
 
-    currentScreen =
+    screen =
       "cash";
+
 
     renderCash();
 
@@ -1103,29 +1175,25 @@ function renderSale() {
   }
 
 
-  const subtotal =
-    cart.reduce(
-      (
-        total,
-        item
-      ) =>
-        total +
-        item.price *
-        item.qty,
-      0
-    );
-
-
-  const totals =
-    calculateTotals(
-      subtotal
+  const totalInfo =
+    totals(
+      cart.reduce(
+        (
+          total,
+          item
+        ) =>
+          total +
+          item.price *
+          item.qty,
+        0
+      )
     );
 
 
   const categories =
     [
       ...new Set(
-        appState.products.map(
+        state.products.map(
           product =>
             product.category
               ?.trim() ||
@@ -1135,76 +1203,79 @@ function renderSale() {
     ];
 
 
-  const categoriesHTML =
+  const categoryHtml =
     categories
-      .map(category => {
+      .map(
+        category => {
 
-        const count =
-          appState.products
-            .filter(
-              product =>
-                (
-                  product.category
-                    ?.trim() ||
-                  "Otros"
-                ) === category
-            )
-            .length;
-
-
-        return `
-
-          <button
-            class="category-card"
-
-            onclick="
-              openCategory(
-                decodeURIComponent(
-                  '${encoded(category)}'
-                )
+          const count =
+            state.products
+              .filter(
+                product =>
+                  (
+                    product.category
+                      ?.trim() ||
+                    "Otros"
+                  ) ===
+                  category
               )
-            "
-          >
-
-            <span class="category-name">
-              ${escapeHtml(category)}
-            </span>
+              .length;
 
 
-            <span class="category-count">
+          return `
 
-              ${count}
+            <button
+              class="category-card"
 
-              ${
-                count === 1
+              onclick="
+                openCategory(
+                  decodeURIComponent(
+                    '${enc(category)}'
+                  )
+                )
+              "
+            >
 
-                  ? (
-                      isServices()
-                        ? "servicio"
-                        : "producto"
-                    )
-
-                  : (
-                      isServices()
-                        ? "servicios"
-                        : "productos"
-                    )
-              }
-
-            </span>
+              <span class="category-name">
+                ${esc(category)}
+              </span>
 
 
-            <span class="category-arrow">
-              ›
-            </span>
+              <span class="category-count">
 
-          </button>
-        `;
-      })
+                ${count}
+
+                ${
+                  isServices()
+
+                    ? (
+                        count === 1
+                          ? "servicio"
+                          : "servicios"
+                      )
+
+                    : (
+                        count === 1
+                          ? "producto"
+                          : "productos"
+                      )
+                }
+
+              </span>
+
+
+              <span class="category-arrow">
+                ›
+              </span>
+
+            </button>
+          `;
+        }
+      )
       .join("");
 
 
-  const cartHTML =
+  const cartHtml =
     cart.length
 
       ? cart
@@ -1216,7 +1287,7 @@ function renderSale() {
                 <div>
 
                   <strong>
-                    ${escapeHtml(
+                    ${esc(
                       item.name
                     )}
                   </strong>
@@ -1227,7 +1298,7 @@ function renderSale() {
 
                       ? `
                         <div class="muted">
-                          ${escapeHtml(
+                          ${esc(
                             item.variant
                           )}
                         </div>
@@ -1253,7 +1324,7 @@ function renderSale() {
 
                   <button
                     onclick="
-                      changeQty(
+                      qty(
                         '${item.cartId}',
                         -1
                       )
@@ -1270,7 +1341,7 @@ function renderSale() {
 
                   <button
                     onclick="
-                      changeQty(
+                      qty(
                         '${item.cartId}',
                         1
                       )
@@ -1294,9 +1365,7 @@ function renderSale() {
       `;
 
 
-  document
-    .querySelector("#app")
-    .innerHTML =
+  $("#app").innerHTML =
     shell(`
 
       <section class="screen-title">
@@ -1339,20 +1408,9 @@ function renderSale() {
           >
 
 
-          <div
-            id="categoryGrid"
-            class="category-grid"
-          >
+          <div class="category-grid">
 
-            ${
-              categoriesHTML ||
-
-              `
-                <div class="empty">
-                  No hay categorías todavía.
-                </div>
-              `
-            }
+            ${categoryHtml}
 
           </div>
 
@@ -1376,7 +1434,10 @@ function renderSale() {
 
             <button
               class="btn ghost"
-              onclick="clearCart()"
+
+              onclick="
+                clearCart()
+              "
             >
               Vaciar
             </button>
@@ -1385,12 +1446,12 @@ function renderSale() {
 
 
           <div class="cart-list">
-            ${cartHTML}
+            ${cartHtml}
           </div>
 
 
           ${
-            appState.settings
+            state.settings
               .taxMode !==
             "exempt"
 
@@ -1408,11 +1469,12 @@ function renderSale() {
 
                   <span>
                     ${money(
-                      totals.tax
+                      totalInfo.tax
                     )}
                   </span>
 
                 </div>
+
               `
 
               : ""
@@ -1427,7 +1489,7 @@ function renderSale() {
 
             <span>
               ${money(
-                totals.total
+                totalInfo.total
               )}
             </span>
 
@@ -1492,26 +1554,27 @@ function renderSale() {
               Crédito
             </button>
 
-
           </div>
 
         </section>
 
       </div>
 
-    `, "sale");
+    `,
+    "sale"
+  );
 }
 
 
-/* =========================================
+/* ================================
    ABRIR CATEGORÍA
-========================================= */
+================================ */
 
 window.openCategory =
 category => {
 
-  const products =
-    appState.products.filter(
+  const items =
+    state.products.filter(
       product =>
         (
           product.category
@@ -1531,9 +1594,8 @@ category => {
       <div>
 
         <h3>
-          ${escapeHtml(category)}
+          ${esc(category)}
         </h3>
-
 
         <p class="muted">
 
@@ -1554,7 +1616,10 @@ category => {
 
       <button
         class="modal-close"
-        onclick="closeModal()"
+
+        onclick="
+          closeModal()
+        "
       >
         ×
       </button>
@@ -1564,15 +1629,17 @@ category => {
 
     <div class="category-products">
 
-      ${products
+      ${items
         .map(
           product => `
 
             <button
-              class="category-product"
+              class="
+                category-product
+              "
 
               onclick="
-                addProductFromCategory(
+                pickProduct(
                   '${product.id}'
                 )
               "
@@ -1581,7 +1648,7 @@ category => {
               <span>
 
                 <strong>
-                  ${escapeHtml(
+                  ${esc(
                     product.name
                   )}
                 </strong>
@@ -1594,7 +1661,8 @@ category => {
                       <small>
                         Stock:
                         ${Number(
-                          product.stock ?? 0
+                          product.stock ||
+                          0
                         )}
                       </small>
                     `
@@ -1626,34 +1694,37 @@ category => {
 };
 
 
-window.addProductFromCategory =
+/* ================================
+   AGREGAR PRODUCTO
+================================ */
+
+window.pickProduct =
 id => {
 
   const product =
-    appState.products.find(
+    state.products.find(
       item =>
         item.id === id
     );
 
 
-  if (!product) return;
+  if (!product) {
+    return;
+  }
 
 
   if (
-    Array.isArray(
-      product.variants
-    ) &&
-    product.variants.length
+    product.variants
+      ?.length
   ) {
 
     modal(`
 
       <h3>
-        ${escapeHtml(
+        ${esc(
           product.name
         )}
       </h3>
-
 
       <p class="muted">
         Elige una opción.
@@ -1667,20 +1738,22 @@ id => {
             variant => `
 
               <button
-                class="category-product"
+                class="
+                  category-product
+                "
 
                 onclick="
-                  addVariantToCart(
+                  addCart(
                     '${product.id}',
                     decodeURIComponent(
-                      '${encoded(variant)}'
+                      '${enc(variant)}'
                     )
                   )
                 "
               >
 
                 <strong>
-                  ${escapeHtml(
+                  ${esc(
                     variant
                   )}
                 </strong>
@@ -1703,77 +1776,46 @@ id => {
           .join("")}
 
       </div>
-
     `);
+
 
     return;
   }
 
 
-  addProductDirectly(
-    product,
+  addCart(
+    id,
     ""
-  );
-
-
-  closeModal();
-
-  renderSale();
-
-
-  toast(
-    `${product.name} agregado`
   );
 };
 
 
-window.addVariantToCart =
+window.addCart =
 (
-  productId,
-  variant
+  id,
+  variant = ""
 ) => {
 
   const product =
-    appState.products.find(
+    state.products.find(
       item =>
-        item.id ===
-        productId
+        item.id === id
     );
 
 
-  if (!product) return;
+  if (!product) {
+    return;
+  }
 
-
-  addProductDirectly(
-    product,
-    variant
-  );
-
-
-  closeModal();
-
-  renderSale();
-
-
-  toast(
-    `${product.name} agregado`
-  );
-};
-
-
-function addProductDirectly(
-  product,
-  variant = ""
-) {
 
   const cartId =
-    `${product.id}_${
+    `${id}_${
       variant ||
       "normal"
     }`;
 
 
-  const existing =
+  const old =
     cart.find(
       item =>
         item.cartId ===
@@ -1781,9 +1823,10 @@ function addProductDirectly(
     );
 
 
-  if (existing) {
+  if (old) {
 
-    existing.qty += 1;
+    old.qty +=
+      1;
 
   } else {
 
@@ -1798,56 +1841,40 @@ function addProductDirectly(
       qty: 1
     });
   }
-}
 
 
-window.filterCategories =
-value => {
+  closeModal();
 
-  const search =
-    value
-      .toLowerCase()
-      .trim();
+  renderSale();
 
 
-  document
-    .querySelectorAll(
-      ".category-card"
-    )
-    .forEach(
-      card => {
-
-        card.style.display =
-          card.innerText
-            .toLowerCase()
-            .includes(search)
-
-            ? ""
-
-            : "none";
-      }
-    );
+  toast(
+    `${product.name} agregado`
+  );
 };
 
 
-window.changeQty =
+window.qty =
 (
-  cartId,
-  amount
+  id,
+  change
 ) => {
 
   const item =
     cart.find(
       product =>
         product.cartId ===
-        cartId
+        id
     );
 
 
-  if (!item) return;
+  if (!item) {
+    return;
+  }
 
 
-  item.qty += amount;
+  item.qty +=
+    change;
 
 
   if (
@@ -1858,7 +1885,7 @@ window.changeQty =
       cart.filter(
         product =>
           product.cartId !==
-          cartId
+          id
       );
   }
 
@@ -1876,14 +1903,44 @@ window.clearCart =
 };
 
 
-/* =========================================
-   COBRO
-========================================= */
+window.filterCategories =
+query => {
+
+  document
+    .querySelectorAll(
+      ".category-card"
+    )
+    .forEach(
+      element => {
+
+        element.style.display =
+
+          element.innerText
+            .toLowerCase()
+            .includes(
+              query
+                .toLowerCase()
+                .trim()
+            )
+
+            ? ""
+
+            : "none";
+      }
+    );
+};
+
+
+/* ================================
+   COBROS
+================================ */
 
 window.pay =
 method => {
 
-  if (!cart.length) {
+  if (
+    !cart.length
+  ) {
 
     toast(
       isServices()
@@ -1895,233 +1952,437 @@ method => {
   }
 
 
-  const subtotal =
-    cart.reduce(
-      (
-        total,
-        item
-      ) =>
-        total +
-        item.price *
-        item.qty,
-      0
+  const totalInfo =
+    totals(
+      cart.reduce(
+        (
+          total,
+          item
+        ) =>
+          total +
+          item.price *
+          item.qty,
+        0
+      )
     );
 
 
-  const totals =
-    calculateTotals(
-      subtotal
-    );
-
+  /*
+    EFECTIVO
+  */
 
   if (
-    method === "cash"
+    method ===
+    "cash"
   ) {
 
-    showCashPayment(
-      totals
-    );
+    modal(`
+
+      <h3>
+        Cobro en efectivo
+      </h3>
+
+
+      <p>
+
+        Total:
+
+        <strong>
+          ${money(
+            totalInfo.total
+          )}
+        </strong>
+
+      </p>
+
+
+      <div class="field">
+
+        <label>
+          Recibido
+        </label>
+
+        <input
+          id="received"
+          type="number"
+          inputmode="decimal"
+
+          oninput="
+            changeText(
+              ${totalInfo.total}
+            )
+          "
+        >
+
+      </div>
+
+
+      <div
+        class="panel"
+
+        style="
+          margin-top:10px;
+          box-shadow:none
+        "
+      >
+
+        Vuelto:
+
+        <strong id="changeValue">
+          ${money(0)}
+        </strong>
+
+      </div>
+
+
+      <div
+        class="toolbar"
+        style="margin-top:14px"
+      >
+
+        <button
+          class="btn primary"
+
+          onclick="
+            finishCash()
+          "
+        >
+          Confirmar cobro
+        </button>
+
+
+        <button
+          class="btn"
+
+          onclick="
+            closeModal()
+          "
+        >
+          Cancelar
+        </button>
+
+      </div>
+    `);
   }
 
 
+  /*
+    SINPE
+  */
+
   if (
-    method === "sinpe"
+    method ===
+    "sinpe"
   ) {
 
-    showSinpePayment(
-      totals
-    );
+    modal(`
+
+      <h3>
+        Cobro por SINPE
+      </h3>
+
+
+      <p>
+
+        Total:
+
+        <strong>
+          ${money(
+            totalInfo.total
+          )}
+        </strong>
+
+      </p>
+
+
+      <div
+        class="panel"
+        style="box-shadow:none"
+      >
+
+        ${
+          state.settings
+            .sinpe
+
+            ? `
+              Número SINPE:
+
+              <strong>
+                ${esc(
+                  state.settings
+                    .sinpe
+                )}
+              </strong>
+            `
+
+            : `
+              Configura tu número
+              SINPE.
+            `
+        }
+
+      </div>
+
+
+      <div
+        class="toolbar"
+        style="margin-top:14px"
+      >
+
+        <button
+          class="btn primary"
+
+          onclick="
+            finishSale(
+              'SINPE'
+            )
+          "
+        >
+          Confirmar pago
+        </button>
+
+
+        <button
+          class="btn"
+
+          onclick="
+            closeModal()
+          "
+        >
+          Cancelar
+        </button>
+
+      </div>
+    `);
   }
 
 
+  /*
+    TARJETA
+  */
+
   if (
-    method === "card"
+    method ===
+    "card"
   ) {
 
-    showCardPayment(
-      totals
-    );
+    modal(`
+
+      <h3>
+        Tarjeta / Otro
+      </h3>
+
+
+      <p>
+
+        Total:
+
+        <strong>
+          ${money(
+            totalInfo.total
+          )}
+        </strong>
+
+      </p>
+
+
+      <div class="field">
+
+        <label>
+          Referencia opcional
+        </label>
+
+        <input id="ref">
+
+      </div>
+
+
+      <div
+        class="toolbar"
+        style="margin-top:14px"
+      >
+
+        <button
+          class="btn primary"
+
+          onclick="
+            finishSale(
+              'Tarjeta/Otro',
+              $('#ref').value
+            )
+          "
+        >
+          Confirmar pago
+        </button>
+
+
+        <button
+          class="btn"
+
+          onclick="
+            closeModal()
+          "
+        >
+          Cancelar
+        </button>
+
+      </div>
+    `);
   }
 
 
+  /*
+    CRÉDITO
+  */
+
   if (
-    method === "credit"
+    method ===
+    "credit"
   ) {
 
-    showCreditPayment(
-      totals
-    );
+    const options =
+      state.clients
+        .map(
+          client => `
+
+            <option
+              value="${client.id}"
+            >
+
+              ${esc(
+                client.name
+              )}
+
+            </option>
+          `
+        )
+        .join("");
+
+
+    modal(`
+
+      <h3>
+        Venta a crédito
+      </h3>
+
+
+      <p>
+
+        Total:
+
+        <strong>
+          ${money(
+            totalInfo.total
+          )}
+        </strong>
+
+      </p>
+
+
+      <div class="field">
+
+        <label>
+          Cliente
+        </label>
+
+
+        <select id="creditClient">
+
+          <option value="">
+            Selecciona cliente
+          </option>
+
+          ${options}
+
+        </select>
+
+      </div>
+
+
+      <div
+        class="toolbar"
+        style="margin-top:14px"
+      >
+
+        <button
+          class="btn primary"
+
+          onclick="
+            finishCredit()
+          "
+        >
+          Guardar crédito
+        </button>
+
+
+        <button
+          class="btn"
+
+          onclick="
+            closeModal()
+          "
+        >
+          Cancelar
+        </button>
+
+      </div>
+    `);
   }
 };
 
 
-/* =========================================
-   EFECTIVO
-========================================= */
-
-function showCashPayment(
-  totals
-) {
-
-  modal(`
-
-    <h3>
-      Cobro en efectivo
-    </h3>
-
-
-    <p>
-
-      Total:
-
-      <strong>
-        ${money(
-          totals.total
-        )}
-      </strong>
-
-    </p>
-
-
-    <div class="field">
-
-      <label>
-        Recibido
-      </label>
-
-
-      <input
-        id="cashReceived"
-        type="number"
-        inputmode="decimal"
-
-        placeholder="
-          Monto recibido
-        "
-
-        oninput="
-          calculateChange(
-            ${totals.total}
-          )
-        "
-      >
-
-    </div>
-
-
-    <div
-      class="panel"
-
-      style="
-        margin-top:10px;
-        box-shadow:none;
-        background:#edf9f4;
-      "
-    >
-
-      Vuelto:
-
-      <strong id="changeText">
-        ${money(0)}
-      </strong>
-
-    </div>
-
-
-    <div
-      class="toolbar"
-      style="margin-top:14px"
-    >
-
-      <button
-        class="btn primary"
-
-        onclick="
-          confirmCashPayment()
-        "
-      >
-        Confirmar cobro
-      </button>
-
-
-      <button
-        class="btn"
-
-        onclick="
-          closeModal()
-        "
-      >
-        Cancelar
-      </button>
-
-    </div>
-  `);
-}
-
-
-window.calculateChange =
+window.changeText =
 total => {
 
-  const received =
+  const value =
     Number(
-      document
-        .querySelector(
-          "#cashReceived"
-        )
-        ?.value || 0
+      $("#received")
+        ?.value ||
+      0
     );
 
 
-  document
-    .querySelector(
-      "#changeText"
-    )
+  $("#changeValue")
     .textContent =
     money(
       Math.max(
         0,
-        received -
+        value -
         total
       )
     );
 };
 
 
-window.confirmCashPayment =
+window.finishCash =
 async () => {
 
   const received =
     Number(
-      document
-        .querySelector(
-          "#cashReceived"
-        )
-        ?.value || 0
-    );
-
-
-  const subtotal =
-    cart.reduce(
-      (
-        total,
-        item
-      ) =>
-        total +
-        item.price *
-        item.qty,
+      $("#received")
+        ?.value ||
       0
     );
 
 
-  const totals =
-    calculateTotals(
-      subtotal
+  const totalInfo =
+    totals(
+      cart.reduce(
+        (
+          total,
+          item
+        ) =>
+          total +
+          item.price *
+          item.qty,
+        0
+      )
     );
 
 
   if (
     received <
-    totals.total
+    totalInfo.total
   ) {
 
     toast(
@@ -2141,346 +2402,6 @@ async () => {
 };
 
 
-/* =========================================
-   SINPE
-========================================= */
-
-function showSinpePayment(
-  totals
-) {
-
-  modal(`
-
-    <h3>
-      Cobro por SINPE
-    </h3>
-
-
-    <p>
-
-      Total:
-
-      <strong>
-        ${money(
-          totals.total
-        )}
-      </strong>
-
-    </p>
-
-
-    <div
-      class="panel"
-
-      style="
-        box-shadow:none;
-        background:#eef5ff;
-      "
-    >
-
-      ${
-        appState.settings
-          .sinpe
-
-          ? `
-            Número SINPE:
-
-            <strong>
-              ${escapeHtml(
-                appState.settings
-                  .sinpe
-              )}
-            </strong>
-          `
-
-          : `
-            Configura tu número
-            SINPE en Configuración.
-          `
-      }
-
-    </div>
-
-
-    <div
-      class="toolbar"
-      style="margin-top:14px"
-    >
-
-      <button
-        class="btn primary"
-
-        onclick="
-          finishSale('SINPE')
-        "
-      >
-        Confirmar pago
-      </button>
-
-
-      <button
-        class="btn"
-
-        onclick="
-          closeModal()
-        "
-      >
-        Cancelar
-      </button>
-
-    </div>
-  `);
-}
-
-
-/* =========================================
-   TARJETA
-========================================= */
-
-function showCardPayment(
-  totals
-) {
-
-  modal(`
-
-    <h3>
-      Tarjeta / Otro
-    </h3>
-
-
-    <p>
-
-      Total:
-
-      <strong>
-        ${money(
-          totals.total
-        )}
-      </strong>
-
-    </p>
-
-
-    <div class="field">
-
-      <label>
-        Referencia o voucher
-        (opcional)
-      </label>
-
-
-      <input
-        id="paymentReference"
-        placeholder="Ej. 45821"
-      >
-
-    </div>
-
-
-    <div
-      class="toolbar"
-      style="margin-top:14px"
-    >
-
-      <button
-        class="btn primary"
-
-        onclick="
-          finishSale(
-            'Tarjeta/Otro',
-            document
-              .querySelector(
-                '#paymentReference'
-              )
-              .value
-          )
-        "
-      >
-        Confirmar pago
-      </button>
-
-
-      <button
-        class="btn"
-
-        onclick="
-          closeModal()
-        "
-      >
-        Cancelar
-      </button>
-
-    </div>
-  `);
-}
-
-
-/* =========================================
-   CRÉDITO
-========================================= */
-
-function showCreditPayment(
-  totals
-) {
-
-  const options =
-    appState.clients
-      .map(
-        client => `
-
-          <option
-            value="${client.id}"
-          >
-            ${escapeHtml(
-              client.name
-            )}
-          </option>
-
-        `
-      )
-      .join("");
-
-
-  modal(`
-
-    <h3>
-      Venta a crédito
-    </h3>
-
-
-    <p>
-
-      Total:
-
-      <strong>
-        ${money(
-          totals.total
-        )}
-      </strong>
-
-    </p>
-
-
-    <div class="field">
-
-      <label>
-        Cliente
-      </label>
-
-
-      <select id="creditClient">
-
-        <option value="">
-          Selecciona cliente
-        </option>
-
-        ${options}
-
-      </select>
-
-    </div>
-
-
-    <div
-      class="toolbar"
-      style="margin-top:14px"
-    >
-
-      <button
-        class="btn primary"
-
-        onclick="
-          finishCreditSale()
-        "
-      >
-        Guardar crédito
-      </button>
-
-
-      <button
-        class="btn"
-
-        onclick="
-          closeModal()
-        "
-      >
-        Cancelar
-      </button>
-
-    </div>
-  `);
-}
-
-
-window.finishCreditSale =
-async () => {
-
-  const clientId =
-    document
-      .querySelector(
-        "#creditClient"
-      )
-      .value;
-
-
-  if (!clientId) {
-
-    toast(
-      "Selecciona un cliente."
-    );
-
-    return;
-  }
-
-
-  const subtotal =
-    cart.reduce(
-      (
-        total,
-        item
-      ) =>
-        total +
-        item.price *
-        item.qty,
-      0
-    );
-
-
-  const totals =
-    calculateTotals(
-      subtotal
-    );
-
-
-  const client =
-    appState.clients.find(
-      item =>
-        item.id ===
-        clientId
-    );
-
-
-  client.balance =
-    Number(
-      client.balance || 0
-    ) +
-    totals.total;
-
-
-  await idbPut(
-    "clients",
-    client
-  );
-
-
-  await saveSale(
-    "Crédito",
-    "",
-    clientId
-  );
-};
-
-
 window.finishSale =
 async (
   method,
@@ -2494,9 +2415,72 @@ async (
 };
 
 
-/* =========================================
+window.finishCredit =
+async () => {
+
+  const clientId =
+    $("#creditClient")
+      .value;
+
+
+  if (!clientId) {
+
+    toast(
+      "Selecciona un cliente."
+    );
+
+    return;
+  }
+
+
+  const totalInfo =
+    totals(
+      cart.reduce(
+        (
+          total,
+          item
+        ) =>
+          total +
+          item.price *
+          item.qty,
+        0
+      )
+    );
+
+
+  const client =
+    state.clients.find(
+      item =>
+        item.id ===
+        clientId
+    );
+
+
+  client.balance =
+    Number(
+      client.balance ||
+      0
+    ) +
+    totalInfo.total;
+
+
+  await put(
+    "clients",
+    client
+  );
+
+
+  await saveSale(
+    "Crédito",
+    "",
+    clientId
+  );
+};
+
+
+/* ================================
    GUARDAR VENTA
-========================================= */
+================================ */
 
 async function saveSale(
   method,
@@ -2505,27 +2489,19 @@ async function saveSale(
   received = null
 ) {
 
-  const subtotal =
-    cart.reduce(
-      (
-        total,
-        item
-      ) =>
-        total +
-        item.price *
-        item.qty,
-      0
+  const totalInfo =
+    totals(
+      cart.reduce(
+        (
+          total,
+          item
+        ) =>
+          total +
+          item.price *
+          item.qty,
+        0
+      )
     );
-
-
-  const totals =
-    calculateTotals(
-      subtotal
-    );
-
-
-  const shift =
-    currentShift();
 
 
   const sale = {
@@ -2534,19 +2510,20 @@ async function saveSale(
       uid("sale"),
 
     number:
-      appState.sales.length +
+      state.sales.length +
       1,
 
     createdAt:
       new Date()
         .toISOString(),
 
-    businessType:
-      businessType(),
-
     shiftId:
-      shift?.id ||
+      currentShift()
+        ?.id ||
       null,
+
+    businessType:
+      type(),
 
     items:
       cart.map(
@@ -2571,13 +2548,13 @@ async function saveSale(
       ),
 
     subtotal:
-      totals.subtotal,
+      totalInfo.subtotal,
 
     tax:
-      totals.tax,
+      totalInfo.tax,
 
     total:
-      totals.total,
+      totalInfo.total,
 
     method,
 
@@ -2589,24 +2566,22 @@ async function saveSale(
 
     change:
       received === null
-
         ? 0
-
         : Math.max(
             0,
             received -
-            totals.total
+            totalInfo.total
           )
   };
 
 
-  await idbPut(
+  await put(
     "sales",
     sale
   );
 
 
-  appState.sales.push(
+  state.sales.push(
     sale
   );
 
@@ -2615,34 +2590,39 @@ async function saveSale(
     Servicios no descuentan stock.
   */
 
-  if (!isServices()) {
+  if (
+    !isServices()
+  ) {
 
     for (
       const item of cart
     ) {
 
       const product =
-        appState.products.find(
+        state.products.find(
           product =>
             product.id ===
             item.id
         );
 
 
-      if (!product) continue;
+      if (!product) {
+        continue;
+      }
 
 
       product.stock =
         Math.max(
           0,
           Number(
-            product.stock || 0
+            product.stock ||
+            0
           ) -
           item.qty
         );
 
 
-      await idbPut(
+      await put(
         "products",
         product
       );
@@ -2656,17 +2636,17 @@ async function saveSale(
   closeModal();
 
 
-  showTicket(
+  showReceipt(
     sale
   );
 }
 
 
-/* =========================================
+/* ================================
    COMPROBANTE
-========================================= */
+================================ */
 
-function showTicket(
+function showReceipt(
   sale
 ) {
 
@@ -2674,16 +2654,15 @@ function showTicket(
 
     <div class="ticket">
 
-
-      <div class="ticket-business">
+      <div class="
+        ticket-business
+      ">
 
         <h3>
-
-          ${escapeHtml(
-            appState.settings
+          ${esc(
+            state.settings
               .businessName
           )}
-
         </h3>
 
 
@@ -2716,13 +2695,15 @@ function showTicket(
         .map(
           item => `
 
-            <div class="ticket-line">
+            <div class="
+              ticket-line
+            ">
 
               <span>
 
                 ${item.qty}
                 ×
-                ${escapeHtml(
+                ${esc(
                   item.name
                 )}
 
@@ -2730,7 +2711,7 @@ function showTicket(
                   item.variant
 
                     ? `
-                      (${escapeHtml(
+                      (${esc(
                         item.variant
                       )})
                     `
@@ -2751,7 +2732,6 @@ function showTicket(
               </span>
 
             </div>
-
           `
         )
         .join("")}
@@ -2765,7 +2745,9 @@ function showTicket(
         sale.tax > 0
 
           ? `
-            <div class="ticket-line">
+            <div class="
+              ticket-line
+            ">
 
               <span>
                 Impuesto
@@ -2804,14 +2786,16 @@ function showTicket(
       </div>
 
 
-      <div class="ticket-line">
+      <div class="
+        ticket-line
+      ">
 
         <span>
           Pago
         </span>
 
         <span>
-          ${escapeHtml(
+          ${esc(
             sale.method
           )}
         </span>
@@ -2823,7 +2807,9 @@ function showTicket(
         sale.change > 0
 
           ? `
-            <div class="ticket-line">
+            <div class="
+              ticket-line
+            ">
 
               <span>
                 Vuelto
@@ -2852,7 +2838,7 @@ function showTicket(
           class="btn primary"
 
           onclick="
-            shareReceipt(
+            sharePdf(
               '${sale.id}'
             )
           "
@@ -2891,103 +2877,15 @@ function showTicket(
 }
 
 
-function receiptText(
-  sale
-) {
-
-  const lines = [
-
-    appState.settings
-      .businessName,
-
-    `Comprobante #${sale.number}`,
-
-    new Date(
-      sale.createdAt
-    ).toLocaleString(
-      "es-CR"
-    ),
-
-    ""
-  ];
-
-
-  sale.items.forEach(
-    item => {
-
-      lines.push(
-
-        `${item.qty} x ${item.name}${
-          item.variant
-            ? ` (${item.variant})`
-            : ""
-        } - ${money(
-          item.price *
-          item.qty
-        )}`
-      );
-    }
-  );
-
-
-  lines.push("");
-
-
-  if (
-    sale.tax > 0
-  ) {
-
-    lines.push(
-      `Impuesto: ${money(
-        sale.tax
-      )}`
-    );
-  }
-
-
-  lines.push(
-    `TOTAL: ${money(
-      sale.total
-    )}`
-  );
-
-
-  lines.push(
-    `Pago: ${sale.method}`
-  );
-
-
-  if (
-    sale.change > 0
-  ) {
-
-    lines.push(
-      `Vuelto: ${money(
-        sale.change
-      )}`
-    );
-  }
-
-
-  lines.push("");
-
-  lines.push(
-    "Gracias por su compra."
-  );
-
-
-  return lines.join("\n");
-}
-
-
-/* =========================================
+/* ================================
    PDF
-========================================= */
+================================ */
 
-async function ensureJsPdf() {
+async function jsPDFClass() {
 
   if (
-    window.jspdf?.jsPDF
+    window.jspdf
+      ?.jsPDF
   ) {
 
     return window.jspdf
@@ -2996,56 +2894,20 @@ async function ensureJsPdf() {
 
 
   await new Promise(
-    (resolve, reject) => {
-
-      const existing =
-        document.querySelector(
-          'script[data-jspdf="true"]'
-        );
-
-
-      if (existing) {
-
-        existing
-          .addEventListener(
-            "load",
-            resolve,
-            {
-              once: true
-            }
-          );
-
-
-        existing
-          .addEventListener(
-            "error",
-            reject,
-            {
-              once: true
-            }
-          );
-
-
-        return;
-      }
-
+    (
+      resolve,
+      reject
+    ) => {
 
       const script =
-        document.createElement(
-          "script"
-        );
+        document
+          .createElement(
+            "script"
+          );
 
 
       script.src =
         "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-
-
-      script.async =
-        true;
-
-
-      script.dataset.jspdf =
-        "true";
 
 
       script.onload =
@@ -3069,173 +2931,146 @@ async function ensureJsPdf() {
 }
 
 
-async function buildReceiptPdf(
-  sale
-) {
+window.sharePdf =
+async id => {
 
-  const jsPDF =
-    await ensureJsPdf();
-
-
-  const doc =
-    new jsPDF({
-      unit: "mm",
-      format: "a4"
-    });
+  const sale =
+    state.sales.find(
+      item =>
+        item.id === id
+    );
 
 
-  let y = 18;
+  if (!sale) {
+    return;
+  }
 
 
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
+  try {
+
+    const PDF =
+      await jsPDFClass();
 
 
-  doc.setFontSize(16);
+    const doc =
+      new PDF({
+        unit: "mm",
+        format: "a4"
+      });
 
 
-  doc.text(
-    appState.settings
-      .businessName ||
-    "Mi Punto CR",
-
-    15,
-    y
-  );
+    let y = 18;
 
 
-  y += 8;
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
 
 
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
+    doc.setFontSize(
+      16
+    );
 
 
-  doc.setFontSize(10);
+    doc.text(
+      state.settings
+        .businessName ||
+      "Mi Punto CR",
+      15,
+      y
+    );
 
 
-  doc.text(
-    `Comprobante #${sale.number}`,
-    15,
-    y
-  );
+    y += 8;
 
 
-  y += 5;
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
 
 
-  doc.text(
-    new Date(
-      sale.createdAt
-    ).toLocaleString(
-      "es-CR"
-    ),
-
-    15,
-    y
-  );
+    doc.setFontSize(
+      10
+    );
 
 
-  if (
-    appState.settings
-      .phone
-  ) {
+    doc.text(
+      `Comprobante #${sale.number}`,
+      15,
+      y
+    );
+
 
     y += 5;
 
 
     doc.text(
-      `Tel: ${
-        appState.settings
-          .phone
-      }`,
-
+      new Date(
+        sale.createdAt
+      ).toLocaleString(
+        "es-CR"
+      ),
       15,
       y
     );
-  }
 
 
-  y += 9;
+    y += 9;
 
 
-  doc.line(
-    15,
-    y,
-    195,
-    y
-  );
+    sale.items.forEach(
+      item => {
+
+        doc.text(
+          `${item.qty} x ${item.name}${
+            item.variant
+              ? ` (${item.variant})`
+              : ""
+          }`.slice(
+            0,
+            70
+          ),
+          15,
+          y
+        );
 
 
-  y += 7;
+        doc.text(
+          money(
+            item.price *
+            item.qty
+          ),
+          195,
+          y,
+          {
+            align: "right"
+          }
+        );
 
 
-  sale.items.forEach(
-    item => {
-
-      const label =
-        `${item.qty} x ${item.name}${
-          item.variant
-            ? ` (${item.variant})`
-            : ""
-        }`;
+        y += 6;
+      }
+    );
 
 
-      doc.text(
-        label.slice(
-          0,
-          70
-        ),
-
-        15,
-        y
-      );
+    y += 4;
 
 
-      doc.text(
-        money(
-          item.price *
-          item.qty
-        ),
-
-        195,
-        y,
-
-        {
-          align: "right"
-        }
-      );
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
 
 
-      y += 6;
-    }
-  );
+    doc.setFontSize(
+      13
+    );
 
-
-  y += 2;
-
-
-  doc.line(
-    15,
-    y,
-    195,
-    y
-  );
-
-
-  y += 7;
-
-
-  if (
-    sale.tax > 0
-  ) {
 
     doc.text(
-      "Impuesto",
+      "TOTAL",
       15,
       y
     );
@@ -3243,138 +3078,47 @@ async function buildReceiptPdf(
 
     doc.text(
       money(
-        sale.tax
+        sale.total
       ),
-
       195,
       y,
-
       {
         align: "right"
       }
     );
 
 
-    y += 6;
-  }
+    y += 8;
 
 
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
 
 
-  doc.setFontSize(13);
-
-
-  doc.text(
-    "TOTAL",
-    15,
-    y
-  );
-
-
-  doc.text(
-    money(
-      sale.total
-    ),
-
-    195,
-    y,
-
-    {
-      align: "right"
-    }
-  );
-
-
-  y += 8;
-
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-
-  doc.setFontSize(10);
-
-
-  doc.text(
-    `Pago: ${
-      sale.method
-    }`,
-
-    15,
-    y
-  );
-
-
-  if (
-    sale.change > 0
-  ) {
-
-    y += 5;
+    doc.setFontSize(
+      10
+    );
 
 
     doc.text(
-      `Vuelto: ${
-        money(
-          sale.change
-        )
-      }`,
-
+      `Pago: ${sale.method}`,
       15,
       y
     );
-  }
 
-
-  y += 10;
-
-
-  doc.text(
-    "Gracias por su compra.",
-    15,
-    y
-  );
-
-
-  return doc.output(
-    "blob"
-  );
-}
-
-
-window.shareReceipt =
-async saleId => {
-
-  const sale =
-    appState.sales.find(
-      item =>
-        item.id ===
-        saleId
-    );
-
-
-  if (!sale) return;
-
-
-  try {
 
     const blob =
-      await buildReceiptPdf(
-        sale
+      doc.output(
+        "blob"
       );
 
 
     const file =
       new File(
         [blob],
-
         `comprobante-${sale.number}.pdf`,
-
         {
           type:
             "application/pdf"
@@ -3382,29 +3126,36 @@ async saleId => {
       );
 
 
+    /*
+      En iPhone abre el menú
+      de compartir, donde
+      aparece WhatsApp.
+    */
+
     if (
       navigator.share &&
-      navigator.canShare?.({
-        files: [file]
-      })
+      navigator.canShare
+        ?.({
+          files: [file]
+        })
     ) {
 
       await navigator.share({
-
         title:
           `Comprobante #${sale.number}`,
-
-        text:
-          `${appState.settings.businessName} - Comprobante #${sale.number}`,
-
-        files:
-          [file]
+        files: [file]
       });
 
 
       return;
     }
 
+
+    /*
+      Si el navegador no permite
+      compartir archivos directamente,
+      descarga el PDF.
+    */
 
     const url =
       URL.createObjectURL(
@@ -3413,9 +3164,10 @@ async saleId => {
 
 
     const link =
-      document.createElement(
-        "a"
-      );
+      document
+        .createElement(
+          "a"
+        );
 
 
     link.href =
@@ -3426,15 +3178,7 @@ async saleId => {
       file.name;
 
 
-    document.body
-      .appendChild(
-        link
-      );
-
-
     link.click();
-
-    link.remove();
 
 
     setTimeout(
@@ -3450,58 +3194,51 @@ async saleId => {
       "PDF generado."
     );
 
-  } catch (error) {
+  } catch (
+    error
+  ) {
 
-    console.error(error);
-
-
-    window.open(
-
-      `https://wa.me/?text=${
-        encodeURIComponent(
-          receiptText(sale)
-        )
-      }`,
-
-      "_blank"
+    console.error(
+      error
     );
 
 
     toast(
-      "Se abrió el comprobante en texto."
+      "Para generar PDF necesitas conexión la primera vez."
     );
   }
 };
 
 
-/* =========================================
-   HISTORIAL DE VENTAS
-========================================= */
+/* ================================
+   MIS VENTAS
+================================ */
 
-function renderSalesHistory() {
+function renderSales() {
 
   const sorted =
-    [...appState.sales]
-      .sort(
-        (
-          a,
-          b
-        ) =>
-          new Date(
-            b.createdAt
-          ) -
-          new Date(
-            a.createdAt
-          )
-      );
+    [
+      ...state.sales
+    ].sort(
+      (
+        a,
+        b
+      ) =>
+        new Date(
+          b.createdAt
+        ) -
+        new Date(
+          a.createdAt
+        )
+    );
 
 
-  document
-    .querySelector("#app")
-    .innerHTML =
+  $("#app").innerHTML =
     shell(`
 
-      <section class="screen-title">
+      <section class="
+        screen-title
+      ">
 
         <h2>
           Mis ventas
@@ -3563,7 +3300,7 @@ function renderSalesHistory() {
         class="list"
       >
 
-        ${salesListHTML(
+        ${salesHtml(
           sorted
         )}
 
@@ -3573,15 +3310,17 @@ function renderSalesHistory() {
     isFood()
       ? "more"
       : "sales"
-    );
+  );
 }
 
 
-function salesListHTML(
-  sales
+function salesHtml(
+  items
 ) {
 
-  if (!sales.length) {
+  if (
+    !items.length
+  ) {
 
     return `
       <div class="empty">
@@ -3592,7 +3331,7 @@ function salesListHTML(
   }
 
 
-  return sales
+  return items
     .map(
       sale => `
 
@@ -3616,9 +3355,12 @@ function salesListHTML(
             <div>
 
               <strong>
+
                 Comprobante
                 #${sale.number}
+
               </strong>
+
 
               <div class="muted">
 
@@ -3634,9 +3376,11 @@ function salesListHTML(
 
 
             <strong>
+
               ${money(
                 sale.total
               )}
+
             </strong>
 
           </div>
@@ -3647,14 +3391,13 @@ function salesListHTML(
             style="margin-top:7px"
           >
 
-            ${escapeHtml(
+            ${esc(
               sale.method
             )}
 
           </div>
 
         </button>
-
       `
     )
     .join("");
@@ -3668,7 +3411,7 @@ mode => {
     new Date();
 
 
-  const todayStart =
+  const today =
     new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -3676,61 +3419,64 @@ mode => {
     );
 
 
-  const yesterdayStart =
+  const yesterday =
     new Date(
-      todayStart
+      today
     );
 
 
-  yesterdayStart.setDate(
-    yesterdayStart.getDate() -
+  yesterday.setDate(
+    yesterday.getDate() -
     1
   );
 
 
-  const weekStart =
+  const week =
     new Date(
-      todayStart
+      today
     );
 
 
   const day =
-    weekStart.getDay() ||
+    week.getDay() ||
     7;
 
 
-  weekStart.setDate(
-    weekStart.getDate() -
+  week.setDate(
+    week.getDate() -
     day +
     1
   );
 
 
-  let sales =
-    [...appState.sales];
+  let list =
+    [
+      ...state.sales
+    ];
 
 
   if (
     mode === "today"
   ) {
 
-    sales =
-      sales.filter(
+    list =
+      list.filter(
         sale =>
           new Date(
             sale.createdAt
           ) >=
-          todayStart
+          today
       );
   }
 
 
   if (
-    mode === "yesterday"
+    mode ===
+    "yesterday"
   ) {
 
-    sales =
-      sales.filter(
+    list =
+      list.filter(
         sale => {
 
           const date =
@@ -3741,9 +3487,9 @@ mode => {
 
           return (
             date >=
-            yesterdayStart &&
+            yesterday &&
             date <
-            todayStart
+            today
           );
         }
       );
@@ -3754,18 +3500,18 @@ mode => {
     mode === "week"
   ) {
 
-    sales =
-      sales.filter(
+    list =
+      list.filter(
         sale =>
           new Date(
             sale.createdAt
           ) >=
-          weekStart
+          week
       );
   }
 
 
-  sales.sort(
+  list.sort(
     (
       a,
       b
@@ -3779,615 +3525,36 @@ mode => {
   );
 
 
-  document
-    .querySelector(
-      "#salesList"
-    )
+  $("#salesList")
     .innerHTML =
-    salesListHTML(
-      sales
+    salesHtml(
+      list
     );
 };
 
 
 window.openSale =
-saleId => {
+id => {
 
   const sale =
-    appState.sales.find(
+    state.sales.find(
       item =>
-        item.id ===
-        saleId
+        item.id === id
     );
 
 
   if (sale) {
 
-    showTicket(
+    showReceipt(
       sale
     );
   }
 };
 
 
-/* =========================================
-   PEDIDOS COMIDA
-========================================= */
-
-function renderOrders() {
-
-  const html =
-    appState.orders.length
-
-      ? [...appState.orders]
-          .reverse()
-          .map(
-            order => `
-
-              <div class="row-card">
-
-                <div class="row-head">
-
-                  <strong>
-                    Pedido
-                    #${order.number}
-                  </strong>
-
-                  <span class="badge">
-                    ${escapeHtml(
-                      order.status
-                    )}
-                  </span>
-
-                </div>
-
-
-                ${
-                  order.customer
-
-                    ? `
-                      <div class="muted">
-                        ${escapeHtml(
-                          order.customer
-                        )}
-                      </div>
-                    `
-
-                    : ""
-                }
-
-
-                <div
-                  style="margin-top:10px"
-                >
-
-                  ${(order.items || [])
-                    .map(
-                      item => `
-
-                        <div class="ticket-line">
-
-                          <span>
-
-                            ${item.qty}
-                            ×
-                            ${escapeHtml(
-                              item.name
-                            )}
-
-                          </span>
-
-
-                          <span>
-
-                            ${money(
-                              item.price *
-                              item.qty
-                            )}
-
-                          </span>
-
-                        </div>
-
-                      `
-                    )
-                    .join("")}
-
-                </div>
-
-
-                ${
-                  order.notes
-
-                    ? `
-                      <div
-                        class="muted"
-                        style="margin-top:8px"
-                      >
-
-                        ${escapeHtml(
-                          order.notes
-                        )}
-
-                      </div>
-                    `
-
-                    : ""
-                }
-
-
-                <div
-                  class="toolbar"
-                  style="
-                    margin-top:12px;
-                    margin-bottom:0
-                  "
-                >
-
-                  ${
-                    order.status ===
-                    "Pendiente"
-
-                      ? `
-                        <button
-                          class="btn primary"
-
-                          onclick="
-                            setOrderStatus(
-                              '${order.id}',
-                              'Preparando'
-                            )
-                          "
-                        >
-                          Preparando
-                        </button>
-                      `
-
-                      : ""
-                  }
-
-
-                  ${
-                    order.status ===
-                    "Preparando"
-
-                      ? `
-                        <button
-                          class="btn primary"
-
-                          onclick="
-                            setOrderStatus(
-                              '${order.id}',
-                              'Listo'
-                            )
-                          "
-                        >
-                          Listo
-                        </button>
-                      `
-
-                      : ""
-                  }
-
-
-                  ${
-                    order.status ===
-                    "Listo"
-
-                      ? `
-                        <button
-                          class="btn primary"
-
-                          onclick="
-                            setOrderStatus(
-                              '${order.id}',
-                              'Entregado'
-                            )
-                          "
-                        >
-                          Entregado
-                        </button>
-                      `
-
-                      : ""
-                  }
-
-                </div>
-
-              </div>
-
-            `
-          )
-          .join("")
-
-      : `
-        <div class="empty">
-          No hay pedidos.
-        </div>
-      `;
-
-
-  document
-    .querySelector("#app")
-    .innerHTML =
-    shell(`
-
-      <section class="screen-title">
-
-        <h2>
-          Pedidos
-        </h2>
-
-        <p>
-          Pendiente →
-          preparando →
-          listo →
-          entregado.
-        </p>
-
-      </section>
-
-
-      <div class="toolbar">
-
-        <button
-          class="btn primary"
-          onclick="newOrder()"
-        >
-          Nuevo pedido
-        </button>
-
-      </div>
-
-
-      <div class="list">
-        ${html}
-      </div>
-
-    `, "orders");
-}
-
-
-window.newOrder =
-() => {
-
-  orderDraft = [];
-
-
-  modal(`
-
-    <h3>
-      Nuevo pedido
-    </h3>
-
-
-    <div class="field">
-
-      <label>
-        Cliente opcional
-      </label>
-
-      <input
-        id="orderCustomer"
-        placeholder="Nombre"
-      >
-
-    </div>
-
-
-    <p class="muted">
-      Toca productos
-      para agregarlos.
-    </p>
-
-
-    <div class="
-      order-builder-products
-    ">
-
-      ${appState.products
-        .map(
-          product => `
-
-            <button
-              onclick="
-                addOrderProduct(
-                  '${product.id}'
-                )
-              "
-            >
-
-              <strong>
-                ${escapeHtml(
-                  product.name
-                )}
-              </strong>
-
-              <br>
-
-              <span class="muted">
-                ${money(
-                  product.price
-                )}
-              </span>
-
-            </button>
-
-          `
-        )
-        .join("")}
-
-    </div>
-
-
-    <div class="divider">
-    </div>
-
-
-    <div id="orderDraftView">
-    </div>
-
-
-    <div class="field">
-
-      <label>
-        Notas
-      </label>
-
-      <textarea
-        id="orderNotes"
-        rows="3"
-
-        placeholder="
-          Ej. sin cebolla,
-          para llevar...
-        "
-      ></textarea>
-
-    </div>
-
-
-    <div
-      class="toolbar"
-      style="margin-top:14px"
-    >
-
-      <button
-        class="btn primary"
-        onclick="saveOrder()"
-      >
-        Guardar pedido
-      </button>
-
-
-      <button
-        class="btn"
-        onclick="closeModal()"
-      >
-        Cancelar
-      </button>
-
-    </div>
-  `);
-
-
-  renderOrderDraft();
-};
-
-
-window.addOrderProduct =
-id => {
-
-  const product =
-    appState.products.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (!product) return;
-
-
-  const existing =
-    orderDraft.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (existing) {
-
-    existing.qty += 1;
-
-  } else {
-
-    orderDraft.push({
-
-      id:
-        product.id,
-
-      name:
-        product.name,
-
-      price:
-        product.price,
-
-      qty: 1
-    });
-  }
-
-
-  renderOrderDraft();
-};
-
-
-function renderOrderDraft() {
-
-  const container =
-    document
-      .querySelector(
-        "#orderDraftView"
-      );
-
-
-  if (!container) return;
-
-
-  container.innerHTML =
-
-    orderDraft.length
-
-      ? orderDraft
-          .map(
-            item => `
-
-              <div class="ticket-line">
-
-                <span>
-
-                  ${item.qty}
-                  ×
-                  ${escapeHtml(
-                    item.name
-                  )}
-
-                </span>
-
-                <span>
-
-                  ${money(
-                    item.price *
-                    item.qty
-                  )}
-
-                </span>
-
-              </div>
-
-            `
-          )
-          .join("")
-
-      : `
-        <div class="empty">
-          Aún no agregaste
-          productos.
-        </div>
-      `;
-}
-
-
-window.saveOrder =
-async () => {
-
-  if (!orderDraft.length) {
-
-    toast(
-      "Agrega al menos un producto."
-    );
-
-    return;
-  }
-
-
-  const order = {
-
-    id:
-      uid("order"),
-
-    number:
-      appState.orders.length +
-      1,
-
-    customer:
-      document
-        .querySelector(
-          "#orderCustomer"
-        )
-        .value
-        .trim(),
-
-    notes:
-      document
-        .querySelector(
-          "#orderNotes"
-        )
-        .value
-        .trim(),
-
-    items:
-      [...orderDraft],
-
-    status:
-      "Pendiente",
-
-    source:
-      "Manual",
-
-    createdAt:
-      new Date()
-        .toISOString()
-  };
-
-
-  await idbPut(
-    "orders",
-    order
-  );
-
-
-  appState.orders.push(
-    order
-  );
-
-
-  orderDraft = [];
-
-
-  closeModal();
-
-  renderOrders();
-
-
-  toast(
-    "Pedido guardado."
-  );
-};
-
-
-window.setOrderStatus =
-async (
-  id,
-  status
-) => {
-
-  const order =
-    appState.orders.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (!order) return;
-
-
-  order.status =
-    status;
-
-
-  await idbPut(
-    "orders",
-    order
-  );
-
-
-  renderOrders();
-};
-
-
-/* =========================================
+/* ================================
    PRODUCTOS / SERVICIOS
-========================================= */
+================================ */
 
 function renderProducts() {
 
@@ -4404,9 +3571,9 @@ function renderProducts() {
 
 
   const html =
-    appState.products.length
+    state.products.length
 
-      ? appState.products
+      ? state.products
           .map(
             product => `
 
@@ -4417,7 +3584,7 @@ function renderProducts() {
                   <div>
 
                     <strong>
-                      ${escapeHtml(
+                      ${esc(
                         product.name
                       )}
                     </strong>
@@ -4425,7 +3592,7 @@ function renderProducts() {
 
                     <div class="muted">
 
-                      ${escapeHtml(
+                      ${esc(
                         product.category ||
                         "Sin categoría"
                       )}
@@ -4438,10 +3605,13 @@ function renderProducts() {
 
                         ? `
                           <div class="muted">
+
                             Stock:
                             ${Number(
-                              product.stock || 0
+                              product.stock ||
+                              0
                             )}
+
                           </div>
                         `
 
@@ -4457,9 +3627,7 @@ function renderProducts() {
                           <div class="muted">
 
                             ${product.variants
-                              .map(
-                                escapeHtml
-                              )
+                              .map(esc)
                               .join(" · ")}
 
                           </div>
@@ -4504,34 +3672,21 @@ function renderProducts() {
                   </button>
 
 
-                  ${
-                    currentRole ===
-                    "owner"
+                  <button
+                    class="btn danger"
 
-                      ? `
-                        <button
-                          class="
-                            btn
-                            danger
-                          "
-
-                          onclick="
-                            confirmDeleteProduct(
-                              '${product.id}'
-                            )
-                          "
-                        >
-                          Eliminar
-                        </button>
-                      `
-
-                      : ""
-                  }
+                    onclick="
+                      askDeleteProduct(
+                        '${product.id}'
+                      )
+                    "
+                  >
+                    Eliminar
+                  </button>
 
                 </div>
 
               </div>
-
             `
           )
           .join("")
@@ -4546,21 +3701,21 @@ function renderProducts() {
       `;
 
 
-  document
-    .querySelector("#app")
-    .innerHTML =
+  $("#app").innerHTML =
     shell(`
 
-      <section class="screen-title">
+      <section class="
+        screen-title
+      ">
 
         <h2>
           ${label}
         </h2>
 
-
         <p>
 
-          Agrega, edita o elimina
+          Agrega,
+          edita o elimina
           ${label.toLowerCase()}.
 
         </p>
@@ -4590,7 +3745,9 @@ function renderProducts() {
         ${html}
       </div>
 
-    `, "more");
+    `,
+    "more"
+  );
 }
 
 
@@ -4599,19 +3756,11 @@ id => {
 
   const product =
     id
-
-      ? appState.products.find(
+      ? state.products.find(
           item =>
             item.id === id
         )
-
       : null;
-
-
-  const singular =
-    isServices()
-      ? "servicio"
-      : "producto";
 
 
   modal(`
@@ -4620,15 +3769,20 @@ id => {
 
       ${
         product
-          ? `Editar ${singular}`
-          : `Nuevo ${singular}`
+          ? "Editar"
+          : "Nuevo"
+      }
+
+      ${
+        isServices()
+          ? "servicio"
+          : "producto"
       }
 
     </h3>
 
 
     <div class="form-grid">
-
 
       <div class="field">
 
@@ -4639,8 +3793,9 @@ id => {
         <input
           id="pName"
 
-          value="${escapeAttr(
-            product?.name || ""
+          value="${esc(
+            product?.name ||
+            ""
           )}"
         >
 
@@ -4656,49 +3811,14 @@ id => {
         <input
           id="pPrice"
           type="number"
-          inputmode="decimal"
 
           value="${Number(
-            product?.price || 0
+            product?.price ||
+            0
           )}"
         >
 
       </div>
-
-
-      ${
-        !isServices()
-
-          ? `
-
-            <div class="field">
-
-              <label>
-                Costo opcional
-              </label>
-
-              <input
-                id="pCost"
-                type="number"
-                inputmode="decimal"
-
-                value="${Number(
-                  product?.cost || 0
-                )}"
-              >
-
-            </div>
-
-          `
-
-          : `
-            <input
-              id="pCost"
-              type="hidden"
-              value="0"
-            >
-          `
-      }
 
 
       <div class="field">
@@ -4710,15 +3830,10 @@ id => {
         <input
           id="pCategory"
 
-          value="${escapeAttr(
-            product?.category || ""
+          value="${esc(
+            product?.category ||
+            ""
           )}"
-
-          placeholder="${
-            isServices()
-              ? "Ej. Belleza"
-              : "Ej. Bebidas"
-          }"
         >
 
       </div>
@@ -4738,10 +3853,10 @@ id => {
               <input
                 id="pStock"
                 type="number"
-                inputmode="numeric"
 
                 value="${Number(
-                  product?.stock || 0
+                  product?.stock ||
+                  0
                 )}"
               >
 
@@ -4757,8 +3872,9 @@ id => {
               <input
                 id="pVariants"
 
-                value="${escapeAttr(
-                  product?.variants
+                value="${esc(
+                  product
+                    ?.variants
                     ?.join(", ") ||
                   ""
                 )}"
@@ -4831,21 +3947,16 @@ window.saveProduct =
 async id => {
 
   const name =
-    document
-      .querySelector(
-        "#pName"
-      )
+    $("#pName")
       .value
       .trim();
 
 
   const price =
     Number(
-      document
-        .querySelector(
-          "#pPrice"
-        )
-        .value || 0
+      $("#pPrice")
+        .value ||
+      0
     );
 
 
@@ -4862,28 +3973,12 @@ async id => {
   }
 
 
-  const variants =
-    document
-      .querySelector(
-        "#pVariants"
-      )
-      .value
-      .split(",")
-      .map(
-        item =>
-          item.trim()
-      )
-      .filter(Boolean);
-
-
   let product =
     id
-
-      ? appState.products.find(
+      ? state.products.find(
           item =>
             item.id === id
         )
-
       : null;
 
 
@@ -4895,10 +3990,9 @@ async id => {
     };
 
 
-    appState.products
-      .push(
-        product
-      );
+    state.products.push(
+      product
+    );
   }
 
 
@@ -4910,21 +4004,8 @@ async id => {
     price;
 
 
-  product.cost =
-    Number(
-      document
-        .querySelector(
-          "#pCost"
-        )
-        .value || 0
-    );
-
-
   product.category =
-    document
-      .querySelector(
-        "#pCategory"
-      )
+    $("#pCategory")
       .value
       .trim() ||
     "Otros";
@@ -4932,19 +4013,26 @@ async id => {
 
   product.stock =
     Number(
-      document
-        .querySelector(
-          "#pStock"
-        )
-        .value || 0
+      $("#pStock")
+        .value ||
+      0
     );
 
 
   product.variants =
-    variants;
+    $("#pVariants")
+      .value
+      .split(",")
+      .map(
+        item =>
+          item.trim()
+      )
+      .filter(
+        Boolean
+      );
 
 
-  await idbPut(
+  await put(
     "products",
     product
   );
@@ -4956,37 +4044,30 @@ async id => {
 
 
   toast(
-    isServices()
-      ? "Servicio guardado."
-      : "Producto guardado."
+    "Guardado."
   );
 };
 
 
-window.confirmDeleteProduct =
+window.askDeleteProduct =
 id => {
 
   const product =
-    appState.products.find(
+    state.products.find(
       item =>
         item.id === id
     );
 
 
-  if (!product) return;
+  if (!product) {
+    return;
+  }
 
 
   modal(`
 
     <h3>
-
       Eliminar
-      ${
-        isServices()
-          ? "servicio"
-          : "producto"
-      }
-
     </h3>
 
 
@@ -4995,7 +4076,7 @@ id => {
       ¿Quieres eliminar
 
       <strong>
-        ${escapeHtml(
+        ${esc(
           product.name
         )}
       </strong>
@@ -5006,17 +4087,12 @@ id => {
 
 
     <p class="muted">
-
       Las ventas anteriores
       no se borrarán.
-
     </p>
 
 
-    <div
-      class="toolbar"
-      style="margin-top:16px"
-    >
+    <div class="toolbar">
 
       <button
         class="btn danger"
@@ -5049,16 +4125,16 @@ id => {
 window.deleteProduct =
 async id => {
 
-  await idbDelete(
+  await del(
     "products",
     id
   );
 
 
-  appState.products =
-    appState.products.filter(
-      product =>
-        product.id !== id
+  state.products =
+    state.products.filter(
+      item =>
+        item.id !== id
     );
 
 
@@ -5075,23 +4151,21 @@ async id => {
 
 
   toast(
-    isServices()
-      ? "Servicio eliminado."
-      : "Producto eliminado."
+    "Eliminado."
   );
 };
 
 
-/* =========================================
+/* ================================
    CLIENTES / CRÉDITO
-========================================= */
+================================ */
 
 function renderClients() {
 
   const html =
-    appState.clients.length
+    state.clients.length
 
-      ? appState.clients
+      ? state.clients
           .map(
             client => `
 
@@ -5102,15 +4176,14 @@ function renderClients() {
                   <div>
 
                     <strong>
-                      ${escapeHtml(
+                      ${esc(
                         client.name
                       )}
                     </strong>
 
-
                     <div class="muted">
 
-                      ${escapeHtml(
+                      ${esc(
                         client.phone ||
                         "Sin teléfono"
                       )}
@@ -5123,7 +4196,8 @@ function renderClients() {
                   <strong>
 
                     ${money(
-                      client.balance || 0
+                      client.balance ||
+                      0
                     )}
 
                   </strong>
@@ -5133,25 +4207,22 @@ function renderClients() {
 
                 ${
                   Number(
-                    client.balance || 0
+                    client.balance ||
+                    0
                   ) > 0
 
                     ? `
 
                       <div
                         class="toolbar"
-
-                        style="
-                          margin-top:12px;
-                          margin-bottom:0
-                        "
+                        style="margin-top:10px"
                       >
 
                         <button
                           class="btn ghost"
 
                           onclick="
-                            registerPayment(
+                            abono(
                               '${client.id}'
                             )
                           "
@@ -5159,28 +4230,13 @@ function renderClients() {
                           Registrar abono
                         </button>
 
-
-                        <button
-                          class="btn ghost"
-
-                          onclick="
-                            remindClient(
-                              '${client.id}'
-                            )
-                          "
-                        >
-                          WhatsApp
-                        </button>
-
                       </div>
-
                     `
 
                     : ""
                 }
 
               </div>
-
             `
           )
           .join("")
@@ -5192,12 +4248,12 @@ function renderClients() {
       `;
 
 
-  document
-    .querySelector("#app")
-    .innerHTML =
+  $("#app").innerHTML =
     shell(`
 
-      <section class="screen-title">
+      <section class="
+        screen-title
+      ">
 
         <h2>
 
@@ -5208,7 +4264,6 @@ function renderClients() {
           }
 
         </h2>
-
 
         <p>
           Contactos,
@@ -5222,7 +4277,10 @@ function renderClients() {
 
         <button
           class="btn primary"
-          onclick="newClient()"
+
+          onclick="
+            newClient()
+          "
         >
           Nuevo cliente
         </button>
@@ -5234,7 +4292,9 @@ function renderClients() {
         ${html}
       </div>
 
-    `, "more");
+    `,
+    "more"
+  );
 }
 
 
@@ -5256,7 +4316,7 @@ window.newClient =
           Nombre
         </label>
 
-        <input id="clientName">
+        <input id="cName">
 
       </div>
 
@@ -5267,24 +4327,7 @@ window.newClient =
           Teléfono / WhatsApp
         </label>
 
-        <input
-          id="clientPhone"
-          inputmode="tel"
-        >
-
-      </div>
-
-
-      <div class="field">
-
-        <label>
-          Notas
-        </label>
-
-        <textarea
-          id="clientNotes"
-          rows="3"
-        ></textarea>
+        <input id="cPhone">
 
       </div>
 
@@ -5298,7 +4341,10 @@ window.newClient =
 
       <button
         class="btn primary"
-        onclick="saveClient()"
+
+        onclick="
+          saveClient()
+        "
       >
         Guardar
       </button>
@@ -5306,7 +4352,10 @@ window.newClient =
 
       <button
         class="btn"
-        onclick="closeModal()"
+
+        onclick="
+          closeModal()
+        "
       >
         Cancelar
       </button>
@@ -5320,10 +4369,7 @@ window.saveClient =
 async () => {
 
   const name =
-    document
-      .querySelector(
-        "#clientName"
-      )
+    $("#cName")
       .value
       .trim();
 
@@ -5341,23 +4387,12 @@ async () => {
   const client = {
 
     id:
-      uid("client"),
+      uid("c"),
 
     name,
 
     phone:
-      document
-        .querySelector(
-          "#clientPhone"
-        )
-        .value
-        .trim(),
-
-    notes:
-      document
-        .querySelector(
-          "#clientNotes"
-        )
+      $("#cPhone")
         .value
         .trim(),
 
@@ -5365,13 +4400,13 @@ async () => {
   };
 
 
-  await idbPut(
+  await put(
     "clients",
     client
   );
 
 
-  appState.clients.push(
+  state.clients.push(
     client
   );
 
@@ -5379,25 +4414,17 @@ async () => {
   closeModal();
 
   renderClients();
-
-
-  toast(
-    "Cliente guardado."
-  );
 };
 
 
-window.registerPayment =
+window.abono =
 id => {
 
   const client =
-    appState.clients.find(
+    state.clients.find(
       item =>
         item.id === id
     );
-
-
-  if (!client) return;
 
 
   modal(`
@@ -5408,21 +4435,18 @@ id => {
 
 
     <p>
-      ${escapeHtml(
+
+      ${esc(
         client.name
       )}
-    </p>
 
+      ·
 
-    <p>
+      Saldo
 
-      Saldo:
-
-      <strong>
-        ${money(
-          client.balance
-        )}
-      </strong>
+      ${money(
+        client.balance
+      )}
 
     </p>
 
@@ -5434,9 +4458,8 @@ id => {
       </label>
 
       <input
-        id="paymentAmount"
+        id="payAmount"
         type="number"
-        inputmode="decimal"
       >
 
     </div>
@@ -5445,24 +4468,22 @@ id => {
     <div class="field">
 
       <label>
-        Método de pago
+        Método
       </label>
 
 
-      <select
-        id="paymentMethod"
-      >
+      <select id="payMethod">
 
-        <option value="Efectivo">
+        <option>
           Efectivo
         </option>
 
-        <option value="SINPE">
+        <option>
           SINPE
         </option>
 
-        <option value="Tarjeta/Otro">
-          Tarjeta / Otro
+        <option>
+          Tarjeta/Otro
         </option>
 
       </select>
@@ -5479,18 +4500,21 @@ id => {
         class="btn primary"
 
         onclick="
-          saveClientPayment(
+          saveAbono(
             '${id}'
           )
         "
       >
-        Guardar abono
+        Guardar
       </button>
 
 
       <button
         class="btn"
-        onclick="closeModal()"
+
+        onclick="
+          closeModal()
+        "
       >
         Cancelar
       </button>
@@ -5500,11 +4524,11 @@ id => {
 };
 
 
-window.saveClientPayment =
+window.saveAbono =
 async id => {
 
   const client =
-    appState.clients.find(
+    state.clients.find(
       item =>
         item.id === id
     );
@@ -5512,19 +4536,14 @@ async id => {
 
   const amount =
     Number(
-      document
-        .querySelector(
-          "#paymentAmount"
-        )
-        .value || 0
+      $("#payAmount")
+        .value ||
+      0
     );
 
 
   const method =
-    document
-      .querySelector(
-        "#paymentMethod"
-      )
+    $("#payMethod")
       .value;
 
 
@@ -5541,22 +4560,23 @@ async id => {
     Math.max(
       0,
       Number(
-        client.balance || 0
+        client.balance ||
+        0
       ) -
       amount
     );
 
 
-  await idbPut(
+  await put(
     "clients",
     client
   );
 
 
   /*
-    En comida, si hay caja,
-    el abono queda ligado
-    al turno.
+    Si es soda/comida y
+    la caja está abierta,
+    el abono queda ligado.
   */
 
   if (
@@ -5576,25 +4596,21 @@ async id => {
 
       method,
 
-      note:
-        `Abono de ${client.name}`,
-
       createdAt:
         new Date()
           .toISOString()
     };
 
 
-    await idbPut(
+    await put(
       "cashMoves",
       move
     );
 
 
-    appState.cashMoves
-      .push(
-        move
-      );
+    state.cashMoves.push(
+      move
+    );
   }
 
 
@@ -5609,68 +4625,394 @@ async id => {
 };
 
 
-window.remindClient =
-id => {
+/* ================================
+   PEDIDOS
+================================ */
 
-  const client =
-    appState.clients.find(
+function renderOrders() {
+
+  if (
+    !isFood()
+  ) {
+
+    screen =
+      "home";
+
+
+    renderHome();
+
+    return;
+  }
+
+
+  const html =
+    state.orders.length
+
+      ? [
+          ...state.orders
+        ]
+          .reverse()
+          .map(
+            order => `
+
+              <div class="row-card">
+
+                <div class="row-head">
+
+                  <strong>
+
+                    Pedido
+                    #${order.number}
+
+                  </strong>
+
+
+                  <span class="badge">
+
+                    ${esc(
+                      order.status
+                    )}
+
+                  </span>
+
+                </div>
+
+
+                ${
+                  order.notes
+
+                    ? `
+                      <div
+                        style="margin-top:10px"
+                      >
+
+                        ${esc(
+                          order.notes
+                        )}
+
+                      </div>
+                    `
+
+                    : ""
+                }
+
+
+                <div
+                  class="toolbar"
+                  style="margin-top:10px"
+                >
+
+                  ${
+                    order.status ===
+                    "Pendiente"
+
+                      ? `
+                        <button
+                          class="btn primary"
+
+                          onclick="
+                            orderStatus(
+                              '${order.id}',
+                              'Preparando'
+                            )
+                          "
+                        >
+                          Preparando
+                        </button>
+                      `
+
+                      : ""
+                  }
+
+
+                  ${
+                    order.status ===
+                    "Preparando"
+
+                      ? `
+                        <button
+                          class="btn primary"
+
+                          onclick="
+                            orderStatus(
+                              '${order.id}',
+                              'Listo'
+                            )
+                          "
+                        >
+                          Listo
+                        </button>
+                      `
+
+                      : ""
+                  }
+
+
+                  ${
+                    order.status ===
+                    "Listo"
+
+                      ? `
+                        <button
+                          class="btn primary"
+
+                          onclick="
+                            orderStatus(
+                              '${order.id}',
+                              'Entregado'
+                            )
+                          "
+                        >
+                          Entregado
+                        </button>
+                      `
+
+                      : ""
+                  }
+
+                </div>
+
+              </div>
+            `
+          )
+          .join("")
+
+      : `
+        <div class="empty">
+          No hay pedidos.
+        </div>
+      `;
+
+
+  $("#app").innerHTML =
+    shell(`
+
+      <section class="
+        screen-title
+      ">
+
+        <h2>
+          Pedidos
+        </h2>
+
+        <p>
+          Pendiente →
+          preparando →
+          listo →
+          entregado.
+        </p>
+
+      </section>
+
+
+      <div class="toolbar">
+
+        <button
+          class="btn primary"
+
+          onclick="
+            newOrder()
+          "
+        >
+          Nuevo pedido
+        </button>
+
+      </div>
+
+
+      <div class="list">
+        ${html}
+      </div>
+
+    `,
+    "orders"
+  );
+}
+
+
+window.newOrder =
+() => {
+
+  modal(`
+
+    <h3>
+      Nuevo pedido
+    </h3>
+
+
+    <div class="field">
+
+      <label>
+        Cliente opcional
+      </label>
+
+      <input id="oClient">
+
+    </div>
+
+
+    <div class="field">
+
+      <label>
+        Productos / nota
+      </label>
+
+      <textarea
+        id="oNote"
+        rows="4"
+
+        placeholder="
+          Ej. 2 casados,
+          1 fresco,
+          sin cebolla
+        "
+      ></textarea>
+
+    </div>
+
+
+    <div
+      class="toolbar"
+      style="margin-top:14px"
+    >
+
+      <button
+        class="btn primary"
+
+        onclick="
+          saveOrder()
+        "
+      >
+        Guardar pedido
+      </button>
+
+
+      <button
+        class="btn"
+
+        onclick="
+          closeModal()
+        "
+      >
+        Cancelar
+      </button>
+
+    </div>
+  `);
+};
+
+
+window.saveOrder =
+async () => {
+
+  const note =
+    $("#oNote")
+      .value
+      .trim();
+
+
+  if (!note) {
+
+    toast(
+      "Escribe el pedido."
+    );
+
+    return;
+  }
+
+
+  const order = {
+
+    id:
+      uid("o"),
+
+    number:
+      state.orders.length +
+      1,
+
+    customer:
+      $("#oClient")
+        .value
+        .trim(),
+
+    notes:
+      note,
+
+    items: [],
+
+    status:
+      "Pendiente",
+
+    createdAt:
+      new Date()
+        .toISOString()
+  };
+
+
+  await put(
+    "orders",
+    order
+  );
+
+
+  state.orders.push(
+    order
+  );
+
+
+  closeModal();
+
+  renderOrders();
+};
+
+
+window.orderStatus =
+async (
+  id,
+  status
+) => {
+
+  const order =
+    state.orders.find(
       item =>
         item.id === id
     );
 
 
-  if (!client) return;
+  if (!order) {
+    return;
+  }
 
 
-  const text =
-    `Hola ${client.name}. ` +
-    `Tienes un saldo pendiente de ` +
-    `${money(client.balance)}.`;
+  order.status =
+    status;
 
 
-  window.open(
-
-    `https://wa.me/?text=${
-      encodeURIComponent(
-        text
-      )
-    }`,
-
-    "_blank"
+  await put(
+    "orders",
+    order
   );
+
+
+  renderOrders();
 };
 
 
-/* =========================================
-   CAJA SOLO PARA COMIDA
-========================================= */
+/* ================================
+   CAJA - SOLO COMIDA
+================================ */
 
 function renderCash() {
 
-  if (!isFood()) {
+  if (
+    !isFood()
+  ) {
 
-    document
-      .querySelector("#app")
-      .innerHTML =
-      shell(`
+    screen =
+      "home";
 
-        <section class="screen-title">
 
-          <h2>
-            Caja
-          </h2>
-
-          <p>
-
-            Este tipo de negocio
-            no necesita abrir caja
-            para vender.
-
-          </p>
-
-        </section>
-
-      `, "more");
+    renderHome();
 
     return;
   }
@@ -5686,12 +5028,12 @@ function renderCash() {
 
   if (!shift) {
 
-    document
-      .querySelector("#app")
-      .innerHTML =
+    $("#app").innerHTML =
       shell(`
 
-        <section class="screen-title">
+        <section class="
+          screen-title
+        ">
 
           <h2>
             Caja
@@ -5712,30 +5054,8 @@ function renderCash() {
           </h3>
 
 
-          <p class="muted">
-
-            ${
-              currentRole ===
-              "owner"
-
-                ? `
-                  Abre el turno
-                  con un fondo inicial.
-                `
-
-                : `
-                  El dueño debe abrir
-                  la caja para habilitar
-                  las ventas.
-                `
-            }
-
-          </p>
-
-
           ${
-            currentRole ===
-            "owner"
+            role === "owner"
 
               ? `
                 <button
@@ -5746,120 +5066,88 @@ function renderCash() {
                   "
 
                   onclick="
-                    openShiftForm()
+                    openCash()
                   "
                 >
                   Abrir caja
                 </button>
               `
 
-              : ""
+              : `
+                <p class="muted">
+                  El dueño debe
+                  abrir la caja.
+                </p>
+              `
           }
 
         </div>
 
-      `, "more");
+      `,
+      "more"
+    );
+
 
     return;
   }
 
 
   const sales =
-    appState.sales.filter(
+    state.sales.filter(
       sale =>
         sale.shiftId ===
-        shift.id ||
-        new Date(
-          sale.createdAt
-        ) >=
-        new Date(
-          shift.openedAt
-        )
+        shift.id
     );
 
 
-  const cashSales =
-    sales
-      .filter(
-        sale =>
-          sale.method ===
-          "Efectivo"
-      )
-      .reduce(
-        (
-          total,
-          sale
-        ) =>
-          total +
-          Number(
-            sale.total || 0
-          ),
-        0
-      );
+  const sumMethod =
+    method =>
+      sales
+        .filter(
+          sale =>
+            sale.method ===
+            method
+        )
+        .reduce(
+          (
+            total,
+            sale
+          ) =>
+            total +
+            Number(
+              sale.total ||
+              0
+            ),
+          0
+        );
 
 
-  const sinpeSales =
-    sales
-      .filter(
-        sale =>
-          sale.method ===
-          "SINPE"
-      )
-      .reduce(
-        (
-          total,
-          sale
-        ) =>
-          total +
-          Number(
-            sale.total || 0
-          ),
-        0
-      );
+  const cash =
+    sumMethod(
+      "Efectivo"
+    );
 
 
-  const cardSales =
-    sales
-      .filter(
-        sale =>
-          sale.method ===
-          "Tarjeta/Otro"
-      )
-      .reduce(
-        (
-          total,
-          sale
-        ) =>
-          total +
-          Number(
-            sale.total || 0
-          ),
-        0
-      );
+  const sinpe =
+    sumMethod(
+      "SINPE"
+    );
 
 
-  const creditSales =
-    sales
-      .filter(
-        sale =>
-          sale.method ===
-          "Crédito"
-      )
-      .reduce(
-        (
-          total,
-          sale
-        ) =>
-          total +
-          Number(
-            sale.total || 0
-          ),
-        0
-      );
+  const cardAmount =
+    sumMethod(
+      "Tarjeta/Otro"
+    );
+
+
+  const credit =
+    sumMethod(
+      "Crédito"
+    );
 
 
   const moves =
-    appState.cashMoves.filter(
+    state.cashMoves.filter(
       move =>
         new Date(
           move.createdAt
@@ -5884,7 +5172,8 @@ function renderCash() {
         ) =>
           total +
           Number(
-            move.amount || 0
+            move.amount ||
+            0
           ),
         0
       );
@@ -5904,13 +5193,14 @@ function renderCash() {
         ) =>
           total +
           Number(
-            move.amount || 0
+            move.amount ||
+            0
           ),
         0
       );
 
 
-  const creditCashPayments =
+  const creditCash =
     moves
       .filter(
         move =>
@@ -5926,7 +5216,8 @@ function renderCash() {
         ) =>
           total +
           Number(
-            move.amount || 0
+            move.amount ||
+            0
           ),
         0
       );
@@ -5934,28 +5225,30 @@ function renderCash() {
 
   const expected =
     Number(
-      shift.opening || 0
+      shift.opening ||
+      0
     ) +
-    cashSales +
-    creditCashPayments +
-    cashIn -
+    cash +
+    cashIn +
+    creditCash -
     cashOut;
 
 
-  document
-    .querySelector("#app")
-    .innerHTML =
+  $("#app").innerHTML =
     shell(`
 
-      <section class="screen-title">
+      <section class="
+        screen-title
+      ">
 
         <h2>
           Caja
         </h2>
 
         <p>
-          Todo lo vendido en este
-          turno queda ligado aquí.
+          Todo lo vendido
+          en este turno
+          queda ligado aquí.
         </p>
 
       </section>
@@ -5970,9 +5263,7 @@ function renderCash() {
           </span>
 
           <strong>
-            ${money(
-              cashSales
-            )}
+            ${money(cash)}
           </strong>
 
         </div>
@@ -5985,9 +5276,7 @@ function renderCash() {
           </span>
 
           <strong>
-            ${money(
-              sinpeSales
-            )}
+            ${money(sinpe)}
           </strong>
 
         </div>
@@ -6001,7 +5290,7 @@ function renderCash() {
 
           <strong>
             ${money(
-              cardSales
+              cardAmount
             )}
           </strong>
 
@@ -6015,9 +5304,7 @@ function renderCash() {
           </span>
 
           <strong>
-            ${money(
-              creditSales
-            )}
+            ${money(credit)}
           </strong>
 
         </div>
@@ -6039,22 +5326,6 @@ function renderCash() {
           <strong>
             ${money(
               shift.opening
-            )}
-          </strong>
-
-        </div>
-
-
-        <div class="ticket-line">
-
-          <span>
-            Abonos crédito
-            en efectivo
-          </span>
-
-          <strong>
-            ${money(
-              creditCashPayments
             )}
           </strong>
 
@@ -6091,16 +5362,10 @@ function renderCash() {
         </div>
 
 
-        <div class="divider">
-        </div>
-
-
-        <div
-          class="
-            ticket-line
-            ticket-total
-          "
-        >
+        <div class="
+          ticket-line
+          ticket-total
+        ">
 
           <span>
             Efectivo esperado
@@ -6117,75 +5382,42 @@ function renderCash() {
       </div>
 
 
-      <div
-        class="toolbar"
-        style="margin-top:14px"
-      >
+      ${
+        role === "owner"
 
-        <button
-          class="btn ghost"
+          ? `
+            <button
+              class="
+                btn
+                primary
+                full
+              "
 
-          onclick="
-            cashMovement('in')
-          "
-        >
-          Entrada
-        </button>
+              style="
+                margin-top:14px
+              "
 
+              onclick="
+                closeCash(
+                  ${expected}
+                )
+              "
+            >
+              Cerrar caja
+            </button>
+          `
 
-        <button
-          class="btn ghost"
+          : ""
+      }
 
-          onclick="
-            cashMovement('out')
-          "
-        >
-          Salida
-        </button>
-
-
-        ${
-          currentRole ===
-          "owner"
-
-            ? `
-              <button
-                class="btn primary"
-
-                onclick="
-                  closeShiftForm(
-                    ${expected}
-                  )
-                "
-              >
-                Cerrar caja
-              </button>
-            `
-
-            : ""
-        }
-
-      </div>
-
-    `, "more");
+    `,
+    "more"
+  );
 }
 
 
-window.openShiftForm =
+window.openCash =
 () => {
-
-  if (
-    currentRole !==
-    "owner"
-  ) {
-
-    toast(
-      "Solo el dueño puede abrir la caja."
-    );
-
-    return;
-  }
-
 
   modal(`
 
@@ -6201,137 +5433,9 @@ window.openShiftForm =
       </label>
 
       <input
-        id="openingCash"
+        id="opening"
         type="number"
-        inputmode="decimal"
         value="0"
-      >
-
-    </div>
-
-
-    <div
-      class="toolbar"
-      style="margin-top:14px"
-    >
-
-      <button
-        class="btn primary"
-        onclick="openShift()"
-      >
-        Abrir caja
-      </button>
-
-
-      <button
-        class="btn"
-        onclick="closeModal()"
-      >
-        Cancelar
-      </button>
-
-    </div>
-  `);
-};
-
-
-window.openShift =
-async () => {
-
-  const session = {
-
-    id:
-      uid("shift"),
-
-    opening:
-      Number(
-        document
-          .querySelector(
-            "#openingCash"
-          )
-          .value || 0
-      ),
-
-    openedAt:
-      new Date()
-        .toISOString(),
-
-    closedAt:
-      null,
-
-    status:
-      "open"
-  };
-
-
-  await idbPut(
-    "cashSessions",
-    session
-  );
-
-
-  appState.cashSessions
-    .push(
-      session
-    );
-
-
-  closeModal();
-
-
-  currentScreen =
-    "home";
-
-
-  renderHome();
-
-
-  toast(
-    "Caja abierta. Ya puedes vender."
-  );
-};
-
-
-window.cashMovement =
-type => {
-
-  modal(`
-
-    <h3>
-
-      ${
-        type === "in"
-          ? "Entrada de efectivo"
-          : "Salida de efectivo"
-      }
-
-    </h3>
-
-
-    <div class="field">
-
-      <label>
-        Monto
-      </label>
-
-      <input
-        id="moveAmount"
-        type="number"
-        inputmode="decimal"
-      >
-
-    </div>
-
-
-    <div class="field">
-
-      <label>
-        Nota
-      </label>
-
-      <input
-        id="moveNote"
-        placeholder="Opcional"
       >
 
     </div>
@@ -6346,18 +5450,19 @@ type => {
         class="btn primary"
 
         onclick="
-          saveCashMovement(
-            '${type}'
-          )
+          saveOpenCash()
         "
       >
-        Guardar
+        Abrir caja
       </button>
 
 
       <button
         class="btn"
-        onclick="closeModal()"
+
+        onclick="
+          closeModal()
+        "
       >
         Cancelar
       </button>
@@ -6367,91 +5472,59 @@ type => {
 };
 
 
-window.saveCashMovement =
-async type => {
+window.saveOpenCash =
+async () => {
 
-  const amount =
-    Number(
-      document
-        .querySelector(
-          "#moveAmount"
-        )
-        .value || 0
-    );
-
-
-  if (
-    amount <= 0
-  ) {
-
-    toast(
-      "Escribe un monto válido."
-    );
-
-    return;
-  }
-
-
-  const move = {
+  const shift = {
 
     id:
-      uid("move"),
+      uid("shift"),
 
-    type,
+    opening:
+      Number(
+        $("#opening")
+          .value ||
+        0
+      ),
 
-    amount,
-
-    note:
-      document
-        .querySelector(
-          "#moveNote"
-        )
-        .value
-        .trim(),
-
-    createdAt:
+    openedAt:
       new Date()
-        .toISOString()
+        .toISOString(),
+
+    status:
+      "open"
   };
 
 
-  await idbPut(
-    "cashMoves",
-    move
+  await put(
+    "cashSessions",
+    shift
   );
 
 
-  appState.cashMoves.push(
-    move
+  state.cashSessions.push(
+    shift
   );
 
 
   closeModal();
 
-  renderCash();
+
+  screen =
+    "home";
+
+
+  renderHome();
 
 
   toast(
-    "Movimiento guardado."
+    "Caja abierta. Ya puedes vender."
   );
 };
 
 
-window.closeShiftForm =
+window.closeCash =
 expected => {
-
-  if (
-    currentRole !==
-    "owner"
-  ) {
-
-    toast(
-      "Solo el dueño puede cerrar la caja."
-    );
-
-    return;
-  }
-
 
   modal(`
 
@@ -6462,7 +5535,7 @@ expected => {
 
     <p>
 
-      Efectivo esperado:
+      Esperado:
 
       <strong>
         ${money(
@@ -6480,34 +5553,9 @@ expected => {
       </label>
 
       <input
-        id="countedCash"
+        id="counted"
         type="number"
-        inputmode="decimal"
-
-        oninput="
-          showDifference(
-            ${expected}
-          )
-        "
       >
-
-    </div>
-
-
-    <div
-      class="panel"
-
-      style="
-        margin-top:10px;
-        box-shadow:none;
-      "
-    >
-
-      Diferencia:
-
-      <strong id="difference">
-        ${money(0)}
-      </strong>
 
     </div>
 
@@ -6521,7 +5569,7 @@ expected => {
         class="btn primary"
 
         onclick="
-          closeShift(
+          saveCloseCash(
             ${expected}
           )
         "
@@ -6532,7 +5580,10 @@ expected => {
 
       <button
         class="btn"
-        onclick="closeModal()"
+
+        onclick="
+          closeModal()
+        "
       >
         Cancelar
       </button>
@@ -6542,49 +5593,11 @@ expected => {
 };
 
 
-window.showDifference =
-expected => {
-
-  const counted =
-    Number(
-      document
-        .querySelector(
-          "#countedCash"
-        )
-        .value || 0
-    );
-
-
-  document
-    .querySelector(
-      "#difference"
-    )
-    .textContent =
-    money(
-      counted -
-      expected
-    );
-};
-
-
-window.closeShift =
+window.saveCloseCash =
 async expected => {
 
   const shift =
     currentShift();
-
-
-  if (!shift) return;
-
-
-  const counted =
-    Number(
-      document
-        .querySelector(
-          "#countedCash"
-        )
-        .value || 0
-    );
 
 
   shift.expected =
@@ -6592,11 +5605,15 @@ async expected => {
 
 
   shift.counted =
-    counted;
+    Number(
+      $("#counted")
+        .value ||
+      0
+    );
 
 
   shift.difference =
-    counted -
+    shift.counted -
     expected;
 
 
@@ -6609,7 +5626,7 @@ async expected => {
     "closed";
 
 
-  await idbPut(
+  await put(
     "cashSessions",
     shift
   );
@@ -6618,7 +5635,7 @@ async expected => {
   closeModal();
 
 
-  currentScreen =
+  screen =
     "home";
 
 
@@ -6626,38 +5643,14 @@ async expected => {
 
 
   toast(
-    "Caja cerrada. Las ventas quedan bloqueadas hasta una nueva apertura."
+    "Caja cerrada."
   );
 };
 
 
-/* =========================================
-   CATÁLOGO QR
-========================================= */
-
-function catalogLink() {
-
-  const url =
-    new URL(
-      window.location.href
-    );
-
-
-  url.search = "";
-
-  url.hash = "";
-
-
-  url.searchParams
-    .set(
-      "catalog",
-      "1"
-    );
-
-
-  return url.toString();
-}
-
+/* ================================
+   CATÁLOGO / MENÚ QR
+================================ */
 
 function renderCatalog() {
 
@@ -6667,25 +5660,20 @@ function renderCatalog() {
       : "Catálogo QR";
 
 
-  const link =
-    catalogLink();
-
-
-  document
-    .querySelector("#app")
-    .innerHTML =
+  $("#app").innerHTML =
     shell(`
 
-      <section class="screen-title">
+      <section class="
+        screen-title
+      ">
 
         <h2>
           ${label}
         </h2>
 
         <p>
-          El cliente puede abrir
-          tu catálogo desde
-          un enlace o QR.
+          Vista previa de
+          lo que verá el cliente.
         </p>
 
       </section>
@@ -6693,7 +5681,7 @@ function renderCatalog() {
 
       <div class="panel">
 
-        ${appState.products
+        ${state.products
           .map(
             product => `
 
@@ -6704,16 +5692,19 @@ function renderCatalog() {
                 <div>
 
                   <strong>
-                    ${escapeHtml(
+                    ${esc(
                       product.name
                     )}
                   </strong>
 
+
                   <div class="muted">
-                    ${escapeHtml(
+
+                    ${esc(
                       product.category ||
                       ""
                     )}
+
                   </div>
 
                 </div>
@@ -6728,7 +5719,6 @@ function renderCatalog() {
                 </strong>
 
               </div>
-
             `
           )
           .join("")}
@@ -6738,397 +5728,88 @@ function renderCatalog() {
 
       <div
         class="panel"
-
-        style="
-          margin-top:14px;
-          text-align:center
-        "
-      >
-
-        <p class="muted">
-          Enlace público
-        </p>
-
-
-        <div
-          style="
-            word-break:break-all
-          "
-        >
-
-          ${escapeHtml(
-            link
-          )}
-
-        </div>
-
-
-        <img
-
-          src="
-            https://quickchart.io/qr?size=220&text=${
-              encodeURIComponent(
-                link
-              )
-            }
-          "
-
-          alt="
-            QR del catálogo
-          "
-
-          style="
-            width:220px;
-            max-width:100%;
-            margin-top:14px;
-            border-radius:14px
-          "
-        >
-
-      </div>
-
-
-      <div
-        class="toolbar"
         style="margin-top:14px"
       >
 
-        <button
-          class="btn primary"
-
-          onclick="
-            copyCatalogLink()
-          "
-        >
-          Copiar enlace
-        </button>
+        <strong>
+          QR público
+        </strong>
 
 
-        <button
-          class="btn ghost"
+        <p class="muted">
 
-          onclick="
-            shareCatalog()
-          "
-        >
-          Compartir por WhatsApp
-        </button>
+          Para que el QR funcione
+          desde otro teléfono
+          con tus productos reales
+          y envíe pedidos
+          automáticamente a
+          Mi Punto CR,
+          necesitamos conectar
+          la nube.
 
-      </div>
-
-    `, "more");
-}
-
-
-window.copyCatalogLink =
-async () => {
-
-  try {
-
-    await navigator
-      .clipboard
-      .writeText(
-        catalogLink()
-      );
-
-
-    toast(
-      "Enlace copiado."
-    );
-
-  } catch {
-
-    toast(
-      "No se pudo copiar automáticamente."
-    );
-  }
-};
-
-
-window.shareCatalog =
-() => {
-
-  const text =
-    `${appState.settings.businessName}\n` +
-    `${
-      isFood()
-        ? "Menú"
-        : "Catálogo"
-    }: ` +
-    `${catalogLink()}`;
-
-
-  window.open(
-
-    `https://wa.me/?text=${
-      encodeURIComponent(
-        text
-      )
-    }`,
-
-    "_blank"
-  );
-};
-
-
-/* =========================================
-   MÁS
-========================================= */
-
-function renderMore() {
-
-  const cards = [];
-
-
-  if (isFood()) {
-
-    cards.push(
-      homeCard(
-        "products",
-        "Productos",
-        "Comidas, bebidas y stock"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "clients",
-        "Clientes / Crédito",
-        "Saldos y abonos"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "cash",
-        "Caja",
-        "Apertura, movimientos y cierre"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "sales",
-        "Mis ventas",
-        "Comprobantes e historial"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "catalog",
-        "Menú QR",
-        "Comparte tu menú"
-      )
-    );
-  }
-
-
-  if (isProducts()) {
-
-    cards.push(
-      homeCard(
-        "products",
-        "Productos",
-        "Artículos, variantes y stock"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "clients",
-        "Clientes / Crédito",
-        "Saldos y abonos"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "sales",
-        "Mis ventas",
-        "Comprobantes e historial"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "catalog",
-        "Catálogo QR",
-        "Comparte tus productos"
-      )
-    );
-  }
-
-
-  if (isServices()) {
-
-    cards.push(
-      homeCard(
-        "products",
-        "Servicios",
-        "Precios y categorías"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "clients",
-        "Clientes",
-        "Contactos y crédito"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "sales",
-        "Mis ventas",
-        "Comprobantes e historial"
-      )
-    );
-
-
-    cards.push(
-      homeCard(
-        "catalog",
-        "Catálogo QR",
-        "Comparte tus servicios"
-      )
-    );
-  }
-
-
-  if (
-    currentRole === "owner"
-  ) {
-
-    cards.push(
-      homeCard(
-        "settings",
-        "Configuración",
-        "Datos básicos"
-      )
-    );
-  }
-
-
-  document
-    .querySelector("#app")
-    .innerHTML =
-    shell(`
-
-      <section class="screen-title">
-
-        <h2>
-          Más
-        </h2>
-
-        <p>
-          Solo herramientas útiles
-          para este negocio.
         </p>
 
-      </section>
 
+        <p class="muted">
 
-      <div class="home-grid">
+          No vamos a simularlo
+          con información falsa.
 
-        ${cards.join("")}
-
-
-        ${
-          appState.settings
-            .pinEnabled
-
-            ? `
-
-              <button
-                class="big-card"
-
-                onclick="
-                  lockApp()
-                "
-              >
-
-                <span>
-
-                  <strong>
-                    Bloquear
-                  </strong>
-
-                  <small>
-                    Solicitar PIN nuevamente
-                  </small>
-
-                </span>
-
-
-                <span class="card-arrow">
-                  ›
-                </span>
-
-              </button>
-
-            `
-
-            : ""
-        }
+        </p>
 
       </div>
 
-    `, "more");
+    `,
+    "more"
+  );
 }
 
 
-/* =========================================
+/* ================================
    CONFIGURACIÓN
-========================================= */
+================================ */
 
 function renderSettings() {
 
   if (
-    currentRole !==
-    "owner"
+    role !== "owner"
   ) {
 
-    go("home");
+    screen =
+      "home";
+
+
+    renderHome();
 
     return;
   }
 
 
-  const s =
-    appState.settings;
+  const settings =
+    state.settings;
 
 
-  document
-    .querySelector("#app")
-    .innerHTML =
+  $("#app").innerHTML =
     shell(`
 
-      <section class="screen-title">
+      <section class="
+        screen-title
+      ">
 
         <h2>
           Configuración
         </h2>
 
         <p>
-          Elige el tipo de negocio
-          y Mi Punto CR se adapta.
+          Mi Punto CR se adapta
+          al tipo de negocio.
         </p>
 
       </section>
 
 
       <div class="panel">
+
 
         <div class="form-grid">
 
@@ -7140,15 +5821,13 @@ function renderSettings() {
             </label>
 
 
-            <select
-              id="businessType"
-            >
+            <select id="sType">
 
               <option
                 value="food"
 
                 ${
-                  s.businessType ===
+                  type() ===
                   "food"
                     ? "selected"
                     : ""
@@ -7162,7 +5841,7 @@ function renderSettings() {
                 value="products"
 
                 ${
-                  s.businessType ===
+                  type() ===
                   "products"
                     ? "selected"
                     : ""
@@ -7176,7 +5855,7 @@ function renderSettings() {
                 value="services"
 
                 ${
-                  s.businessType ===
+                  type() ===
                   "services"
                     ? "selected"
                     : ""
@@ -7197,27 +5876,11 @@ function renderSettings() {
             </label>
 
             <input
-              id="businessName"
+              id="sName"
 
-              value="${escapeAttr(
-                s.businessName
-              )}"
-            >
-
-          </div>
-
-
-          <div class="field">
-
-            <label>
-              Teléfono
-            </label>
-
-            <input
-              id="businessPhone"
-
-              value="${escapeAttr(
-                s.phone
+              value="${esc(
+                settings
+                  .businessName
               )}"
             >
 
@@ -7231,10 +5894,11 @@ function renderSettings() {
             </label>
 
             <input
-              id="businessWhatsapp"
+              id="sWa"
 
-              value="${escapeAttr(
-                s.whatsapp
+              value="${esc(
+                settings
+                  .whatsapp
               )}"
             >
 
@@ -7248,10 +5912,11 @@ function renderSettings() {
             </label>
 
             <input
-              id="businessSinpe"
+              id="sSinpe"
 
-              value="${escapeAttr(
-                s.sinpe
+              value="${esc(
+                settings
+                  .sinpe
               )}"
             >
 
@@ -7265,13 +5930,14 @@ function renderSettings() {
             </label>
 
 
-            <select id="taxMode">
+            <select id="sTax">
 
               <option
                 value="included"
 
                 ${
-                  s.taxMode ===
+                  settings
+                    .taxMode ===
                   "included"
                     ? "selected"
                     : ""
@@ -7285,7 +5951,8 @@ function renderSettings() {
                 value="added"
 
                 ${
-                  s.taxMode ===
+                  settings
+                    .taxMode ===
                   "added"
                     ? "selected"
                     : ""
@@ -7299,7 +5966,8 @@ function renderSettings() {
                 value="exempt"
 
                 ${
-                  s.taxMode ===
+                  settings
+                    .taxMode ===
                   "exempt"
                     ? "selected"
                     : ""
@@ -7320,90 +5988,13 @@ function renderSettings() {
             </label>
 
             <input
-              id="taxRate"
+              id="sRate"
               type="number"
 
               value="${Number(
-                s.taxRate || 13
-              )}"
-            >
-
-          </div>
-
-
-          <div class="field">
-
-            <label>
-              Usar PIN
-            </label>
-
-
-            <select id="pinEnabled">
-
-              <option
-                value="no"
-
-                ${
-                  !s.pinEnabled
-                    ? "selected"
-                    : ""
-                }
-              >
-                No
-              </option>
-
-
-              <option
-                value="yes"
-
-                ${
-                  s.pinEnabled
-                    ? "selected"
-                    : ""
-                }
-              >
-                Sí
-              </option>
-
-            </select>
-
-          </div>
-
-
-          <div class="field">
-
-            <label>
-              PIN del dueño
-            </label>
-
-            <input
-              id="ownerPin"
-              type="password"
-              inputmode="numeric"
-              maxlength="6"
-
-              value="${escapeAttr(
-                s.ownerPin
-              )}"
-            >
-
-          </div>
-
-
-          <div class="field">
-
-            <label>
-              PIN de Caja
-            </label>
-
-            <input
-              id="cashierPin"
-              type="password"
-              inputmode="numeric"
-              maxlength="6"
-
-              value="${escapeAttr(
-                s.cashierPin
+                settings
+                  .taxRate ||
+                13
               )}"
             >
 
@@ -7420,7 +6011,7 @@ function renderSettings() {
           "
 
           style="
-            margin-top:15px
+            margin-top:14px
           "
 
           onclick="
@@ -7432,110 +6023,59 @@ function renderSettings() {
 
       </div>
 
-    `, "more");
+    `,
+    "more"
+  );
 }
 
 
 window.saveSettings =
 async () => {
 
-  const settings = {
+  state.settings = {
 
-    ...appState.settings,
+    ...state.settings,
 
     businessType:
-      document
-        .querySelector(
-          "#businessType"
-        )
+      $("#sType")
         .value,
 
     businessName:
-      document
-        .querySelector(
-          "#businessName"
-        )
+      $("#sName")
         .value
         .trim() ||
       "Mi Punto CR",
 
-    phone:
-      document
-        .querySelector(
-          "#businessPhone"
-        )
-        .value
-        .trim(),
-
     whatsapp:
-      document
-        .querySelector(
-          "#businessWhatsapp"
-        )
+      $("#sWa")
         .value
         .trim(),
 
     sinpe:
-      document
-        .querySelector(
-          "#businessSinpe"
-        )
+      $("#sSinpe")
         .value
         .trim(),
 
     taxMode:
-      document
-        .querySelector(
-          "#taxMode"
-        )
+      $("#sTax")
         .value,
 
     taxRate:
       Number(
-        document
-          .querySelector(
-            "#taxRate"
-          )
-          .value || 0
-      ),
-
-    pinEnabled:
-      document
-        .querySelector(
-          "#pinEnabled"
-        )
-        .value ===
-      "yes",
-
-    ownerPin:
-      document
-        .querySelector(
-          "#ownerPin"
-        )
-        .value
-        .trim(),
-
-    cashierPin:
-      document
-        .querySelector(
-          "#cashierPin"
-        )
-        .value
-        .trim()
+        $("#sRate")
+          .value ||
+        0
+      )
   };
 
 
-  await idbPut(
+  await put(
     "settings",
-    settings
+    state.settings
   );
 
 
-  appState.settings =
-    settings;
-
-
-  currentScreen =
+  screen =
     "home";
 
 
@@ -7548,100 +6088,238 @@ async () => {
 };
 
 
-/* =========================================
-   PIN
-========================================= */
+/* ================================
+   MÁS
+================================ */
 
-window.lockApp =
-() => {
+function renderMore() {
 
-  locked = true;
-
-  render();
-};
+  let cards =
+    "";
 
 
-function renderLock() {
+  if (
+    isFood()
+  ) {
 
-  document
-    .querySelector("#app")
-    .innerHTML = `
+    cards +=
 
-      <div class="lock-screen">
+      card(
+        "products",
+        "Productos",
+        "Comidas, bebidas y stock"
+      ) +
 
-        <div class="lock-card">
+      card(
+        "clients",
+        "Clientes / Crédito",
+        "Saldos y abonos"
+      ) +
 
-          <h1>
-            Mi Punto CR
-          </h1>
+      card(
+        "cash",
+        "Caja",
+        "Apertura y cierre"
+      ) +
 
-          <p>
-            Ingresa tu PIN.
-          </p>
+      card(
+        "sales",
+        "Mis ventas",
+        "Comprobantes e historial"
+      ) +
+
+      card(
+        "catalog",
+        "Menú QR",
+        "Vista del menú"
+      );
+  }
 
 
-          <input
-            id="unlockPin"
-            class="pin-input"
-            type="password"
-            inputmode="numeric"
-            maxlength="6"
-            placeholder="••••"
-          >
+  if (
+    isProducts()
+  ) {
+
+    cards +=
+
+      card(
+        "products",
+        "Productos",
+        "Artículos, variantes y stock"
+      ) +
+
+      card(
+        "clients",
+        "Clientes / Crédito",
+        "Saldos y abonos"
+      ) +
+
+      card(
+        "sales",
+        "Mis ventas",
+        "Comprobantes e historial"
+      ) +
+
+      card(
+        "catalog",
+        "Catálogo QR",
+        "Vista del catálogo"
+      );
+  }
 
 
-          <button
-            class="
-              btn
-              primary
-              full
-            "
+  if (
+    isServices()
+  ) {
 
-            style="
-              margin-top:14px
-            "
+    cards +=
 
-            onclick="
-              unlockApp()
-            "
-          >
-            Entrar
-          </button>
+      card(
+        "products",
+        "Servicios",
+        "Precios y categorías"
+      ) +
 
-        </div>
+      card(
+        "clients",
+        "Clientes",
+        "Contactos y crédito"
+      ) +
 
+      card(
+        "sales",
+        "Mis ventas",
+        "Comprobantes e historial"
+      ) +
+
+      card(
+        "catalog",
+        "Catálogo QR",
+        "Vista de servicios"
+      );
+  }
+
+
+  if (
+    role === "owner"
+  ) {
+
+    cards +=
+      card(
+        "settings",
+        "Configuración",
+        "Datos básicos"
+      );
+  }
+
+
+  $("#app").innerHTML =
+    shell(`
+
+      <section class="
+        screen-title
+      ">
+
+        <h2>
+          Más
+        </h2>
+
+        <p>
+          Solo herramientas útiles
+          para este negocio.
+        </p>
+
+      </section>
+
+
+      <div class="home-grid">
+        ${cards}
       </div>
-    `;
+
+    `,
+    "more"
+  );
 }
 
 
-window.unlockApp =
+/* ================================
+   PIN
+================================ */
+
+function renderLock() {
+
+  $("#app").innerHTML = `
+
+    <div class="lock-screen">
+
+      <div class="lock-card">
+
+        <h1>
+          Mi Punto CR
+        </h1>
+
+        <p>
+          Ingresa tu PIN.
+        </p>
+
+
+        <input
+          id="pin"
+          class="pin-input"
+          type="password"
+          inputmode="numeric"
+        >
+
+
+        <button
+          class="
+            btn
+            primary
+            full
+          "
+
+          style="
+            margin-top:14px
+          "
+
+          onclick="
+            unlock()
+          "
+        >
+          Entrar
+        </button>
+
+      </div>
+
+    </div>
+  `;
+}
+
+
+window.unlock =
 () => {
 
   const pin =
-    document
-      .querySelector(
-        "#unlockPin"
-      )
+    $("#pin")
       .value
       .trim();
 
 
   if (
-    appState.settings
+    state.settings
       .ownerPin &&
     pin ===
-    appState.settings
+    state.settings
       .ownerPin
   ) {
 
-    currentRole =
+    role =
       "owner";
 
-    locked = false;
 
-    currentScreen =
-      "home";
+    locked =
+      false;
+
 
     render();
 
@@ -7650,20 +6328,20 @@ window.unlockApp =
 
 
   if (
-    appState.settings
+    state.settings
       .cashierPin &&
     pin ===
-    appState.settings
+    state.settings
       .cashierPin
   ) {
 
-    currentRole =
+    role =
       "cashier";
 
-    locked = false;
 
-    currentScreen =
-      "home";
+    locked =
+      false;
+
 
     render();
 
@@ -7677,56 +6355,56 @@ window.unlockApp =
 };
 
 
-/* =========================================
-   MODAL
-========================================= */
+/* ================================
+   MODALES
+================================ */
 
-function modal(content) {
+function modal(
+  html
+) {
 
   closeModal();
 
 
-  const background =
-    document.createElement(
-      "div"
-    );
+  const element =
+    document
+      .createElement(
+        "div"
+      );
 
 
-  background.id =
+  element.id =
     "modalRoot";
 
 
-  background.className =
+  element.className =
     "modal-backdrop";
 
 
-  background.innerHTML = `
+  element.innerHTML = `
 
     <div class="modal">
-      ${content}
+      ${html}
     </div>
   `;
 
 
-  background
-    .addEventListener(
-      "click",
-      event => {
+  element.onclick =
+    event => {
 
-        if (
-          event.target ===
-          background
-        ) {
+      if (
+        event.target ===
+        element
+      ) {
 
-          closeModal();
-        }
+        closeModal();
       }
-    );
+    };
 
 
   document.body
     .appendChild(
-      background
+      element
     );
 }
 
@@ -7734,24 +6412,20 @@ function modal(content) {
 window.closeModal =
 () => {
 
-  document
-    .querySelector(
-      "#modalRoot"
-    )
+  $("#modalRoot")
     ?.remove();
 };
 
 
-/* =========================================
-   AVISOS
-========================================= */
-
-function toast(message) {
+function toast(
+  text
+) {
 
   const element =
-    document.createElement(
-      "div"
-    );
+    document
+      .createElement(
+        "div"
+      );
 
 
   element.className =
@@ -7759,7 +6433,7 @@ function toast(message) {
 
 
   element.textContent =
-    message;
+    text;
 
 
   document.body
@@ -7776,590 +6450,9 @@ function toast(message) {
 }
 
 
-/* =========================================
-   CATÁLOGO PÚBLICO QR
-========================================= */
-
-function renderPublicCatalog() {
-
-  const groups = {};
-
-
-  appState.products
-    .forEach(
-      product => {
-
-        const category =
-          product.category
-            ?.trim() ||
-          "Otros";
-
-
-        if (
-          !groups[category]
-        ) {
-
-          groups[category] = [];
-        }
-
-
-        groups[category]
-          .push(
-            product
-          );
-      }
-    );
-
-
-  const total =
-    publicCart.reduce(
-      (
-        sum,
-        item
-      ) =>
-        sum +
-        item.price *
-        item.qty,
-      0
-    );
-
-
-  document
-    .querySelector("#app")
-    .innerHTML = `
-
-      <main class="shell">
-
-        <header class="topbar">
-
-          <div class="brand">
-
-            <h1>
-              ${escapeHtml(
-                appState.settings
-                  .businessName
-              )}
-            </h1>
-
-
-            <p>
-
-              ${
-                isFood()
-                  ? "Menú"
-                  : isServices()
-                    ? "Servicios"
-                    : "Catálogo"
-              }
-
-            </p>
-
-          </div>
-
-        </header>
-
-
-        ${Object.entries(groups)
-          .map(
-            (
-              [
-                category,
-                products
-              ]
-            ) => `
-
-              <section
-                class="panel"
-                style="margin-bottom:12px"
-              >
-
-                <h3>
-                  ${escapeHtml(
-                    category
-                  )}
-                </h3>
-
-
-                ${products
-                  .map(
-                    product => `
-
-                      <div class="
-                        catalog-card
-                      ">
-
-                        <div>
-
-                          <strong>
-                            ${escapeHtml(
-                              product.name
-                            )}
-                          </strong>
-
-
-                          <div class="muted">
-
-                            ${money(
-                              product.price
-                            )}
-
-                          </div>
-
-                        </div>
-
-
-                        <button
-                          class="btn ghost"
-
-                          onclick="
-                            addPublicItem(
-                              '${product.id}'
-                            )
-                          "
-                        >
-                          Agregar
-                        </button>
-
-                      </div>
-
-                    `
-                  )
-                  .join("")}
-
-              </section>
-
-            `
-          )
-          .join("")}
-
-
-        <section
-          class="panel"
-          style="margin-top:14px"
-        >
-
-          <h3>
-            Tu pedido
-          </h3>
-
-
-          ${
-            publicCart.length
-
-              ? publicCart
-                  .map(
-                    item => `
-
-                      <div class="
-                        ticket-line
-                      ">
-
-                        <span>
-
-                          ${item.qty}
-                          ×
-                          ${escapeHtml(
-                            item.name
-                          )}
-
-                        </span>
-
-
-                        <span>
-
-                          ${money(
-                            item.price *
-                            item.qty
-                          )}
-
-
-                          <button
-                            class="btn ghost"
-
-                            style="
-                              margin-left:6px;
-                              padding:5px 9px;
-                              min-height:auto
-                            "
-
-                            onclick="
-                              removePublicItem(
-                                '${item.id}'
-                              )
-                            "
-                          >
-                            −
-                          </button>
-
-                        </span>
-
-                      </div>
-
-                    `
-                  )
-                  .join("")
-
-              : `
-                <div class="empty">
-                  Selecciona lo que deseas.
-                </div>
-              `
-          }
-
-
-          <div class="divider">
-          </div>
-
-
-          <div
-            class="
-              ticket-line
-              ticket-total
-            "
-          >
-
-            <span>
-              Total
-            </span>
-
-            <strong>
-              ${money(total)}
-            </strong>
-
-          </div>
-
-
-          <div
-            class="field"
-            style="margin-top:12px"
-          >
-
-            <label>
-              Nombre
-            </label>
-
-            <input
-              id="publicName"
-              placeholder="Tu nombre"
-            >
-
-          </div>
-
-
-          ${
-            isFood()
-
-              ? `
-
-                <div
-                  class="field"
-                  style="margin-top:10px"
-                >
-
-                  <label>
-                    Tipo de pedido
-                  </label>
-
-
-                  <select
-                    id="publicOrderType"
-                  >
-
-                    <option value="Recoger">
-                      Recoger
-                    </option>
-
-                    <option value="Para llevar">
-                      Para llevar
-                    </option>
-
-                    <option value="Mesa">
-                      Mesa
-                    </option>
-
-                  </select>
-
-                </div>
-
-              `
-
-              : ""
-          }
-
-
-          <div
-            class="field"
-            style="margin-top:10px"
-          >
-
-            <label>
-              Nota opcional
-            </label>
-
-            <textarea
-              id="publicNote"
-              rows="3"
-              placeholder="Alguna indicación"
-            ></textarea>
-
-          </div>
-
-
-          <button
-            class="
-              btn
-              primary
-              full
-            "
-
-            style="
-              margin-top:14px
-            "
-
-            onclick="
-              sendCatalogRequest()
-            "
-
-            ${
-              publicCart.length
-                ? ""
-                : "disabled"
-            }
-          >
-            Enviar por WhatsApp
-          </button>
-
-        </section>
-
-      </main>
-    `;
-}
-
-
-window.addPublicItem =
-id => {
-
-  const product =
-    appState.products.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (!product) return;
-
-
-  const existing =
-    publicCart.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (existing) {
-
-    existing.qty += 1;
-
-  } else {
-
-    publicCart.push({
-
-      id:
-        product.id,
-
-      name:
-        product.name,
-
-      price:
-        product.price,
-
-      qty: 1
-    });
-  }
-
-
-  renderPublicCatalog();
-};
-
-
-window.removePublicItem =
-id => {
-
-  const item =
-    publicCart.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (!item) return;
-
-
-  item.qty -= 1;
-
-
-  if (
-    item.qty <= 0
-  ) {
-
-    publicCart =
-      publicCart.filter(
-        item =>
-          item.id !== id
-      );
-  }
-
-
-  renderPublicCatalog();
-};
-
-
-window.sendCatalogRequest =
-() => {
-
-  if (!publicCart.length) {
-
-    return;
-  }
-
-
-  const name =
-    document
-      .querySelector(
-        "#publicName"
-      )
-      ?.value
-      .trim() ||
-    "Cliente";
-
-
-  const note =
-    document
-      .querySelector(
-        "#publicNote"
-      )
-      ?.value
-      .trim() ||
-    "";
-
-
-  const orderType =
-    document
-      .querySelector(
-        "#publicOrderType"
-      )
-      ?.value ||
-    "";
-
-
-  const total =
-    publicCart.reduce(
-      (
-        sum,
-        item
-      ) =>
-        sum +
-        item.price *
-        item.qty,
-      0
-    );
-
-
-  const lines = [
-
-    `Pedido / consulta para ${
-      appState.settings
-        .businessName
-    }`,
-
-    `Cliente: ${name}`,
-
-    orderType
-      ? `Tipo: ${orderType}`
-      : "",
-
-    ""
-  ]
-    .filter(Boolean);
-
-
-  publicCart.forEach(
-    item => {
-
-      lines.push(
-
-        `${item.qty} x ${item.name} - ${
-          money(
-            item.price *
-            item.qty
-          )
-        }`
-      );
-    }
-  );
-
-
-  lines.push("");
-
-  lines.push(
-    `Total: ${money(total)}`
-  );
-
-
-  if (note) {
-
-    lines.push(
-      `Nota: ${note}`
-    );
-  }
-
-
-  const number =
-    String(
-      appState.settings
-        .whatsapp ||
-      ""
-    )
-      .replace(
-        /\D/g,
-        ""
-      );
-
-
-  const text =
-    lines.join("\n");
-
-
-  const url =
-    number
-
-      ? `https://wa.me/${
-          number.startsWith("506")
-            ? number
-            : `506${number}`
-        }?text=${
-          encodeURIComponent(
-            text
-          )
-        }`
-
-      : `https://wa.me/?text=${
-          encodeURIComponent(
-            text
-          )
-        }`;
-
-
-  window.open(
-    url,
-    "_blank"
-  );
-};
-
-
-/* =========================================
+/* ================================
    CONEXIÓN
-========================================= */
+================================ */
 
 window.addEventListener(
   "online",
@@ -8373,66 +6466,24 @@ window.addEventListener(
 );
 
 
-/* =========================================
+/* ================================
    INICIAR
-========================================= */
+================================ */
 
-(async function init() {
+(async () => {
 
   db =
     await openDB();
 
 
-  await loadAll();
+  await load();
 
 
-  /*
-    Convierte automáticamente
-    versiones antiguas que tenían
-    "general" en Comida/Soda.
-  */
-
-  appState.settings
-    .businessType =
-    businessType();
-
-
-  await idbPut(
-    "settings",
-    appState.settings
-  );
-
-
-  /*
-    Si el enlace viene del QR,
-    muestra catálogo público.
-  */
-
-  const params =
-    new URLSearchParams(
-      window.location.search
+  locked =
+    Boolean(
+      state.settings
+        .pinEnabled
     );
-
-
-  if (
-    params.get(
-      "catalog"
-    ) === "1"
-  ) {
-
-    renderPublicCatalog();
-
-    return;
-  }
-
-
-  if (
-    appState.settings
-      .pinEnabled
-  ) {
-
-    locked = true;
-  }
 
 
   render();
