@@ -61,6 +61,7 @@ const isServices = () => type() === "services";
 const currentShift = () => [...state.cashSessions].reverse().find(x => x.status === "open");
 const canSell = () => !isFood() || !!currentShift();
 const isQuickLandscape = () => window.matchMedia?.("(orientation: landscape) and (max-height: 600px)")?.matches === true;
+const isDesktopPOS = () => window.matchMedia?.("(min-width: 1100px) and (min-height: 650px)")?.matches === true;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -99,13 +100,34 @@ function injectStyles() {
     @media(min-width:700px){.shell{padding-bottom:38px}.home-grid{grid-template-columns:repeat(2,1fr)}.category-grid{grid-template-columns:repeat(2,1fr)}.sale-layout{grid-template-columns:minmax(0,1.25fr) minmax(340px,.75fr)}.bottom-nav{position:sticky;bottom:18px}.form-grid{grid-template-columns:repeat(2,1fr);gap:12px}.modal{border-radius:30px;margin:auto;align-self:center}.modal-backdrop{align-items:center;padding:18px}}
     @media(max-width:699px){.shell{padding:18px 16px 118px}.topbar{margin-bottom:24px}.big-card{min-height:104px;padding:20px}.screen-title h2{font-size:31px}.screen-title p{font-size:18px}.kpi{padding:15px}.payment-grid{grid-template-columns:1fr 1fr}.cash-quick-grid{grid-template-columns:1fr 1fr 1fr}}
     @media(orientation:landscape) and (max-height:600px){body{overflow:hidden}.modal{max-height:96vh;border-radius:24px;margin:auto;width:min(620px,92vw);padding:18px}.modal-backdrop{align-items:center;padding:8px}.toast{bottom:12px}.cash-quick-grid{grid-template-columns:repeat(4,1fr)}}
+    @media(min-width:1100px) and (min-height:650px){
+      body{overflow:hidden}.bottom-nav{display:none!important}.shell{max-width:none;margin:0;padding:0}.topbar{display:none}.offline-note{margin:0 0 14px}.screen-title{margin-bottom:14px}.screen-title h2{font-size:30px}.screen-title p{font-size:16px}.home-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.big-card{min-height:98px;border-radius:20px;padding:18px 20px}.big-card strong{font-size:20px}.big-card small{font-size:14px;margin-top:5px}.card-arrow{font-size:34px}.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.kpi{min-height:88px;border-radius:18px;padding:15px 17px}.kpi .muted,.kpi>span{font-size:14px}.kpi strong{font-size:25px;margin-top:5px}.panel{border-radius:20px}.modal{border-radius:24px;margin:auto;align-self:center}.modal-backdrop{align-items:center;padding:18px}.toast{bottom:24px}
+      .desktop-app{height:100vh;display:grid;grid-template-columns:230px minmax(0,1fr);background:#f5f6f3}.desktop-sidebar{background:#fff;border-right:1px solid var(--line);padding:22px 14px 18px;display:flex;flex-direction:column;min-height:0}.desktop-logo{padding:0 12px 20px;border-bottom:1px solid var(--line);margin-bottom:14px}.desktop-logo strong{display:block;font-size:23px;font-weight:900;letter-spacing:-.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.desktop-logo small{display:block;color:var(--muted);font-size:12px;margin-top:3px}.desktop-nav{display:grid;gap:5px;overflow:auto;padding-right:2px}.desktop-nav button{border:0;background:transparent;border-radius:13px;padding:11px 12px;text-align:left;font-size:14px;font-weight:800;color:#5f6875}.desktop-nav button:hover{background:#f3f6f5}.desktop-nav button.active{background:var(--soft);color:var(--primary-dark)}.desktop-sidebar-foot{margin-top:auto;border-top:1px solid var(--line);padding:14px 10px 0;font-size:12px;color:var(--muted)}.desktop-main{min-width:0;height:100vh;display:flex;flex-direction:column;overflow:hidden}.desktop-topbar{height:72px;flex:0 0 72px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.88);backdrop-filter:blur(10px)}.desktop-topbar-title strong{display:block;font-size:17px}.desktop-topbar-title span{display:block;color:var(--muted);font-size:12px;margin-top:2px}.desktop-page{flex:1;min-height:0;overflow:auto;padding:22px 28px 34px}.desktop-home{max-width:1120px}.desktop-home h2{font-size:28px;margin:0 0 4px}.desktop-home-sub{color:var(--muted);font-size:15px;margin-bottom:18px}.desktop-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}.desktop-kpi{border:1px solid var(--line);background:#fff;border-radius:18px;padding:16px 18px;min-height:88px;text-align:left}.desktop-kpi span{color:var(--muted);font-size:13px}.desktop-kpi strong{display:block;font-size:25px;margin-top:7px}.desktop-kpi.actionable{cursor:pointer}.desktop-primary-action{width:100%;min-height:92px;border:0;border-radius:20px;background:var(--primary);color:#fff;padding:18px 22px;text-align:left;display:flex;justify-content:space-between;align-items:center;margin:0 0 14px}.desktop-primary-action strong{display:block;font-size:22px}.desktop-primary-action small{display:block;font-size:14px;color:#e8f4f2;margin-top:4px}.desktop-primary-action b{font-size:34px;font-weight:400}.desktop-tools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.desktop-tool{border:1px solid var(--line);background:#fff;border-radius:18px;padding:16px;text-align:left;min-height:84px}.desktop-tool strong{display:block;font-size:16px}.desktop-tool span{display:block;color:var(--muted);font-size:12px;margin-top:5px;line-height:1.35}.desktop-cash-state{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border-radius:999px;background:#eef2f0;color:#5d6672;font-size:12px;font-weight:800}.desktop-cash-state.open{background:#e1f4e8;color:#2d6c43}
+      .desktop-pos-page{height:100%;display:flex;flex-direction:column;min-height:0}.desktop-pos-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;flex:0 0 auto}.desktop-pos-header h2{font-size:25px;margin:0}.desktop-pos-header p{font-size:13px;color:var(--muted);margin:3px 0 0}.desktop-pos-layout{display:grid;grid-template-columns:180px minmax(0,1fr) 340px;gap:10px;min-height:0;flex:1}.desktop-pos-box{background:#fff;border:1px solid var(--line);border-radius:18px;min-height:0;overflow:hidden}.desktop-category-pane{padding:12px;overflow:auto}.desktop-category-title{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin:3px 5px 10px}.desktop-category-btn{width:100%;border:0;background:#f5f7f6;border-radius:12px;padding:11px 10px;margin-bottom:6px;text-align:left;font-size:13px;font-weight:800}.desktop-category-btn.active{background:var(--primary);color:#fff}.desktop-product-pane{display:flex;flex-direction:column;min-width:0}.desktop-product-toolbar{padding:12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}.desktop-product-toolbar .search{margin:0;padding:11px 12px;border-radius:12px;font-size:14px}.desktop-product-grid{padding:12px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;overflow:auto;align-content:start}.desktop-product{border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px;text-align:left;min-height:92px}.desktop-product:hover{border-color:#a9c7c2;background:#fbfdfc}.desktop-product strong{display:block;font-size:14px;line-height:1.25}.desktop-product small{display:block;color:var(--muted);font-size:11px;margin-top:4px}.desktop-product span{display:block;color:var(--primary-dark);font-weight:900;font-size:15px;margin-top:10px}.desktop-cart-pane{display:flex;flex-direction:column;padding:12px}.desktop-cart-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}.desktop-cart-head h3{font-size:17px;margin:0}.desktop-cart-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}.desktop-cart-meta button{border:1px solid var(--line);background:#f7f8f7;border-radius:10px;padding:7px 9px;font-size:11px;font-weight:800}.desktop-cart-meta button.active{background:var(--soft);color:var(--primary-dark);border-color:#abc6c2}.desktop-cart-list{flex:1;min-height:0;overflow:auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0}.desktop-cart-list .cart-item{padding:9px 0}.desktop-cart-list .cart-item strong{font-size:13px}.desktop-cart-list .muted{font-size:11px}.desktop-cart-list .qty{gap:5px}.desktop-cart-list .qty button{width:30px;height:30px;border-radius:9px;font-size:18px}.desktop-summary{padding:9px 0 7px}.desktop-summary .ticket-line{font-size:12px}.desktop-summary .total-box{font-size:22px;padding:8px 0}.desktop-pay-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}.desktop-pay-grid .pay-btn{padding:11px 6px;border-radius:12px;font-size:12px}.desktop-client-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.desktop-client-row span{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.desktop-client-row button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 9px;font-size:11px;font-weight:800;white-space:nowrap}
+    }
+    @media(min-width:1500px) and (min-height:650px){.desktop-app{grid-template-columns:245px minmax(0,1fr)}.desktop-pos-layout{grid-template-columns:200px minmax(0,1fr) 380px}.desktop-product-grid{grid-template-columns:repeat(5,minmax(0,1fr))}.desktop-page{padding-left:32px;padding-right:32px}}
   `;
   document.head.appendChild(s);
 }
 
 function badge() { return navigator.onLine ? `<span class="badge online">● En línea</span>` : `<span class="badge offline">● Sin conexión</span>`; }
 function navBtn(target, label, active) { return `<button class="${active === target ? "active" : ""}" onclick="go('${target}')">${label}</button>`; }
+function desktopNavItems() {
+  const items = [["home", "Inicio"], ["sale", isServices() ? "Nuevo servicio" : "Vender"]];
+  if (isFood()) items.push(["orders", "Pedidos"], ["products", "Productos"], ["clients", "Clientes / Crédito"], ["cash", "Caja"], ["sales", "Mis ventas"], ["catalog", "Menú QR"]);
+  if (isProducts()) items.push(["products", "Productos"], ["clients", "Clientes / Crédito"], ["sales", "Mis ventas"], ["catalog", "Catálogo QR"]);
+  if (isServices()) items.push(["products", "Servicios"], ["clients", "Clientes"], ["sales", "Mis ventas"], ["catalog", "Catálogo QR"]);
+  if (role === "owner") items.push(["settings", "Configuración"]);
+  return items;
+}
+function desktopShell(content, active = "home") {
+  const current = screen || active;
+  const nav = desktopNavItems().map(([target, label]) => `<button class="${current === target ? "active" : ""}" onclick="go('${target}')">${label}</button>`).join("");
+  const shift = currentShift();
+  return `<div class="desktop-app"><aside class="desktop-sidebar"><div class="desktop-logo"><strong>${esc(state.settings.businessName)}</strong><small>Mi Punto CR</small></div><nav class="desktop-nav">${nav}</nav><div class="desktop-sidebar-foot">${isFood() ? (shift ? `Caja abierta · ${dateTime(shift.openedAt)}` : "Caja cerrada") : "Listo para cobrar"}</div></aside><main class="desktop-main"><header class="desktop-topbar"><div class="desktop-topbar-title"><strong>${esc(state.settings.businessName)}</strong><span>${isFood() ? (shift ? "Punto de venta · Caja abierta" : "Punto de venta · Caja cerrada") : (isServices() ? "Servicios" : "Punto de venta")}</span></div>${badge()}</header><div class="desktop-page">${!navigator.onLine ? `<div class="offline-note">Sin conexión. Las funciones internas siguen guardándose en este dispositivo.</div>` : ""}${content}</div></main></div>`;
+}
 function shell(content, active = "home") {
+  if (isDesktopPOS()) return desktopShell(content, active);
   const third = isFood() ? ["orders", "Pedidos"] : ["sales", "Mis ventas"];
   return `<main class="shell">
     <header class="topbar"><div class="brand"><h1>${esc(state.settings.businessName)}</h1><p>Tu negocio, más simple</p></div><div class="status-row">${badge()}</div></header>
@@ -117,7 +139,11 @@ function shell(content, active = "home") {
 function card(target, title, sub, primary = false, disabled = false) {
   return `<button class="big-card ${primary ? "primary" : ""}" ${disabled ? "disabled style='opacity:.55'" : `onclick="go('${target}')"`}><span><strong>${title}</strong><small>${sub}</small></span><span class="card-arrow">›</span></button>`;
 }
-function rerenderSale() { isQuickLandscape() ? renderQuickSale() : renderSale(); }
+function rerenderSale() {
+  if (isQuickLandscape()) return renderQuickSale();
+  if (isDesktopPOS()) return renderDesktopSale();
+  renderSale();
+}
 function resetSaleMeta() { saleMeta = { clientId: "", orderType: "Mostrador", table: "", note: "" }; }
 
 window.go = target => {
@@ -301,6 +327,23 @@ function renderHome() {
   const sold = todaySales.reduce((a, b) => a + Number(b.total || 0), 0);
   const credit = state.clients.reduce((a, b) => a + Number(b.balance || 0), 0);
   const shiftOpen = !!currentShift();
+
+  if (isDesktopPOS()) {
+    const primaryTitle = isFood() ? (shiftOpen ? "Nueva venta" : "Abrir caja") : (isServices() ? "Nuevo servicio" : "Nueva venta");
+    const primarySub = isFood() ? (shiftOpen ? "Selecciona productos y cobra" : "Abre la caja para comenzar a vender") : (isServices() ? "Selecciona un servicio y cobra" : "Selecciona artículos y cobra");
+    const primaryAction = isFood() && !shiftOpen ? "openCash()" : "go('sale')";
+    const statusText = isFood() ? (shiftOpen ? "Abierta" : "Cerrada") : "No requerida";
+    const statusClass = isFood() && shiftOpen ? "open" : "";
+    const tools = [];
+    if (isFood()) tools.push(["orders", "Pedidos", "Pendientes y preparación"], ["products", "Productos", "Comidas, bebidas y stock"], ["clients", "Clientes / Crédito", "Saldos y abonos"], ["cash", "Caja", shiftOpen ? "Turno abierto" : "Abrir turno"], ["sales", "Mis ventas", "Comprobantes e historial"], ["catalog", "Menú QR", "Vista del menú"]);
+    if (isProducts()) tools.push(["products", "Productos", "Artículos, variantes y stock"], ["clients", "Clientes / Crédito", "Saldos y abonos"], ["sales", "Mis ventas", "Comprobantes e historial"], ["catalog", "Catálogo QR", "Vista del catálogo"]);
+    if (isServices()) tools.push(["products", "Servicios", "Precios y categorías"], ["clients", "Clientes", "Contactos y crédito"], ["sales", "Mis ventas", "Comprobantes e historial"], ["catalog", "Catálogo QR", "Vista de servicios"]);
+    const toolsHtml = tools.map(([target, title, sub]) => `<button class="desktop-tool" onclick="go('${target}')"><strong>${title}</strong><span>${sub}</span></button>`).join("");
+    const html = `<section class="desktop-home"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px"><div><h2>Inicio</h2><div class="desktop-home-sub">Accesos rápidos para trabajar.</div></div><span class="desktop-cash-state ${statusClass}">${isFood() ? `Caja ${statusText.toLowerCase()}` : "Cobro directo"}</span></div><div class="desktop-kpis"><button class="desktop-kpi actionable" onclick="go('sales')"><span>Ventas hoy</span><strong>${money(sold)}</strong></button><button class="desktop-kpi actionable" onclick="go('clients')"><span>Por cobrar</span><strong>${money(credit)}</strong></button><div class="desktop-kpi"><span>${isFood() ? "Caja" : "Tipo de negocio"}</span><strong style="font-size:18px;margin-top:11px">${isFood() ? statusText : (isServices() ? "Servicios" : "Artículos")}</strong></div></div><button class="desktop-primary-action" onclick="${primaryAction}"><span><strong>${primaryTitle}</strong><small>${primarySub}</small></span><b>›</b></button><div class="desktop-tools">${toolsHtml}</div></section>`;
+    $("#app").innerHTML = shell(html, "home");
+    return;
+  }
+
   let cards = "";
   if (isFood()) cards = `${card("sale", "Nueva venta", shiftOpen ? "Vende y cobra rápido" : "Abre caja para poder vender", true, !shiftOpen)}${card("orders", "Pedidos", "Pendientes, preparando y listos")}${card("cash", shiftOpen ? "Caja abierta" : "Abrir caja", shiftOpen ? "Ventas y cierre" : "Fondo inicial y apertura")}${card("products", "Productos", "Comidas, bebidas y stock")}${card("clients", "Clientes / Crédito", "Compras, saldos y abonos")}${card("catalog", "Menú QR", "Vista del menú")}`;
   if (isProducts()) cards = `${card("sale", "Vender", "Selecciona artículos y cobra", true)}${card("products", "Productos", "Artículos, variantes y stock")}${card("clients", "Clientes / Crédito", "Compras, saldos y abonos")}${card("catalog", "Catálogo QR", "Vista del catálogo")}${card("sales", "Mis ventas", "Comprobantes e historial")}`;
@@ -321,6 +364,7 @@ function clientName(id) { return state.clients.find(x => x.id === id)?.name || "
    VENTA VERTICAL
 ========================= */
 function renderSale() {
+  if (isDesktopPOS()) return renderDesktopSale();
   if (!canSell()) { screen = "cash"; return renderCash(); }
   const t = totals(saleSubtotal());
   const categories = [...new Set(state.products.map(p => p.category?.trim() || "Otros"))];
@@ -364,6 +408,30 @@ window.selectSaleClient = () => {
 };
 window.saveSaleClient = () => { saleMeta.clientId = $("#saleClient").value; closeModal(); rerenderSale(); };
 window.newClientFromSale = () => modal(`<h3>Nuevo cliente</h3><div class="field"><label>Nombre</label><input id="cName"></div><div class="field"><label>Teléfono / WhatsApp</label><input id="cPhone"></div><div class="toolbar"><button class="btn primary" onclick="saveClient(true)">Guardar y seleccionar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+
+/* =========================
+   POS PARA COMPUTADORA
+========================= */
+function renderDesktopSale() {
+  if (!canSell()) { screen = "cash"; return renderCash(); }
+  const categories = [...new Set(state.products.map(p => p.category?.trim() || "Otros"))];
+  if (!quickCategory || !categories.includes(quickCategory)) quickCategory = categories[0] || "";
+  const items = state.products.filter(p => (p.category?.trim() || "Otros") === quickCategory);
+  const t = totals(saleSubtotal());
+  const catHtml = categories.map(c => `<button class="desktop-category-btn ${c === quickCategory ? "active" : ""}" onclick="desktopSetCategory(decodeURIComponent('${enc(c)}'))">${esc(c)}</button>`).join("") || `<div class="empty" style="padding:10px">Sin categorías.</div>`;
+  const itemHtml = items.map(p => `<button class="desktop-product" data-desktop-product="1" data-search="${esc((p.name + " " + (p.category || "")).toLowerCase())}" onclick="pickProduct('${p.id}')"><strong>${esc(p.name)}</strong>${p.variants?.length ? `<small>${p.variants.length} opciones</small>` : (!isServices() ? `<small>Stock: ${Number(p.stock || 0)}</small>` : `<small>${esc(p.category || "Servicio")}</small>`)}<span>${money(p.price)}</span></button>`).join("") || `<div class="empty" style="grid-column:1/-1">No hay ${isServices() ? "servicios" : "productos"} en esta categoría.</div>`;
+  const cartHtml = cart.length ? cart.map(i => `<div class="cart-item"><div style="min-width:0"><strong>${esc(i.name)}</strong>${i.variant ? `<div class="muted">${esc(i.variant)}</div>` : ""}<div class="muted">${money(i.price)} c/u</div></div><div class="qty"><button onclick="qty('${i.cartId}',-1)">−</button><strong>${i.qty}</strong><button onclick="qty('${i.cartId}',1)">+</button></div></div>`).join("") : `<div class="empty" style="padding:18px 8px">Selecciona ${isServices() ? "un servicio" : "un producto"}.</div>`;
+  const foodMeta = isFood() ? `<div class="desktop-cart-meta"><button class="${saleMeta.orderType === "Mostrador" ? "active" : ""}" onclick="setOrderType('Mostrador')">Mostrador</button><button class="${saleMeta.orderType === "Para llevar" ? "active" : ""}" onclick="setOrderType('Para llevar')">Para llevar</button><button class="${saleMeta.orderType === "Mesa" ? "active" : ""}" onclick="askTable()">${saleMeta.table ? `Mesa ${esc(saleMeta.table)}` : "Mesa"}</button><button onclick="editSaleNote()">${saleMeta.note ? "Nota ✓" : "Nota"}</button></div>` : "";
+  const selectedClient = saleMeta.clientId ? esc(clientName(saleMeta.clientId)) : "Sin cliente";
+  const shift = currentShift();
+  const content = `<section class="desktop-pos-page"><div class="desktop-pos-header"><div><h2>${isServices() ? "Nuevo servicio" : "Punto de venta"}</h2><p>${isServices() ? "Selecciona el servicio y cobra." : "Selecciona productos y cobra desde la misma pantalla."}</p></div>${isFood() ? `<span class="desktop-cash-state open">Caja abierta${shift ? ` · ${dateTime(shift.openedAt)}` : ""}</span>` : `<span class="desktop-cash-state open">Listo para cobrar</span>`}</div><div class="desktop-pos-layout"><aside class="desktop-pos-box desktop-category-pane"><div class="desktop-category-title">Categorías</div>${catHtml}</aside><section class="desktop-pos-box desktop-product-pane"><div class="desktop-product-toolbar"><input class="search" placeholder="Buscar en ${esc(quickCategory || (isServices() ? "servicios" : "productos"))}..." oninput="desktopFilterProducts(this.value)"></div><div class="desktop-product-grid">${itemHtml}</div></section><aside class="desktop-pos-box desktop-cart-pane">${foodMeta}<div class="desktop-cart-head"><h3>${isServices() ? "Servicio actual" : "Venta actual"}</h3><button class="btn ghost" style="padding:7px 9px;font-size:11px" onclick="clearCart()">Vaciar</button></div><div class="desktop-client-row"><span><strong>${selectedClient}</strong></span><button onclick="selectSaleClient()">${saleMeta.clientId ? "Cambiar" : "Cliente"}</button></div><div class="desktop-cart-list">${cartHtml}</div><div class="desktop-summary">${state.settings.taxMode !== "exempt" ? `<div class="ticket-line"><span class="muted">Impuesto</span><span>${money(t.tax)}</span></div>` : ""}<div class="total-box"><span>Total</span><span>${money(t.total)}</span></div></div><div class="desktop-pay-grid"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div></aside></div></section>`;
+  $("#app").innerHTML = shell(content, "sale");
+}
+window.desktopSetCategory = c => { quickCategory = c; renderDesktopSale(); };
+window.desktopFilterProducts = q => {
+  const v = String(q || "").trim().toLowerCase();
+  $$('[data-desktop-product="1"]').forEach(el => { el.style.display = !v || (el.dataset.search || "").includes(v) ? "" : "none"; });
+};
 
 /* =========================
    MODO COBRO RÁPIDO HORIZONTAL
