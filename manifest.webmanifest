@@ -1,0 +1,9 @@
+{
+  "name": "Mi Punto CR",
+  "short_name": "Mi Punto CR",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f7f2",
+  "theme_color": "#0f766e",
+  "icons": []
+}
