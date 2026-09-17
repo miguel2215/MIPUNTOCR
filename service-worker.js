@@ -1,4 +1,4 @@
-const CACHE = 'mipuntocr-v4';
+const CACHE = 'mipuntocr-v5-desktop-pos';
 const CORE = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
