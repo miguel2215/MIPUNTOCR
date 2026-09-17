@@ -1,11 +1,11 @@
 :root {
   --bg: #f7f7f3;
   --surface: #ffffff;
-  --text: #202938;
-  --muted: #747b89;
-  --primary: #367f76;
-  --primary-dark: #28675f;
-  --primary-soft: #e9f5f2;
+  --text: #162B38;
+  --muted: #536B79;
+  --primary: #11A680;
+  --primary-dark: #065F5E;
+  --primary-soft: #E8F7F3;
   --line: #e8e9e7;
   --danger: #b42318;
   --danger-soft: #fee4e2;
@@ -974,3 +974,15 @@ button {
   }
 
 }
+
+
+/* Mi Punto CR · identidad oficial */
+.brand-logo-horizontal{display:block;width:min(360px,82%);height:auto;margin:0 auto 18px}
+.brand-logo-horizontal.compact{width:min(240px,72%);margin-bottom:14px}
+.brand-logo-vertical{display:block;width:min(190px,58%);height:auto;margin:0 auto 14px}
+.brand-icon{width:42px;height:42px;border-radius:12px;object-fit:cover;flex:0 0 auto}
+.brand-icon.small{width:34px;height:34px;border-radius:10px}
+.brand-with-icon{display:flex;align-items:center;gap:11px;min-width:0}
+.brand-with-icon>div{min-width:0}
+.mpcr-powered{display:flex;align-items:center;justify-content:center;gap:7px;color:#536B79;font-size:10px}
+.mpcr-powered img{width:62px;height:auto;display:block}
