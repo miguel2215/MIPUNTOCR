@@ -1,4 +1,4 @@
-const CACHE = 'mipuntocr-v7-1-hotfix-arranque';
+const CACHE = 'mipuntocr-v7-2-pedidos-mesa';
 const CORE = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
