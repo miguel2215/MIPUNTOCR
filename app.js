@@ -1,5 +1,5 @@
 const DB_NAME = "mipuntocr";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const STORES = [
   "products",
@@ -15,6 +15,7 @@ let db;
 let currentScreen = "home";
 let cart = [];
 let orderDraft = [];
+let publicCart = [];
 let locked = false;
 let currentRole = "owner";
 
@@ -35,7 +36,7 @@ const appState = {
     currency: "CRC",
     taxMode: "included",
     taxRate: 13,
-    businessType: "general",
+    businessType: "food",
     pinEnabled: false,
     ownerPin: "",
     cashierPin: ""
@@ -43,9 +44,9 @@ const appState = {
 };
 
 
-/* =====================================================
+/* =========================================
    UTILIDADES
-===================================================== */
+========================================= */
 
 const money = value =>
   new Intl.NumberFormat("es-CR", {
@@ -84,39 +85,49 @@ function encoded(value = "") {
 }
 
 
-/* =====================================================
-   INDEXED DB
-===================================================== */
+/* =========================================
+   BASE DE DATOS LOCAL
+========================================= */
 
 function openDB() {
   return new Promise((resolve, reject) => {
 
     const request =
-      indexedDB.open(DB_NAME, DB_VERSION);
+      indexedDB.open(
+        DB_NAME,
+        DB_VERSION
+      );
+
 
     request.onupgradeneeded = () => {
 
-      const database = request.result;
+      const database =
+        request.result;
+
 
       STORES.forEach(storeName => {
 
         if (
-          !database.objectStoreNames
+          !database
+            .objectStoreNames
             .contains(storeName)
         ) {
 
-          database.createObjectStore(
-            storeName,
-            {
-              keyPath: "id"
-            }
-          );
+          database
+            .createObjectStore(
+              storeName,
+              {
+                keyPath: "id"
+              }
+            );
         }
       });
     };
 
+
     request.onsuccess = () =>
       resolve(request.result);
+
 
     request.onerror = () =>
       reject(request.error);
@@ -128,6 +139,7 @@ function getStore(
   name,
   mode = "readonly"
 ) {
+
   return db
     .transaction(name, mode)
     .objectStore(name);
@@ -148,8 +160,10 @@ function idbPut(
           "readwrite"
         ).put(object);
 
+
       request.onsuccess = () =>
         resolve(object);
+
 
       request.onerror = () =>
         reject(request.error);
@@ -172,8 +186,10 @@ function idbDelete(
           "readwrite"
         ).delete(id);
 
+
       request.onsuccess = () =>
         resolve();
+
 
       request.onerror = () =>
         reject(request.error);
@@ -188,11 +204,16 @@ function idbAll(storeName) {
     (resolve, reject) => {
 
       const request =
-        getStore(storeName)
-          .getAll();
+        getStore(
+          storeName
+        ).getAll();
+
 
       request.onsuccess = () =>
-        resolve(request.result || []);
+        resolve(
+          request.result || []
+        );
+
 
       request.onerror = () =>
         reject(request.error);
@@ -200,6 +221,10 @@ function idbAll(storeName) {
   );
 }
 
+
+/* =========================================
+   CARGAR DATOS
+========================================= */
 
 async function loadAll() {
 
@@ -234,9 +259,6 @@ async function loadAll() {
     };
   }
 
-
-  /* Productos ejemplo
-     solo aparecen si no existen productos */
 
   if (!appState.products.length) {
 
@@ -299,9 +321,78 @@ async function loadAll() {
 }
 
 
-/* =====================================================
-   CABECERA / NAVEGACIÓN
-===================================================== */
+/* =========================================
+   TIPO DE NEGOCIO
+========================================= */
+
+function businessType() {
+
+  const type =
+    appState.settings
+      .businessType ||
+    "food";
+
+
+  return [
+    "food",
+    "products",
+    "services"
+  ].includes(type)
+    ? type
+    : "food";
+}
+
+
+function isFood() {
+  return businessType() === "food";
+}
+
+
+function isProducts() {
+  return businessType() === "products";
+}
+
+
+function isServices() {
+  return businessType() === "services";
+}
+
+
+/* =========================================
+   CAJA ACTUAL
+========================================= */
+
+function currentShift() {
+
+  return [
+    ...appState.cashSessions
+  ]
+    .reverse()
+    .find(
+      session =>
+        session.status ===
+        "open"
+    );
+}
+
+
+function canSell() {
+
+  /*
+    Comida necesita caja abierta.
+    Productos y servicios NO.
+  */
+
+  return (
+    !isFood() ||
+    Boolean(currentShift())
+  );
+}
+
+
+/* =========================================
+   CABECERA
+========================================= */
 
 function connectionBadge() {
 
@@ -336,7 +427,10 @@ function navButton(
           ? "active"
           : ""
       }"
-      onclick="go('${screen}')"
+
+      onclick="
+        go('${screen}')
+      "
     >
       ${label}
     </button>
@@ -371,10 +465,9 @@ function shell(
 
         </div>
 
+
         <div class="status-row">
-
           ${connectionBadge()}
-
         </div>
 
       </header>
@@ -385,9 +478,11 @@ function shell(
 
           ? `
             <div class="offline-note">
-              Sin conexión. Tus datos
-              siguen guardándose
-              localmente.
+
+              Sin conexión.
+              Tus datos siguen
+              guardándose localmente.
+
             </div>
           `
 
@@ -409,17 +504,28 @@ function shell(
         active
       )}
 
+
       ${navButton(
         "sale",
-        "Vender",
+        isServices()
+          ? "Servicio"
+          : "Vender",
         active
       )}
 
+
       ${navButton(
-        "orders",
-        "Pedidos",
+        isFood()
+          ? "orders"
+          : "sales",
+
+        isFood()
+          ? "Pedidos"
+          : "Mis ventas",
+
         active
       )}
+
 
       ${navButton(
         "more",
@@ -436,19 +542,28 @@ function homeCard(
   screen,
   title,
   subtitle,
-  primary = false
+  primary = false,
+  disabled = false
 ) {
 
   return `
-
     <button
-      class="big-card ${
-        primary
-          ? "primary"
+      class="
+        big-card
+        ${primary ? "primary" : ""}
+      "
+
+      ${
+        disabled
+          ? "disabled"
+          : `onclick="go('${screen}')"`
+      }
+
+      style="${
+        disabled
+          ? "opacity:.55;cursor:not-allowed"
           : ""
       }"
-
-      onclick="go('${screen}')"
     >
 
       <span>
@@ -463,6 +578,7 @@ function homeCard(
 
       </span>
 
+
       <span class="card-arrow">
         ›
       </span>
@@ -472,9 +588,35 @@ function homeCard(
 }
 
 
+/* =========================================
+   NAVEGACIÓN
+========================================= */
+
 function go(screen) {
 
-  currentScreen = screen;
+  if (
+    screen === "sale" &&
+    !canSell()
+  ) {
+
+    toast(
+      "Primero debes abrir la caja."
+    );
+
+
+    currentScreen =
+      "cash";
+
+
+    render();
+
+    return;
+  }
+
+
+  currentScreen =
+    screen;
+
 
   render();
 }
@@ -543,6 +685,13 @@ function render() {
   }
 
   else if (
+    currentScreen === "sales"
+  ) {
+
+    renderSalesHistory();
+  }
+
+  else if (
     currentScreen === "settings"
   ) {
 
@@ -556,9 +705,9 @@ function render() {
 }
 
 
-/* =====================================================
+/* =========================================
    INICIO
-===================================================== */
+========================================= */
 
 function renderHome() {
 
@@ -605,6 +754,166 @@ function renderHome() {
     );
 
 
+  const shiftOpen =
+    Boolean(
+      currentShift()
+    );
+
+
+  let cards = "";
+
+
+  /* COMIDA / SODA */
+
+  if (isFood()) {
+
+    cards = `
+
+      ${homeCard(
+        "sale",
+
+        "Nueva venta",
+
+        shiftOpen
+          ? "Vende y cobra rápido"
+          : "Abre caja para poder vender",
+
+        true,
+
+        !shiftOpen
+      )}
+
+
+      ${homeCard(
+        "orders",
+        "Pedidos",
+        "Pendientes, preparando y listos"
+      )}
+
+
+      ${homeCard(
+        "cash",
+        shiftOpen
+          ? "Caja abierta"
+          : "Abrir caja",
+
+        shiftOpen
+          ? "Ventas, efectivo y cierre"
+          : "Fondo inicial y apertura"
+      )}
+
+
+      ${homeCard(
+        "products",
+        "Productos",
+        "Comidas, bebidas y stock"
+      )}
+
+
+      ${homeCard(
+        "clients",
+        "Clientes / Crédito",
+        "Saldos y abonos"
+      )}
+
+
+      ${homeCard(
+        "catalog",
+        "Menú QR",
+        "Comparte tu menú"
+      )}
+    `;
+  }
+
+
+  /* ARTÍCULOS */
+
+  if (isProducts()) {
+
+    cards = `
+
+      ${homeCard(
+        "sale",
+        "Vender",
+        "Selecciona artículos y genera comprobante",
+        true
+      )}
+
+
+      ${homeCard(
+        "products",
+        "Productos",
+        "Artículos, variantes y stock"
+      )}
+
+
+      ${homeCard(
+        "catalog",
+        "Catálogo QR",
+        "Comparte tus productos"
+      )}
+
+
+      ${homeCard(
+        "sales",
+        "Mis ventas",
+        "Comprobantes e historial"
+      )}
+
+
+      ${homeCard(
+        "clients",
+        "Clientes / Crédito",
+        "Saldos y abonos"
+      )}
+    `;
+  }
+
+
+  /* SERVICIOS */
+
+  if (isServices()) {
+
+    cards = `
+
+      ${homeCard(
+        "sale",
+        "Nuevo servicio",
+        "Selecciona servicio y genera comprobante",
+        true
+      )}
+
+
+      ${homeCard(
+        "products",
+        "Servicios",
+        "Precios y categorías"
+      )}
+
+
+      ${homeCard(
+        "catalog",
+        "Catálogo QR",
+        "Comparte tus servicios"
+      )}
+
+
+      ${homeCard(
+        "sales",
+        "Mis ventas",
+        "Comprobantes e historial"
+      )}
+
+
+      ${homeCard(
+        "clients",
+        "Clientes",
+        "Contactos y crédito si lo usas"
+      )}
+    `;
+  }
+
+
   document
     .querySelector("#app")
     .innerHTML =
@@ -617,8 +926,9 @@ function renderHome() {
         </h2>
 
         <p>
-          Todo lo importante está
-          a un toque.
+          Solo mostramos lo que
+          realmente sirve para
+          tu negocio.
         </p>
 
       </section>
@@ -626,7 +936,19 @@ function renderHome() {
 
       <div class="kpi-grid">
 
-        <div class="kpi">
+
+        <button
+          class="kpi"
+
+          style="
+            text-align:left;
+            border:1px solid var(--line)
+          "
+
+          onclick="
+            go('sales')
+          "
+        >
 
           <span class="muted">
             Ventas hoy
@@ -636,10 +958,21 @@ function renderHome() {
             ${money(totalToday)}
           </strong>
 
-        </div>
+        </button>
 
 
-        <div class="kpi">
+        <button
+          class="kpi"
+
+          style="
+            text-align:left;
+            border:1px solid var(--line)
+          "
+
+          onclick="
+            go('clients')
+          "
+        >
 
           <span class="muted">
             Por cobrar
@@ -649,7 +982,8 @@ function renderHome() {
             ${money(pending)}
           </strong>
 
-        </div>
+        </button>
+
 
       </div>
 
@@ -659,40 +993,7 @@ function renderHome() {
         style="margin-top:14px"
       >
 
-        ${homeCard(
-          "sale",
-          "Nueva venta",
-          "Vende y cobra rápido",
-          true
-        )}
-
-
-        ${homeCard(
-          "orders",
-          "Pedidos",
-          "Pendientes, preparando y listos"
-        )}
-
-
-        ${homeCard(
-          "cash",
-          "Caja",
-          "Ventas y cierre"
-        )}
-
-
-        ${homeCard(
-          "products",
-          "Productos",
-          "Precios y stock"
-        )}
-
-
-        ${homeCard(
-          "clients",
-          "Clientes / Fiado",
-          "Saldos y abonos"
-        )}
+        ${cards}
 
 
         ${
@@ -701,7 +1002,7 @@ function renderHome() {
             ? homeCard(
                 "settings",
                 "Configuración",
-                "Datos básicos"
+                "Datos básicos del negocio"
               )
 
             : ""
@@ -713,9 +1014,9 @@ function renderHome() {
 }
 
 
-/* =====================================================
+/* =========================================
    IMPUESTOS
-===================================================== */
+========================================= */
 
 function calculateTotals(
   subtotal
@@ -747,8 +1048,10 @@ function calculateTotals(
       subtotal *
       (rate / 100);
 
+
     total =
-      subtotal + tax;
+      subtotal +
+      tax;
   }
 
 
@@ -783,12 +1086,22 @@ function calculateTotals(
 }
 
 
-/* =====================================================
-   NUEVA VENTA
-   AHORA POR CATEGORÍAS
-===================================================== */
+/* =========================================
+   VENTA
+========================================= */
 
 function renderSale() {
+
+  if (!canSell()) {
+
+    currentScreen =
+      "cash";
+
+    renderCash();
+
+    return;
+  }
+
 
   const subtotal =
     cart.reduce(
@@ -809,12 +1122,6 @@ function renderSale() {
     );
 
 
-  /*
-    Las categorías se crean
-    automáticamente a partir
-    de los productos.
-  */
-
   const categories =
     [
       ...new Set(
@@ -832,16 +1139,17 @@ function renderSale() {
     categories
       .map(category => {
 
-        const products =
-          appState.products.filter(
-            product =>
-              (
-                product.category
-                  ?.trim() ||
-                "Otros"
-              ) ===
-              category
-          );
+        const count =
+          appState.products
+            .filter(
+              product =>
+                (
+                  product.category
+                    ?.trim() ||
+                  "Otros"
+                ) === category
+            )
+            .length;
 
 
         return `
@@ -865,12 +1173,22 @@ function renderSale() {
 
             <span class="category-count">
 
-              ${products.length}
+              ${count}
 
               ${
-                products.length === 1
-                  ? "producto"
-                  : "productos"
+                count === 1
+
+                  ? (
+                      isServices()
+                        ? "servicio"
+                        : "producto"
+                    )
+
+                  : (
+                      isServices()
+                        ? "servicios"
+                        : "productos"
+                    )
               }
 
             </span>
@@ -890,80 +1208,82 @@ function renderSale() {
     cart.length
 
       ? cart
-          .map(item => `
+          .map(
+            item => `
 
-            <div class="cart-item">
+              <div class="cart-item">
 
-              <div>
+                <div>
 
-                <strong>
-                  ${escapeHtml(
-                    item.name
-                  )}
-                </strong>
-
-
-                ${
-                  item.variant
-
-                    ? `
-                      <div class="muted">
-                        ${escapeHtml(
-                          item.variant
-                        )}
-                      </div>
-                    `
-
-                    : ""
-                }
+                  <strong>
+                    ${escapeHtml(
+                      item.name
+                    )}
+                  </strong>
 
 
-                <div class="muted">
+                  ${
+                    item.variant
 
-                  ${money(
-                    item.price
-                  )}
-                  c/u
+                      ? `
+                        <div class="muted">
+                          ${escapeHtml(
+                            item.variant
+                          )}
+                        </div>
+                      `
+
+                      : ""
+                  }
+
+
+                  <div class="muted">
+
+                    ${money(
+                      item.price
+                    )}
+                    c/u
+
+                  </div>
+
+                </div>
+
+
+                <div class="qty">
+
+                  <button
+                    onclick="
+                      changeQty(
+                        '${item.cartId}',
+                        -1
+                      )
+                    "
+                  >
+                    −
+                  </button>
+
+
+                  <strong>
+                    ${item.qty}
+                  </strong>
+
+
+                  <button
+                    onclick="
+                      changeQty(
+                        '${item.cartId}',
+                        1
+                      )
+                    "
+                  >
+                    +
+                  </button>
 
                 </div>
 
               </div>
-
-
-              <div class="qty">
-
-                <button
-                  onclick="
-                    changeQty(
-                      '${item.cartId}',
-                      -1
-                    )
-                  "
-                >
-                  −
-                </button>
-
-
-                <strong>
-                  ${item.qty}
-                </strong>
-
-
-                <button
-                  onclick="
-                    changeQty(
-                      '${item.cartId}',
-                      1
-                    )
-                  "
-                >
-                  +
-                </button>
-
-              </div>
-
-            </div>
-          `)
+            `
+          )
           .join("")
 
       : `
@@ -982,8 +1302,15 @@ function renderSale() {
       <section class="screen-title">
 
         <h2>
-          Nueva venta
+
+          ${
+            isServices()
+              ? "Nuevo servicio"
+              : "Nueva venta"
+          }
+
         </h2>
+
 
         <p>
           Selecciona una categoría.
@@ -996,7 +1323,6 @@ function renderSale() {
 
 
         <section class="panel">
-
 
           <input
             class="search"
@@ -1023,24 +1349,28 @@ function renderSale() {
 
               `
                 <div class="empty">
-                  No hay categorías.
+                  No hay categorías todavía.
                 </div>
               `
             }
 
           </div>
 
-
         </section>
 
 
         <section class="panel">
 
-
           <div class="row-head">
 
             <h3 style="margin:0">
-              Venta actual
+
+              ${
+                isServices()
+                  ? "Servicio actual"
+                  : "Venta actual"
+              }
+
             </h3>
 
 
@@ -1159,15 +1489,13 @@ function renderSale() {
                 pay('credit')
               "
             >
-              Fiado
+              Crédito
             </button>
 
 
           </div>
 
-
         </section>
-
 
       </div>
 
@@ -1175,9 +1503,9 @@ function renderSale() {
 }
 
 
-/* =====================================================
+/* =========================================
    ABRIR CATEGORÍA
-===================================================== */
+========================================= */
 
 window.openCategory =
 category => {
@@ -1203,14 +1531,22 @@ category => {
       <div>
 
         <h3>
-          ${escapeHtml(
-            category
-          )}
+          ${escapeHtml(category)}
         </h3>
 
+
         <p class="muted">
-          Toca un producto
+
+          Toca
+
+          ${
+            isServices()
+              ? "un servicio"
+              : "un producto"
+          }
+
           para agregarlo.
+
         </p>
 
       </div>
@@ -1226,68 +1562,69 @@ category => {
     </div>
 
 
-    <div class="
-      category-products
-    ">
-
+    <div class="category-products">
 
       ${products
-        .map(product => `
+        .map(
+          product => `
 
-          <button
-            class="
-              category-product
-            "
+            <button
+              class="category-product"
 
-            onclick="
-              addProductFromCategory(
-                '${product.id}'
-              )
-            "
-          >
+              onclick="
+                addProductFromCategory(
+                  '${product.id}'
+                )
+              "
+            >
 
-            <span>
+              <span>
 
-              <strong>
-                ${escapeHtml(
-                  product.name
+                <strong>
+                  ${escapeHtml(
+                    product.name
+                  )}
+                </strong>
+
+
+                ${
+                  !isServices()
+
+                    ? `
+                      <small>
+                        Stock:
+                        ${Number(
+                          product.stock ?? 0
+                        )}
+                      </small>
+                    `
+
+                    : ""
+                }
+
+              </span>
+
+
+              <span class="
+                category-product-price
+              ">
+
+                ${money(
+                  product.price
                 )}
-              </strong>
 
-              <small>
-                Stock:
-                ${Number(
-                  product.stock ?? 0
-                )}
-              </small>
+              </span>
 
-            </span>
+            </button>
 
-
-            <span class="
-              category-product-price
-            ">
-
-              ${money(
-                product.price
-              )}
-
-            </span>
-
-          </button>
-
-        `)
+          `
+        )
         .join("")}
-
 
     </div>
   `);
 };
 
-
-/* =====================================================
-   AGREGAR PRODUCTO DESDE CATEGORÍA
-===================================================== */
 
 window.addProductFromCategory =
 id => {
@@ -1301,11 +1638,6 @@ id => {
 
   if (!product) return;
 
-
-  /*
-    Si tiene tallas,
-    aromas, tamaños, etc.
-  */
 
   if (
     Array.isArray(
@@ -1331,41 +1663,43 @@ id => {
       <div class="variant-list">
 
         ${product.variants
-          .map(variant => `
+          .map(
+            variant => `
 
-            <button
-              class="
-                category-product
-              "
+              <button
+                class="category-product"
 
-              onclick="
-                addVariantToCart(
-                  '${product.id}',
-                  decodeURIComponent(
-                    '${encoded(variant)}'
+                onclick="
+                  addVariantToCart(
+                    '${product.id}',
+                    decodeURIComponent(
+                      '${encoded(variant)}'
+                    )
                   )
-                )
-              "
-            >
+                "
+              >
 
-              <strong>
-                ${escapeHtml(
-                  variant
-                )}
-              </strong>
+                <strong>
+                  ${escapeHtml(
+                    variant
+                  )}
+                </strong>
 
 
-              <span class="
-                category-product-price
-              ">
-                ${money(
-                  product.price
-                )}
-              </span>
+                <span class="
+                  category-product-price
+                ">
 
-            </button>
+                  ${money(
+                    product.price
+                  )}
 
-          `)
+                </span>
+
+              </button>
+
+            `
+          )
           .join("")}
 
       </div>
@@ -1382,14 +1716,10 @@ id => {
   );
 
 
-  /*
-    Cerramos y actualizamos
-    para que se vea la venta.
-  */
-
   closeModal();
 
   renderSale();
+
 
   toast(
     `${product.name} agregado`
@@ -1424,6 +1754,7 @@ window.addVariantToCart =
 
   renderSale();
 
+
   toast(
     `${product.name} agregado`
   );
@@ -1437,7 +1768,8 @@ function addProductDirectly(
 
   const cartId =
     `${product.id}_${
-      variant || "normal"
+      variant ||
+      "normal"
     }`;
 
 
@@ -1469,10 +1801,6 @@ function addProductDirectly(
 }
 
 
-/* =====================================================
-   BUSCAR CATEGORÍA
-===================================================== */
-
 window.filterCategories =
 value => {
 
@@ -1486,23 +1814,21 @@ value => {
     .querySelectorAll(
       ".category-card"
     )
-    .forEach(card => {
+    .forEach(
+      card => {
 
-      card.style.display =
-        card.innerText
-          .toLowerCase()
-          .includes(search)
+        card.style.display =
+          card.innerText
+            .toLowerCase()
+            .includes(search)
 
-          ? ""
+            ? ""
 
-          : "none";
-    });
+            : "none";
+      }
+    );
 };
 
-
-/* =====================================================
-   CANTIDADES / QUITAR DE LA VENTA
-===================================================== */
 
 window.changeQty =
 (
@@ -1524,11 +1850,6 @@ window.changeQty =
   item.qty += amount;
 
 
-  /*
-    Si llega a cero,
-    desaparece de la venta.
-  */
-
   if (
     item.qty <= 0
   ) {
@@ -1546,7 +1867,8 @@ window.changeQty =
 };
 
 
-window.clearCart = () => {
+window.clearCart =
+() => {
 
   cart = [];
 
@@ -1554,9 +1876,9 @@ window.clearCart = () => {
 };
 
 
-/* =====================================================
+/* =========================================
    COBRO
-===================================================== */
+========================================= */
 
 window.pay =
 method => {
@@ -1564,7 +1886,9 @@ method => {
   if (!cart.length) {
 
     toast(
-      "Agrega al menos un producto."
+      isServices()
+        ? "Agrega al menos un servicio."
+        : "Agrega al menos un producto."
     );
 
     return;
@@ -1631,9 +1955,9 @@ method => {
 };
 
 
-/* =====================================================
+/* =========================================
    EFECTIVO
-===================================================== */
+========================================= */
 
 function showCashPayment(
   totals
@@ -1647,6 +1971,7 @@ function showCashPayment(
 
 
     <p>
+
       Total:
 
       <strong>
@@ -1654,6 +1979,7 @@ function showCashPayment(
           totals.total
         )}
       </strong>
+
     </p>
 
 
@@ -1662,6 +1988,7 @@ function showCashPayment(
       <label>
         Recibido
       </label>
+
 
       <input
         id="cashReceived"
@@ -1708,6 +2035,7 @@ function showCashPayment(
 
       <button
         class="btn primary"
+
         onclick="
           confirmCashPayment()
         "
@@ -1718,7 +2046,10 @@ function showCashPayment(
 
       <button
         class="btn"
-        onclick="closeModal()"
+
+        onclick="
+          closeModal()
+        "
       >
         Cancelar
       </button>
@@ -1749,7 +2080,8 @@ total => {
     money(
       Math.max(
         0,
-        received - total
+        received -
+        total
       )
     );
 };
@@ -1809,9 +2141,9 @@ async () => {
 };
 
 
-/* =====================================================
+/* =========================================
    SINPE
-===================================================== */
+========================================= */
 
 function showSinpePayment(
   totals
@@ -1889,7 +2221,9 @@ function showSinpePayment(
       <button
         class="btn"
 
-        onclick="closeModal()"
+        onclick="
+          closeModal()
+        "
       >
         Cancelar
       </button>
@@ -1899,9 +2233,9 @@ function showSinpePayment(
 }
 
 
-/* =====================================================
-   TARJETA / OTRO
-===================================================== */
+/* =========================================
+   TARJETA
+========================================= */
 
 function showCardPayment(
   totals
@@ -1937,10 +2271,7 @@ function showCardPayment(
 
       <input
         id="paymentReference"
-
-        placeholder="
-          Ej. 45821
-        "
+        placeholder="Ej. 45821"
       >
 
     </div>
@@ -1984,9 +2315,9 @@ function showCardPayment(
 }
 
 
-/* =====================================================
-   FIADO
-===================================================== */
+/* =========================================
+   CRÉDITO
+========================================= */
 
 function showCreditPayment(
   totals
@@ -1994,24 +2325,26 @@ function showCreditPayment(
 
   const options =
     appState.clients
-      .map(client => `
+      .map(
+        client => `
 
-        <option
-          value="${client.id}"
-        >
-          ${escapeHtml(
-            client.name
-          )}
-        </option>
+          <option
+            value="${client.id}"
+          >
+            ${escapeHtml(
+              client.name
+            )}
+          </option>
 
-      `)
+        `
+      )
       .join("");
 
 
   modal(`
 
     <h3>
-      Venta fiada
+      Venta a crédito
     </h3>
 
 
@@ -2060,7 +2393,7 @@ function showCreditPayment(
           finishCreditSale()
         "
       >
-        Guardar fiado
+        Guardar crédito
       </button>
 
 
@@ -2141,7 +2474,7 @@ async () => {
 
 
   await saveSale(
-    "Fiado",
+    "Crédito",
     "",
     clientId
   );
@@ -2161,9 +2494,9 @@ async (
 };
 
 
-/* =====================================================
+/* =========================================
    GUARDAR VENTA
-===================================================== */
+========================================= */
 
 async function saveSale(
   method,
@@ -2191,9 +2524,14 @@ async function saveSale(
     );
 
 
+  const shift =
+    currentShift();
+
+
   const sale = {
 
-    id: uid("sale"),
+    id:
+      uid("sale"),
 
     number:
       appState.sales.length +
@@ -2203,23 +2541,34 @@ async function saveSale(
       new Date()
         .toISOString(),
 
+    businessType:
+      businessType(),
+
+    shiftId:
+      shift?.id ||
+      null,
+
     items:
-      cart.map(item => ({
+      cart.map(
+        item => ({
 
-        id: item.id,
+          id:
+            item.id,
 
-        name:
-          item.name,
+          name:
+            item.name,
 
-        variant:
-          item.variant || "",
+          variant:
+            item.variant ||
+            "",
 
-        price:
-          item.price,
+          price:
+            item.price,
 
-        qty:
-          item.qty
-      })),
+          qty:
+            item.qty
+        })
+      ),
 
     subtotal:
       totals.subtotal,
@@ -2263,38 +2612,41 @@ async function saveSale(
 
 
   /*
-    Descontar inventario
+    Servicios no descuentan stock.
   */
 
-  for (
-    const item of cart
-  ) {
+  if (!isServices()) {
 
-    const product =
-      appState.products.find(
-        product =>
-          product.id ===
-          item.id
+    for (
+      const item of cart
+    ) {
+
+      const product =
+        appState.products.find(
+          product =>
+            product.id ===
+            item.id
+        );
+
+
+      if (!product) continue;
+
+
+      product.stock =
+        Math.max(
+          0,
+          Number(
+            product.stock || 0
+          ) -
+          item.qty
+        );
+
+
+      await idbPut(
+        "products",
+        product
       );
-
-
-    if (!product) continue;
-
-
-    product.stock =
-      Math.max(
-        0,
-        Number(
-          product.stock || 0
-        ) -
-        item.qty
-      );
-
-
-    await idbPut(
-      "products",
-      product
-    );
+    }
   }
 
 
@@ -2310,9 +2662,9 @@ async function saveSale(
 }
 
 
-/* =====================================================
-   TICKET
-===================================================== */
+/* =========================================
+   COMPROBANTE
+========================================= */
 
 function showTicket(
   sale
@@ -2323,9 +2675,7 @@ function showTicket(
     <div class="ticket">
 
 
-      <div class="
-        ticket-business
-      ">
+      <div class="ticket-business">
 
         <h3>
 
@@ -2339,7 +2689,7 @@ function showTicket(
 
         <div class="muted">
 
-          Ticket
+          Comprobante
           #${sale.number}
 
         </div>
@@ -2363,47 +2713,47 @@ function showTicket(
 
 
       ${sale.items
-        .map(item => `
+        .map(
+          item => `
 
-          <div class="
-            ticket-line
-          ">
+            <div class="ticket-line">
 
-            <span>
+              <span>
 
-              ${item.qty}
-              ×
-              ${escapeHtml(
-                item.name
-              )}
+                ${item.qty}
+                ×
+                ${escapeHtml(
+                  item.name
+                )}
 
-              ${
-                item.variant
+                ${
+                  item.variant
 
-                  ? `
-                    (${escapeHtml(
-                      item.variant
-                    )})
-                  `
+                    ? `
+                      (${escapeHtml(
+                        item.variant
+                      )})
+                    `
 
-                  : ""
-              }
+                    : ""
+                }
 
-            </span>
+              </span>
 
 
-            <span>
+              <span>
 
-              ${money(
-                item.price *
-                item.qty
-              )}
+                ${money(
+                  item.price *
+                  item.qty
+                )}
 
-            </span>
+              </span>
 
-          </div>
+            </div>
 
-        `)
+          `
+        )
         .join("")}
 
 
@@ -2415,9 +2765,7 @@ function showTicket(
         sale.tax > 0
 
           ? `
-            <div class="
-              ticket-line
-            ">
+            <div class="ticket-line">
 
               <span>
                 Impuesto
@@ -2436,10 +2784,12 @@ function showTicket(
       }
 
 
-      <div class="
-        ticket-line
-        ticket-total
-      ">
+      <div
+        class="
+          ticket-line
+          ticket-total
+        "
+      >
 
         <span>
           Total
@@ -2454,9 +2804,7 @@ function showTicket(
       </div>
 
 
-      <div class="
-        ticket-line
-      ">
+      <div class="ticket-line">
 
         <span>
           Pago
@@ -2475,9 +2823,7 @@ function showTicket(
         sale.change > 0
 
           ? `
-            <div class="
-              ticket-line
-            ">
+            <div class="ticket-line">
 
               <span>
                 Vuelto
@@ -2502,17 +2848,16 @@ function showTicket(
 
       <div class="toolbar">
 
-
         <button
           class="btn primary"
 
           onclick="
-            shareTicket(
+            shareReceipt(
               '${sale.id}'
             )
           "
         >
-          Compartir WhatsApp
+          Compartir PDF
         </button>
 
 
@@ -2539,16 +2884,14 @@ function showTicket(
           Inicio
         </button>
 
-
       </div>
-
 
     </div>
   `);
 }
 
 
-function ticketText(
+function receiptText(
   sale
 ) {
 
@@ -2557,7 +2900,7 @@ function ticketText(
     appState.settings
       .businessName,
 
-    `Ticket #${sale.number}`,
+    `Comprobante #${sale.number}`,
 
     new Date(
       sale.createdAt
@@ -2627,6 +2970,7 @@ function ticketText(
 
 
   lines.push("");
+
   lines.push(
     "Gracias por su compra."
   );
@@ -2636,8 +2980,375 @@ function ticketText(
 }
 
 
-window.shareTicket =
-saleId => {
+/* =========================================
+   PDF
+========================================= */
+
+async function ensureJsPdf() {
+
+  if (
+    window.jspdf?.jsPDF
+  ) {
+
+    return window.jspdf
+      .jsPDF;
+  }
+
+
+  await new Promise(
+    (resolve, reject) => {
+
+      const existing =
+        document.querySelector(
+          'script[data-jspdf="true"]'
+        );
+
+
+      if (existing) {
+
+        existing
+          .addEventListener(
+            "load",
+            resolve,
+            {
+              once: true
+            }
+          );
+
+
+        existing
+          .addEventListener(
+            "error",
+            reject,
+            {
+              once: true
+            }
+          );
+
+
+        return;
+      }
+
+
+      const script =
+        document.createElement(
+          "script"
+        );
+
+
+      script.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+
+
+      script.async =
+        true;
+
+
+      script.dataset.jspdf =
+        "true";
+
+
+      script.onload =
+        resolve;
+
+
+      script.onerror =
+        reject;
+
+
+      document.head
+        .appendChild(
+          script
+        );
+    }
+  );
+
+
+  return window.jspdf
+    .jsPDF;
+}
+
+
+async function buildReceiptPdf(
+  sale
+) {
+
+  const jsPDF =
+    await ensureJsPdf();
+
+
+  const doc =
+    new jsPDF({
+      unit: "mm",
+      format: "a4"
+    });
+
+
+  let y = 18;
+
+
+  doc.setFont(
+    "helvetica",
+    "bold"
+  );
+
+
+  doc.setFontSize(16);
+
+
+  doc.text(
+    appState.settings
+      .businessName ||
+    "Mi Punto CR",
+
+    15,
+    y
+  );
+
+
+  y += 8;
+
+
+  doc.setFont(
+    "helvetica",
+    "normal"
+  );
+
+
+  doc.setFontSize(10);
+
+
+  doc.text(
+    `Comprobante #${sale.number}`,
+    15,
+    y
+  );
+
+
+  y += 5;
+
+
+  doc.text(
+    new Date(
+      sale.createdAt
+    ).toLocaleString(
+      "es-CR"
+    ),
+
+    15,
+    y
+  );
+
+
+  if (
+    appState.settings
+      .phone
+  ) {
+
+    y += 5;
+
+
+    doc.text(
+      `Tel: ${
+        appState.settings
+          .phone
+      }`,
+
+      15,
+      y
+    );
+  }
+
+
+  y += 9;
+
+
+  doc.line(
+    15,
+    y,
+    195,
+    y
+  );
+
+
+  y += 7;
+
+
+  sale.items.forEach(
+    item => {
+
+      const label =
+        `${item.qty} x ${item.name}${
+          item.variant
+            ? ` (${item.variant})`
+            : ""
+        }`;
+
+
+      doc.text(
+        label.slice(
+          0,
+          70
+        ),
+
+        15,
+        y
+      );
+
+
+      doc.text(
+        money(
+          item.price *
+          item.qty
+        ),
+
+        195,
+        y,
+
+        {
+          align: "right"
+        }
+      );
+
+
+      y += 6;
+    }
+  );
+
+
+  y += 2;
+
+
+  doc.line(
+    15,
+    y,
+    195,
+    y
+  );
+
+
+  y += 7;
+
+
+  if (
+    sale.tax > 0
+  ) {
+
+    doc.text(
+      "Impuesto",
+      15,
+      y
+    );
+
+
+    doc.text(
+      money(
+        sale.tax
+      ),
+
+      195,
+      y,
+
+      {
+        align: "right"
+      }
+    );
+
+
+    y += 6;
+  }
+
+
+  doc.setFont(
+    "helvetica",
+    "bold"
+  );
+
+
+  doc.setFontSize(13);
+
+
+  doc.text(
+    "TOTAL",
+    15,
+    y
+  );
+
+
+  doc.text(
+    money(
+      sale.total
+    ),
+
+    195,
+    y,
+
+    {
+      align: "right"
+    }
+  );
+
+
+  y += 8;
+
+
+  doc.setFont(
+    "helvetica",
+    "normal"
+  );
+
+
+  doc.setFontSize(10);
+
+
+  doc.text(
+    `Pago: ${
+      sale.method
+    }`,
+
+    15,
+    y
+  );
+
+
+  if (
+    sale.change > 0
+  ) {
+
+    y += 5;
+
+
+    doc.text(
+      `Vuelto: ${
+        money(
+          sale.change
+        )
+      }`,
+
+      15,
+      y
+    );
+  }
+
+
+  y += 10;
+
+
+  doc.text(
+    "Gracias por su compra.",
+    15,
+    y
+  );
+
+
+  return doc.output(
+    "blob"
+  );
+}
+
+
+window.shareReceipt =
+async saleId => {
 
   const sale =
     appState.sales.find(
@@ -2650,80 +3361,632 @@ saleId => {
   if (!sale) return;
 
 
-  window.open(
+  try {
 
-    `https://wa.me/?text=${
-      encodeURIComponent(
-        ticketText(sale)
-      )
-    }`,
+    const blob =
+      await buildReceiptPdf(
+        sale
+      );
 
-    "_blank"
-  );
+
+    const file =
+      new File(
+        [blob],
+
+        `comprobante-${sale.number}.pdf`,
+
+        {
+          type:
+            "application/pdf"
+        }
+      );
+
+
+    if (
+      navigator.share &&
+      navigator.canShare?.({
+        files: [file]
+      })
+    ) {
+
+      await navigator.share({
+
+        title:
+          `Comprobante #${sale.number}`,
+
+        text:
+          `${appState.settings.businessName} - Comprobante #${sale.number}`,
+
+        files:
+          [file]
+      });
+
+
+      return;
+    }
+
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+
+    const link =
+      document.createElement(
+        "a"
+      );
+
+
+    link.href =
+      url;
+
+
+    link.download =
+      file.name;
+
+
+    document.body
+      .appendChild(
+        link
+      );
+
+
+    link.click();
+
+    link.remove();
+
+
+    setTimeout(
+      () =>
+        URL.revokeObjectURL(
+          url
+        ),
+      3000
+    );
+
+
+    toast(
+      "PDF generado."
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+
+    window.open(
+
+      `https://wa.me/?text=${
+        encodeURIComponent(
+          receiptText(sale)
+        )
+      }`,
+
+      "_blank"
+    );
+
+
+    toast(
+      "Se abrió el comprobante en texto."
+    );
+  }
 };
 
 
-/* =====================================================
-   PRODUCTOS
-===================================================== */
+/* =========================================
+   HISTORIAL DE VENTAS
+========================================= */
 
-function renderProducts() {
+function renderSalesHistory() {
 
-  const productsHTML =
-    appState.products.length
+  const sorted =
+    [...appState.sales]
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          new Date(
+            b.createdAt
+          ) -
+          new Date(
+            a.createdAt
+          )
+      );
 
-      ? appState.products
-          .map(product => `
 
-            <div class="row-card">
+  document
+    .querySelector("#app")
+    .innerHTML =
+    shell(`
+
+      <section class="screen-title">
+
+        <h2>
+          Mis ventas
+        </h2>
+
+        <p>
+          Comprobantes generados.
+        </p>
+
+      </section>
 
 
-              <div class="row-head">
+      <div class="toolbar">
+
+        <button
+          class="btn ghost"
+          onclick="
+            filterSales('today')
+          "
+        >
+          Hoy
+        </button>
 
 
-                <div>
+        <button
+          class="btn ghost"
+          onclick="
+            filterSales('yesterday')
+          "
+        >
+          Ayer
+        </button>
+
+
+        <button
+          class="btn ghost"
+          onclick="
+            filterSales('week')
+          "
+        >
+          Esta semana
+        </button>
+
+
+        <button
+          class="btn ghost"
+          onclick="
+            filterSales('all')
+          "
+        >
+          Todas
+        </button>
+
+      </div>
+
+
+      <div
+        id="salesList"
+        class="list"
+      >
+
+        ${salesListHTML(
+          sorted
+        )}
+
+      </div>
+
+    `,
+    isFood()
+      ? "more"
+      : "sales"
+    );
+}
+
+
+function salesListHTML(
+  sales
+) {
+
+  if (!sales.length) {
+
+    return `
+      <div class="empty">
+        No hay ventas
+        en este período.
+      </div>
+    `;
+  }
+
+
+  return sales
+    .map(
+      sale => `
+
+        <button
+          class="row-card"
+
+          style="
+            width:100%;
+            text-align:left
+          "
+
+          onclick="
+            openSale(
+              '${sale.id}'
+            )
+          "
+        >
+
+          <div class="row-head">
+
+            <div>
+
+              <strong>
+                Comprobante
+                #${sale.number}
+              </strong>
+
+              <div class="muted">
+
+                ${new Date(
+                  sale.createdAt
+                ).toLocaleString(
+                  "es-CR"
+                )}
+
+              </div>
+
+            </div>
+
+
+            <strong>
+              ${money(
+                sale.total
+              )}
+            </strong>
+
+          </div>
+
+
+          <div
+            class="muted"
+            style="margin-top:7px"
+          >
+
+            ${escapeHtml(
+              sale.method
+            )}
+
+          </div>
+
+        </button>
+
+      `
+    )
+    .join("");
+}
+
+
+window.filterSales =
+mode => {
+
+  const now =
+    new Date();
+
+
+  const todayStart =
+    new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+
+
+  const yesterdayStart =
+    new Date(
+      todayStart
+    );
+
+
+  yesterdayStart.setDate(
+    yesterdayStart.getDate() -
+    1
+  );
+
+
+  const weekStart =
+    new Date(
+      todayStart
+    );
+
+
+  const day =
+    weekStart.getDay() ||
+    7;
+
+
+  weekStart.setDate(
+    weekStart.getDate() -
+    day +
+    1
+  );
+
+
+  let sales =
+    [...appState.sales];
+
+
+  if (
+    mode === "today"
+  ) {
+
+    sales =
+      sales.filter(
+        sale =>
+          new Date(
+            sale.createdAt
+          ) >=
+          todayStart
+      );
+  }
+
+
+  if (
+    mode === "yesterday"
+  ) {
+
+    sales =
+      sales.filter(
+        sale => {
+
+          const date =
+            new Date(
+              sale.createdAt
+            );
+
+
+          return (
+            date >=
+            yesterdayStart &&
+            date <
+            todayStart
+          );
+        }
+      );
+  }
+
+
+  if (
+    mode === "week"
+  ) {
+
+    sales =
+      sales.filter(
+        sale =>
+          new Date(
+            sale.createdAt
+          ) >=
+          weekStart
+      );
+  }
+
+
+  sales.sort(
+    (
+      a,
+      b
+    ) =>
+      new Date(
+        b.createdAt
+      ) -
+      new Date(
+        a.createdAt
+      )
+  );
+
+
+  document
+    .querySelector(
+      "#salesList"
+    )
+    .innerHTML =
+    salesListHTML(
+      sales
+    );
+};
+
+
+window.openSale =
+saleId => {
+
+  const sale =
+    appState.sales.find(
+      item =>
+        item.id ===
+        saleId
+    );
+
+
+  if (sale) {
+
+    showTicket(
+      sale
+    );
+  }
+};
+
+
+/* =========================================
+   PEDIDOS COMIDA
+========================================= */
+
+function renderOrders() {
+
+  const html =
+    appState.orders.length
+
+      ? [...appState.orders]
+          .reverse()
+          .map(
+            order => `
+
+              <div class="row-card">
+
+                <div class="row-head">
 
                   <strong>
-                    ${escapeHtml(
-                      product.name
-                    )}
+                    Pedido
+                    #${order.number}
                   </strong>
 
-
-                  <div class="muted">
-
+                  <span class="badge">
                     ${escapeHtml(
-                      product.category ||
-                      "Sin categoría"
+                      order.status
                     )}
+                  </span>
 
-                  </div>
+                </div>
 
 
-                  <div class="muted">
+                ${
+                  order.customer
 
-                    Stock:
-                    ${Number(
-                      product.stock || 0
-                    )}
+                    ? `
+                      <div class="muted">
+                        ${escapeHtml(
+                          order.customer
+                        )}
+                      </div>
+                    `
 
-                  </div>
+                    : ""
+                }
+
+
+                <div
+                  style="margin-top:10px"
+                >
+
+                  ${(order.items || [])
+                    .map(
+                      item => `
+
+                        <div class="ticket-line">
+
+                          <span>
+
+                            ${item.qty}
+                            ×
+                            ${escapeHtml(
+                              item.name
+                            )}
+
+                          </span>
+
+
+                          <span>
+
+                            ${money(
+                              item.price *
+                              item.qty
+                            )}
+
+                          </span>
+
+                        </div>
+
+                      `
+                    )
+                    .join("")}
+
+                </div>
+
+
+                ${
+                  order.notes
+
+                    ? `
+                      <div
+                        class="muted"
+                        style="margin-top:8px"
+                      >
+
+                        ${escapeHtml(
+                          order.notes
+                        )}
+
+                      </div>
+                    `
+
+                    : ""
+                }
+
+
+                <div
+                  class="toolbar"
+                  style="
+                    margin-top:12px;
+                    margin-bottom:0
+                  "
+                >
+
+                  ${
+                    order.status ===
+                    "Pendiente"
+
+                      ? `
+                        <button
+                          class="btn primary"
+
+                          onclick="
+                            setOrderStatus(
+                              '${order.id}',
+                              'Preparando'
+                            )
+                          "
+                        >
+                          Preparando
+                        </button>
+                      `
+
+                      : ""
+                  }
 
 
                   ${
-                    product.variants
-                      ?.length
+                    order.status ===
+                    "Preparando"
 
                       ? `
-                        <div class="muted">
+                        <button
+                          class="btn primary"
 
-                          ${product.variants
-                            .map(
-                              escapeHtml
+                          onclick="
+                            setOrderStatus(
+                              '${order.id}',
+                              'Listo'
                             )
-                            .join(" · ")}
+                          "
+                        >
+                          Listo
+                        </button>
+                      `
 
-                        </div>
+                      : ""
+                  }
+
+
+                  ${
+                    order.status ===
+                    "Listo"
+
+                      ? `
+                        <button
+                          class="btn primary"
+
+                          onclick="
+                            setOrderStatus(
+                              '${order.id}',
+                              'Entregado'
+                            )
+                          "
+                        >
+                          Entregado
+                        </button>
                       `
 
                       : ""
@@ -2731,78 +3994,15 @@ function renderProducts() {
 
                 </div>
 
-
-                <strong>
-
-                  ${money(
-                    product.price
-                  )}
-
-                </strong>
-
-
               </div>
 
-
-              <div
-                class="toolbar"
-
-                style="
-                  margin-top:12px;
-                  margin-bottom:0
-                "
-              >
-
-
-                <button
-                  class="btn ghost"
-
-                  onclick="
-                    productForm(
-                      '${product.id}'
-                    )
-                  "
-                >
-                  Editar
-                </button>
-
-
-                ${
-                  currentRole ===
-                  "owner"
-
-                    ? `
-                      <button
-                        class="
-                          btn
-                          danger
-                        "
-
-                        onclick="
-                          confirmDeleteProduct(
-                            '${product.id}'
-                          )
-                        "
-                      >
-                        Eliminar
-                      </button>
-                    `
-
-                    : ""
-                }
-
-
-              </div>
-
-
-            </div>
-
-          `)
+            `
+          )
           .join("")
 
       : `
         <div class="empty">
-          No hay productos.
+          No hay pedidos.
         </div>
       `;
 
@@ -2812,17 +4012,557 @@ function renderProducts() {
     .innerHTML =
     shell(`
 
-      <section class="
-        screen-title
-      ">
+      <section class="screen-title">
 
         <h2>
-          Productos
+          Pedidos
         </h2>
 
         <p>
-          Agrega, edita o elimina
+          Pendiente →
+          preparando →
+          listo →
+          entregado.
+        </p>
+
+      </section>
+
+
+      <div class="toolbar">
+
+        <button
+          class="btn primary"
+          onclick="newOrder()"
+        >
+          Nuevo pedido
+        </button>
+
+      </div>
+
+
+      <div class="list">
+        ${html}
+      </div>
+
+    `, "orders");
+}
+
+
+window.newOrder =
+() => {
+
+  orderDraft = [];
+
+
+  modal(`
+
+    <h3>
+      Nuevo pedido
+    </h3>
+
+
+    <div class="field">
+
+      <label>
+        Cliente opcional
+      </label>
+
+      <input
+        id="orderCustomer"
+        placeholder="Nombre"
+      >
+
+    </div>
+
+
+    <p class="muted">
+      Toca productos
+      para agregarlos.
+    </p>
+
+
+    <div class="
+      order-builder-products
+    ">
+
+      ${appState.products
+        .map(
+          product => `
+
+            <button
+              onclick="
+                addOrderProduct(
+                  '${product.id}'
+                )
+              "
+            >
+
+              <strong>
+                ${escapeHtml(
+                  product.name
+                )}
+              </strong>
+
+              <br>
+
+              <span class="muted">
+                ${money(
+                  product.price
+                )}
+              </span>
+
+            </button>
+
+          `
+        )
+        .join("")}
+
+    </div>
+
+
+    <div class="divider">
+    </div>
+
+
+    <div id="orderDraftView">
+    </div>
+
+
+    <div class="field">
+
+      <label>
+        Notas
+      </label>
+
+      <textarea
+        id="orderNotes"
+        rows="3"
+
+        placeholder="
+          Ej. sin cebolla,
+          para llevar...
+        "
+      ></textarea>
+
+    </div>
+
+
+    <div
+      class="toolbar"
+      style="margin-top:14px"
+    >
+
+      <button
+        class="btn primary"
+        onclick="saveOrder()"
+      >
+        Guardar pedido
+      </button>
+
+
+      <button
+        class="btn"
+        onclick="closeModal()"
+      >
+        Cancelar
+      </button>
+
+    </div>
+  `);
+
+
+  renderOrderDraft();
+};
+
+
+window.addOrderProduct =
+id => {
+
+  const product =
+    appState.products.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (!product) return;
+
+
+  const existing =
+    orderDraft.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (existing) {
+
+    existing.qty += 1;
+
+  } else {
+
+    orderDraft.push({
+
+      id:
+        product.id,
+
+      name:
+        product.name,
+
+      price:
+        product.price,
+
+      qty: 1
+    });
+  }
+
+
+  renderOrderDraft();
+};
+
+
+function renderOrderDraft() {
+
+  const container =
+    document
+      .querySelector(
+        "#orderDraftView"
+      );
+
+
+  if (!container) return;
+
+
+  container.innerHTML =
+
+    orderDraft.length
+
+      ? orderDraft
+          .map(
+            item => `
+
+              <div class="ticket-line">
+
+                <span>
+
+                  ${item.qty}
+                  ×
+                  ${escapeHtml(
+                    item.name
+                  )}
+
+                </span>
+
+                <span>
+
+                  ${money(
+                    item.price *
+                    item.qty
+                  )}
+
+                </span>
+
+              </div>
+
+            `
+          )
+          .join("")
+
+      : `
+        <div class="empty">
+          Aún no agregaste
           productos.
+        </div>
+      `;
+}
+
+
+window.saveOrder =
+async () => {
+
+  if (!orderDraft.length) {
+
+    toast(
+      "Agrega al menos un producto."
+    );
+
+    return;
+  }
+
+
+  const order = {
+
+    id:
+      uid("order"),
+
+    number:
+      appState.orders.length +
+      1,
+
+    customer:
+      document
+        .querySelector(
+          "#orderCustomer"
+        )
+        .value
+        .trim(),
+
+    notes:
+      document
+        .querySelector(
+          "#orderNotes"
+        )
+        .value
+        .trim(),
+
+    items:
+      [...orderDraft],
+
+    status:
+      "Pendiente",
+
+    source:
+      "Manual",
+
+    createdAt:
+      new Date()
+        .toISOString()
+  };
+
+
+  await idbPut(
+    "orders",
+    order
+  );
+
+
+  appState.orders.push(
+    order
+  );
+
+
+  orderDraft = [];
+
+
+  closeModal();
+
+  renderOrders();
+
+
+  toast(
+    "Pedido guardado."
+  );
+};
+
+
+window.setOrderStatus =
+async (
+  id,
+  status
+) => {
+
+  const order =
+    appState.orders.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (!order) return;
+
+
+  order.status =
+    status;
+
+
+  await idbPut(
+    "orders",
+    order
+  );
+
+
+  renderOrders();
+};
+
+
+/* =========================================
+   PRODUCTOS / SERVICIOS
+========================================= */
+
+function renderProducts() {
+
+  const label =
+    isServices()
+      ? "Servicios"
+      : "Productos";
+
+
+  const singular =
+    isServices()
+      ? "servicio"
+      : "producto";
+
+
+  const html =
+    appState.products.length
+
+      ? appState.products
+          .map(
+            product => `
+
+              <div class="row-card">
+
+                <div class="row-head">
+
+                  <div>
+
+                    <strong>
+                      ${escapeHtml(
+                        product.name
+                      )}
+                    </strong>
+
+
+                    <div class="muted">
+
+                      ${escapeHtml(
+                        product.category ||
+                        "Sin categoría"
+                      )}
+
+                    </div>
+
+
+                    ${
+                      !isServices()
+
+                        ? `
+                          <div class="muted">
+                            Stock:
+                            ${Number(
+                              product.stock || 0
+                            )}
+                          </div>
+                        `
+
+                        : ""
+                    }
+
+
+                    ${
+                      product.variants
+                        ?.length
+
+                        ? `
+                          <div class="muted">
+
+                            ${product.variants
+                              .map(
+                                escapeHtml
+                              )
+                              .join(" · ")}
+
+                          </div>
+                        `
+
+                        : ""
+                    }
+
+                  </div>
+
+
+                  <strong>
+
+                    ${money(
+                      product.price
+                    )}
+
+                  </strong>
+
+                </div>
+
+
+                <div
+                  class="toolbar"
+
+                  style="
+                    margin-top:12px;
+                    margin-bottom:0
+                  "
+                >
+
+                  <button
+                    class="btn ghost"
+
+                    onclick="
+                      productForm(
+                        '${product.id}'
+                      )
+                    "
+                  >
+                    Editar
+                  </button>
+
+
+                  ${
+                    currentRole ===
+                    "owner"
+
+                      ? `
+                        <button
+                          class="
+                            btn
+                            danger
+                          "
+
+                          onclick="
+                            confirmDeleteProduct(
+                              '${product.id}'
+                            )
+                          "
+                        >
+                          Eliminar
+                        </button>
+                      `
+
+                      : ""
+                  }
+
+                </div>
+
+              </div>
+
+            `
+          )
+          .join("")
+
+      : `
+        <div class="empty">
+
+          No hay
+          ${label.toLowerCase()}.
+
+        </div>
+      `;
+
+
+  document
+    .querySelector("#app")
+    .innerHTML =
+    shell(`
+
+      <section class="screen-title">
+
+        <h2>
+          ${label}
+        </h2>
+
+
+        <p>
+
+          Agrega, edita o elimina
+          ${label.toLowerCase()}.
+
         </p>
 
       </section>
@@ -2837,25 +4577,22 @@ function renderProducts() {
             productForm()
           "
         >
-          Nuevo producto
+
+          Nuevo
+          ${singular}
+
         </button>
 
       </div>
 
 
       <div class="list">
-
-        ${productsHTML}
-
+        ${html}
       </div>
 
     `, "more");
 }
 
-
-/* =====================================================
-   CREAR / EDITAR PRODUCTO
-===================================================== */
 
 window.productForm =
 id => {
@@ -2871,14 +4608,20 @@ id => {
       : null;
 
 
+  const singular =
+    isServices()
+      ? "servicio"
+      : "producto";
+
+
   modal(`
 
     <h3>
 
       ${
         product
-          ? "Editar producto"
-          : "Nuevo producto"
+          ? `Editar ${singular}`
+          : `Nuevo ${singular}`
       }
 
     </h3>
@@ -2923,23 +4666,39 @@ id => {
       </div>
 
 
-      <div class="field">
+      ${
+        !isServices()
 
-        <label>
-          Costo opcional
-        </label>
+          ? `
 
-        <input
-          id="pCost"
-          type="number"
-          inputmode="decimal"
+            <div class="field">
 
-          value="${Number(
-            product?.cost || 0
-          )}"
-        >
+              <label>
+                Costo opcional
+              </label>
 
-      </div>
+              <input
+                id="pCost"
+                type="number"
+                inputmode="decimal"
+
+                value="${Number(
+                  product?.cost || 0
+                )}"
+              >
+
+            </div>
+
+          `
+
+          : `
+            <input
+              id="pCost"
+              type="hidden"
+              value="0"
+            >
+          `
+      }
 
 
       <div class="field">
@@ -2955,55 +4714,82 @@ id => {
             product?.category || ""
           )}"
 
-          placeholder="
-            Ej. Bebidas
-          "
+          placeholder="${
+            isServices()
+              ? "Ej. Belleza"
+              : "Ej. Bebidas"
+          }"
         >
 
       </div>
 
 
-      <div class="field">
+      ${
+        !isServices()
 
-        <label>
-          Stock
-        </label>
+          ? `
 
-        <input
-          id="pStock"
-          type="number"
-          inputmode="numeric"
+            <div class="field">
 
-          value="${Number(
-            product?.stock || 0
-          )}"
-        >
+              <label>
+                Stock
+              </label>
 
-      </div>
+              <input
+                id="pStock"
+                type="number"
+                inputmode="numeric"
+
+                value="${Number(
+                  product?.stock || 0
+                )}"
+              >
+
+            </div>
 
 
-      <div class="field">
+            <div class="field">
 
-        <label>
-          Variantes opcionales
-        </label>
+              <label>
+                Variantes opcionales
+              </label>
 
-        <input
-          id="pVariants"
+              <input
+                id="pVariants"
 
-          value="${escapeAttr(
-            product?.variants
-              ?.join(", ") ||
-            ""
-          )}"
+                value="${escapeAttr(
+                  product?.variants
+                    ?.join(", ") ||
+                  ""
+                )}"
 
-          placeholder="
-            Ej. M, L, XL
-          "
-        >
+                placeholder="
+                  Ej. M, L, XL
+                  o 50ml, 100ml
+                "
+              >
 
-      </div>
+            </div>
 
+          `
+
+          : `
+
+            <input
+              id="pStock"
+              type="hidden"
+              value="0"
+            >
+
+
+            <input
+              id="pVariants"
+              type="hidden"
+              value=""
+            >
+
+          `
+      }
 
     </div>
 
@@ -3104,13 +4890,15 @@ async id => {
   if (!product) {
 
     product = {
-      id: uid("p")
+      id:
+        uid("p")
     };
 
 
-    appState.products.push(
-      product
-    );
+    appState.products
+      .push(
+        product
+      );
   }
 
 
@@ -3166,15 +4954,14 @@ async id => {
 
   renderProducts();
 
+
   toast(
-    "Producto guardado."
+    isServices()
+      ? "Servicio guardado."
+      : "Producto guardado."
   );
 };
 
-
-/* =====================================================
-   ELIMINAR PRODUCTO
-===================================================== */
 
 window.confirmDeleteProduct =
 id => {
@@ -3192,7 +4979,14 @@ id => {
   modal(`
 
     <h3>
-      Eliminar producto
+
+      Eliminar
+      ${
+        isServices()
+          ? "servicio"
+          : "producto"
+      }
+
     </h3>
 
 
@@ -3268,12 +5062,6 @@ async id => {
     );
 
 
-  /*
-    Si estaba dentro
-    de una venta actual,
-    también lo quitamos.
-  */
-
   cart =
     cart.filter(
       item =>
@@ -3285,15 +5073,18 @@ async id => {
 
   renderProducts();
 
+
   toast(
-    "Producto eliminado."
+    isServices()
+      ? "Servicio eliminado."
+      : "Producto eliminado."
   );
 };
 
 
-/* =====================================================
-   CLIENTES
-===================================================== */
+/* =========================================
+   CLIENTES / CRÉDITO
+========================================= */
 
 function renderClients() {
 
@@ -3301,93 +5092,97 @@ function renderClients() {
     appState.clients.length
 
       ? appState.clients
-          .map(client => `
+          .map(
+            client => `
 
-            <div class="row-card">
+              <div class="row-card">
 
-              <div class="row-head">
+                <div class="row-head">
 
-                <div>
+                  <div>
 
-                  <strong>
-                    ${escapeHtml(
-                      client.name
-                    )}
-                  </strong>
+                    <strong>
+                      ${escapeHtml(
+                        client.name
+                      )}
+                    </strong>
 
-                  <div class="muted">
 
-                    ${escapeHtml(
-                      client.phone ||
-                      "Sin teléfono"
-                    )}
+                    <div class="muted">
+
+                      ${escapeHtml(
+                        client.phone ||
+                        "Sin teléfono"
+                      )}
+
+                    </div>
 
                   </div>
+
+
+                  <strong>
+
+                    ${money(
+                      client.balance || 0
+                    )}
+
+                  </strong>
 
                 </div>
 
 
-                <strong>
-
-                  ${money(
+                ${
+                  Number(
                     client.balance || 0
-                  )}
+                  ) > 0
 
-                </strong>
+                    ? `
+
+                      <div
+                        class="toolbar"
+
+                        style="
+                          margin-top:12px;
+                          margin-bottom:0
+                        "
+                      >
+
+                        <button
+                          class="btn ghost"
+
+                          onclick="
+                            registerPayment(
+                              '${client.id}'
+                            )
+                          "
+                        >
+                          Registrar abono
+                        </button>
+
+
+                        <button
+                          class="btn ghost"
+
+                          onclick="
+                            remindClient(
+                              '${client.id}'
+                            )
+                          "
+                        >
+                          WhatsApp
+                        </button>
+
+                      </div>
+
+                    `
+
+                    : ""
+                }
 
               </div>
 
-
-              ${
-                Number(
-                  client.balance || 0
-                ) > 0
-
-                  ? `
-
-                    <div
-                      class="toolbar"
-                      style="
-                        margin-top:12px;
-                        margin-bottom:0
-                      "
-                    >
-
-                      <button
-                        class="btn ghost"
-
-                        onclick="
-                          registerPayment(
-                            '${client.id}'
-                          )
-                        "
-                      >
-                        Registrar abono
-                      </button>
-
-
-                      <button
-                        class="btn ghost"
-
-                        onclick="
-                          remindClient(
-                            '${client.id}'
-                          )
-                        "
-                      >
-                        WhatsApp
-                      </button>
-
-                    </div>
-
-                  `
-
-                  : ""
-              }
-
-            </div>
-
-          `)
+            `
+          )
           .join("")
 
       : `
@@ -3402,16 +5197,22 @@ function renderClients() {
     .innerHTML =
     shell(`
 
-      <section class="
-        screen-title
-      ">
+      <section class="screen-title">
 
         <h2>
-          Clientes / Fiado
+
+          ${
+            isServices()
+              ? "Clientes"
+              : "Clientes / Crédito"
+          }
+
         </h2>
 
+
         <p>
-          Saldos y abonos.
+          Contactos,
+          saldos y abonos.
         </p>
 
       </section>
@@ -3421,10 +5222,7 @@ function renderClients() {
 
         <button
           class="btn primary"
-
-          onclick="
-            newClient()
-          "
+          onclick="newClient()"
         >
           Nuevo cliente
         </button>
@@ -3451,7 +5249,6 @@ window.newClient =
 
 
     <div class="form-grid">
-
 
       <div class="field">
 
@@ -3491,7 +5288,6 @@ window.newClient =
 
       </div>
 
-
     </div>
 
 
@@ -3502,10 +5298,7 @@ window.newClient =
 
       <button
         class="btn primary"
-
-        onclick="
-          saveClient()
-        "
+        onclick="saveClient()"
       >
         Guardar
       </button>
@@ -3513,10 +5306,7 @@ window.newClient =
 
       <button
         class="btn"
-
-        onclick="
-          closeModal()
-        "
+        onclick="closeModal()"
       >
         Cancelar
       </button>
@@ -3550,7 +5340,8 @@ async () => {
 
   const client = {
 
-    id: uid("client"),
+    id:
+      uid("client"),
 
     name,
 
@@ -3588,6 +5379,7 @@ async () => {
   closeModal();
 
   renderClients();
+
 
   toast(
     "Cliente guardado."
@@ -3650,6 +5442,34 @@ id => {
     </div>
 
 
+    <div class="field">
+
+      <label>
+        Método de pago
+      </label>
+
+
+      <select
+        id="paymentMethod"
+      >
+
+        <option value="Efectivo">
+          Efectivo
+        </option>
+
+        <option value="SINPE">
+          SINPE
+        </option>
+
+        <option value="Tarjeta/Otro">
+          Tarjeta / Otro
+        </option>
+
+      </select>
+
+    </div>
+
+
     <div
       class="toolbar"
       style="margin-top:14px"
@@ -3670,10 +5490,7 @@ id => {
 
       <button
         class="btn"
-
-        onclick="
-          closeModal()
-        "
+        onclick="closeModal()"
       >
         Cancelar
       </button>
@@ -3703,6 +5520,14 @@ async id => {
     );
 
 
+  const method =
+    document
+      .querySelector(
+        "#paymentMethod"
+      )
+      .value;
+
+
   if (
     !client ||
     amount <= 0
@@ -3728,9 +5553,55 @@ async id => {
   );
 
 
+  /*
+    En comida, si hay caja,
+    el abono queda ligado
+    al turno.
+  */
+
+  if (
+    isFood() &&
+    currentShift()
+  ) {
+
+    const move = {
+
+      id:
+        uid("move"),
+
+      type:
+        "creditPayment",
+
+      amount,
+
+      method,
+
+      note:
+        `Abono de ${client.name}`,
+
+      createdAt:
+        new Date()
+          .toISOString()
+    };
+
+
+    await idbPut(
+      "cashMoves",
+      move
+    );
+
+
+    appState.cashMoves
+      .push(
+        move
+      );
+  }
+
+
   closeModal();
 
   renderClients();
+
 
   toast(
     "Abono registrado."
@@ -3770,613 +5641,48 @@ id => {
 };
 
 
-/* =====================================================
-   PEDIDOS
-===================================================== */
-
-function renderOrders() {
-
-  const html =
-    appState.orders.length
-
-      ? [...appState.orders]
-          .reverse()
-          .map(order => `
-
-            <div class="row-card">
-
-              <div class="row-head">
-
-                <strong>
-                  Pedido
-                  #${order.number}
-                </strong>
-
-
-                <span class="badge">
-
-                  ${escapeHtml(
-                    order.status
-                  )}
-
-                </span>
-
-              </div>
-
-
-              ${
-                order.customer
-
-                  ? `
-                    <div class="muted">
-                      ${escapeHtml(
-                        order.customer
-                      )}
-                    </div>
-                  `
-
-                  : ""
-              }
-
-
-              <div
-                style="margin-top:10px"
-              >
-
-                ${(order.items || [])
-                  .map(item => `
-
-                    <div class="
-                      ticket-line
-                    ">
-
-                      <span>
-
-                        ${item.qty}
-                        ×
-                        ${escapeHtml(
-                          item.name
-                        )}
-
-                      </span>
-
-
-                      <span>
-
-                        ${money(
-                          item.price *
-                          item.qty
-                        )}
-
-                      </span>
-
-                    </div>
-
-                  `)
-                  .join("")}
-
-              </div>
-
-
-              ${
-                order.notes
-
-                  ? `
-                    <div
-                      class="muted"
-                      style="margin-top:8px"
-                    >
-
-                      ${escapeHtml(
-                        order.notes
-                      )}
-
-                    </div>
-                  `
-
-                  : ""
-              }
-
-
-              <div
-                class="toolbar"
-                style="
-                  margin-top:12px;
-                  margin-bottom:0
-                "
-              >
-
-                ${
-                  order.status ===
-                  "Pendiente"
-
-                    ? `
-                      <button
-                        class="btn primary"
-
-                        onclick="
-                          setOrderStatus(
-                            '${order.id}',
-                            'Preparando'
-                          )
-                        "
-                      >
-                        Preparando
-                      </button>
-                    `
-
-                    : ""
-                }
-
-
-                ${
-                  order.status ===
-                  "Preparando"
-
-                    ? `
-                      <button
-                        class="btn primary"
-
-                        onclick="
-                          setOrderStatus(
-                            '${order.id}',
-                            'Listo'
-                          )
-                        "
-                      >
-                        Listo
-                      </button>
-                    `
-
-                    : ""
-                }
-
-
-                ${
-                  order.status ===
-                  "Listo"
-
-                    ? `
-                      <button
-                        class="btn primary"
-
-                        onclick="
-                          setOrderStatus(
-                            '${order.id}',
-                            'Entregado'
-                          )
-                        "
-                      >
-                        Entregado
-                      </button>
-                    `
-
-                    : ""
-                }
-
-              </div>
-
-            </div>
-
-          `)
-          .join("")
-
-      : `
-        <div class="empty">
-          No hay pedidos.
-        </div>
-      `;
-
-
-  document
-    .querySelector("#app")
-    .innerHTML =
-    shell(`
-
-      <section class="
-        screen-title
-      ">
-
-        <h2>
-          Pedidos
-        </h2>
-
-        <p>
-          Pendiente → preparando
-          → listo → entregado.
-        </p>
-
-      </section>
-
-
-      <div class="toolbar">
-
-        <button
-          class="btn primary"
-
-          onclick="
-            newOrder()
-          "
-        >
-          Nuevo pedido
-        </button>
-
-      </div>
-
-
-      <div class="list">
-        ${html}
-      </div>
-
-    `, "orders");
-}
-
-
-window.newOrder =
-() => {
-
-  orderDraft = [];
-
-
-  modal(`
-
-    <h3>
-      Nuevo pedido
-    </h3>
-
-
-    <div class="field">
-
-      <label>
-        Cliente opcional
-      </label>
-
-      <input
-        id="orderCustomer"
-        placeholder="Nombre"
-      >
-
-    </div>
-
-
-    <p class="muted">
-      Toca productos para
-      agregarlos.
-    </p>
-
-
-    <div class="
-      order-builder-products
-    ">
-
-      ${appState.products
-        .map(product => `
-
-          <button
-
-            onclick="
-              addOrderProduct(
-                '${product.id}'
-              )
-            "
-          >
-
-            <strong>
-              ${escapeHtml(
-                product.name
-              )}
-            </strong>
-
-            <br>
-
-            <span class="muted">
-              ${money(
-                product.price
-              )}
-            </span>
-
-          </button>
-
-        `)
-        .join("")}
-
-    </div>
-
-
-    <div class="divider">
-    </div>
-
-
-    <div id="orderDraftView">
-    </div>
-
-
-    <div class="field">
-
-      <label>
-        Notas
-      </label>
-
-      <textarea
-        id="orderNotes"
-        rows="3"
-
-        placeholder="
-          Ej. sin cebolla,
-          para llevar...
-        "
-      ></textarea>
-
-    </div>
-
-
-    <div
-      class="toolbar"
-      style="margin-top:14px"
-    >
-
-      <button
-        class="btn primary"
-
-        onclick="
-          saveOrder()
-        "
-      >
-        Guardar pedido
-      </button>
-
-
-      <button
-        class="btn"
-
-        onclick="
-          closeModal()
-        "
-      >
-        Cancelar
-      </button>
-
-    </div>
-  `);
-
-
-  renderOrderDraft();
-};
-
-
-window.addOrderProduct =
-id => {
-
-  const product =
-    appState.products.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (!product) return;
-
-
-  const existing =
-    orderDraft.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (existing) {
-
-    existing.qty += 1;
-
-  } else {
-
-    orderDraft.push({
-
-      id:
-        product.id,
-
-      name:
-        product.name,
-
-      price:
-        product.price,
-
-      qty: 1
-    });
-  }
-
-
-  renderOrderDraft();
-};
-
-
-function renderOrderDraft() {
-
-  const container =
-    document
-      .querySelector(
-        "#orderDraftView"
-      );
-
-
-  if (!container) return;
-
-
-  if (!orderDraft.length) {
-
-    container.innerHTML = `
-      <div class="empty">
-        Aún no agregaste
-        productos.
-      </div>
-    `;
-
-    return;
-  }
-
-
-  container.innerHTML =
-    orderDraft
-      .map(item => `
-
-        <div class="ticket-line">
-
-          <span>
-
-            ${item.qty}
-            ×
-            ${escapeHtml(
-              item.name
-            )}
-
-          </span>
-
-
-          <span>
-
-            ${money(
-              item.price *
-              item.qty
-            )}
-
-          </span>
-
-        </div>
-
-      `)
-      .join("");
-}
-
-
-window.saveOrder =
-async () => {
-
-  if (
-    !orderDraft.length
-  ) {
-
-    toast(
-      "Agrega al menos un producto."
-    );
-
-    return;
-  }
-
-
-  const order = {
-
-    id:
-      uid("order"),
-
-    number:
-      appState.orders.length +
-      1,
-
-    customer:
-      document
-        .querySelector(
-          "#orderCustomer"
-        )
-        .value
-        .trim(),
-
-    notes:
-      document
-        .querySelector(
-          "#orderNotes"
-        )
-        .value
-        .trim(),
-
-    items:
-      [...orderDraft],
-
-    status:
-      "Pendiente",
-
-    createdAt:
-      new Date()
-        .toISOString()
-  };
-
-
-  await idbPut(
-    "orders",
-    order
-  );
-
-
-  appState.orders.push(
-    order
-  );
-
-
-  orderDraft = [];
-
-
-  closeModal();
-
-  renderOrders();
-
-  toast(
-    "Pedido guardado."
-  );
-};
-
-
-window.setOrderStatus =
-async (
-  id,
-  status
-) => {
-
-  const order =
-    appState.orders.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (!order) return;
-
-
-  order.status =
-    status;
-
-
-  await idbPut(
-    "orders",
-    order
-  );
-
-
-  renderOrders();
-};
-
-
-/* =====================================================
-   CAJA
-===================================================== */
-
-function currentShift() {
-
-  return [
-    ...appState.cashSessions
-  ]
-    .reverse()
-    .find(
-      session =>
-        session.status ===
-        "open"
-    );
-}
-
+/* =========================================
+   CAJA SOLO PARA COMIDA
+========================================= */
 
 function renderCash() {
+
+  if (!isFood()) {
+
+    document
+      .querySelector("#app")
+      .innerHTML =
+      shell(`
+
+        <section class="screen-title">
+
+          <h2>
+            Caja
+          </h2>
+
+          <p>
+
+            Este tipo de negocio
+            no necesita abrir caja
+            para vender.
+
+          </p>
+
+        </section>
+
+      `, "more");
+
+    return;
+  }
+
 
   const shift =
     currentShift();
 
+
+  /*
+    CAJA CERRADA
+  */
 
   if (!shift) {
 
@@ -4385,17 +5691,15 @@ function renderCash() {
       .innerHTML =
       shell(`
 
-        <section class="
-          screen-title
-        ">
+        <section class="screen-title">
 
           <h2>
             Caja
           </h2>
 
           <p>
-            Abre el turno para
-            comenzar.
+            Debes abrir la caja
+            antes de vender.
           </p>
 
         </section>
@@ -4408,19 +5712,49 @@ function renderCash() {
           </h3>
 
 
-          <button
-            class="
-              btn
-              primary
-              full
-            "
+          <p class="muted">
 
-            onclick="
-              openShiftForm()
-            "
-          >
-            Abrir caja
-          </button>
+            ${
+              currentRole ===
+              "owner"
+
+                ? `
+                  Abre el turno
+                  con un fondo inicial.
+                `
+
+                : `
+                  El dueño debe abrir
+                  la caja para habilitar
+                  las ventas.
+                `
+            }
+
+          </p>
+
+
+          ${
+            currentRole ===
+            "owner"
+
+              ? `
+                <button
+                  class="
+                    btn
+                    primary
+                    full
+                  "
+
+                  onclick="
+                    openShiftForm()
+                  "
+                >
+                  Abrir caja
+                </button>
+              `
+
+              : ""
+          }
 
         </div>
 
@@ -4433,6 +5767,8 @@ function renderCash() {
   const sales =
     appState.sales.filter(
       sale =>
+        sale.shiftId ===
+        shift.id ||
         new Date(
           sale.createdAt
         ) >=
@@ -4448,6 +5784,66 @@ function renderCash() {
         sale =>
           sale.method ===
           "Efectivo"
+      )
+      .reduce(
+        (
+          total,
+          sale
+        ) =>
+          total +
+          Number(
+            sale.total || 0
+          ),
+        0
+      );
+
+
+  const sinpeSales =
+    sales
+      .filter(
+        sale =>
+          sale.method ===
+          "SINPE"
+      )
+      .reduce(
+        (
+          total,
+          sale
+        ) =>
+          total +
+          Number(
+            sale.total || 0
+          ),
+        0
+      );
+
+
+  const cardSales =
+    sales
+      .filter(
+        sale =>
+          sale.method ===
+          "Tarjeta/Otro"
+      )
+      .reduce(
+        (
+          total,
+          sale
+        ) =>
+          total +
+          Number(
+            sale.total || 0
+          ),
+        0
+      );
+
+
+  const creditSales =
+    sales
+      .filter(
+        sale =>
+          sale.method ===
+          "Crédito"
       )
       .reduce(
         (
@@ -4478,7 +5874,8 @@ function renderCash() {
     moves
       .filter(
         move =>
-          move.type === "in"
+          move.type ===
+          "in"
       )
       .reduce(
         (
@@ -4497,7 +5894,30 @@ function renderCash() {
     moves
       .filter(
         move =>
-          move.type === "out"
+          move.type ===
+          "out"
+      )
+      .reduce(
+        (
+          total,
+          move
+        ) =>
+          total +
+          Number(
+            move.amount || 0
+          ),
+        0
+      );
+
+
+  const creditCashPayments =
+    moves
+      .filter(
+        move =>
+          move.type ===
+          "creditPayment" &&
+          move.method ===
+          "Efectivo"
       )
       .reduce(
         (
@@ -4517,6 +5937,7 @@ function renderCash() {
       shift.opening || 0
     ) +
     cashSales +
+    creditCashPayments +
     cashIn -
     cashOut;
 
@@ -4526,16 +5947,15 @@ function renderCash() {
     .innerHTML =
     shell(`
 
-      <section class="
-        screen-title
-      ">
+      <section class="screen-title">
 
         <h2>
           Caja
         </h2>
 
         <p>
-          Turno abierto.
+          Todo lo vendido en este
+          turno queda ligado aquí.
         </p>
 
       </section>
@@ -4543,11 +5963,10 @@ function renderCash() {
 
       <div class="kpi-grid">
 
-
         <div class="kpi">
 
           <span class="muted">
-            Efectivo vendido
+            Efectivo
           </span>
 
           <strong>
@@ -4562,6 +5981,89 @@ function renderCash() {
         <div class="kpi">
 
           <span class="muted">
+            SINPE
+          </span>
+
+          <strong>
+            ${money(
+              sinpeSales
+            )}
+          </strong>
+
+        </div>
+
+
+        <div class="kpi">
+
+          <span class="muted">
+            Tarjeta
+          </span>
+
+          <strong>
+            ${money(
+              cardSales
+            )}
+          </strong>
+
+        </div>
+
+
+        <div class="kpi">
+
+          <span class="muted">
+            Crédito
+          </span>
+
+          <strong>
+            ${money(
+              creditSales
+            )}
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <div
+        class="panel"
+        style="margin-top:14px"
+      >
+
+        <div class="ticket-line">
+
+          <span>
+            Fondo inicial
+          </span>
+
+          <strong>
+            ${money(
+              shift.opening
+            )}
+          </strong>
+
+        </div>
+
+
+        <div class="ticket-line">
+
+          <span>
+            Abonos crédito
+            en efectivo
+          </span>
+
+          <strong>
+            ${money(
+              creditCashPayments
+            )}
+          </strong>
+
+        </div>
+
+
+        <div class="ticket-line">
+
+          <span>
             Entradas
           </span>
 
@@ -4574,9 +6076,9 @@ function renderCash() {
         </div>
 
 
-        <div class="kpi">
+        <div class="ticket-line">
 
-          <span class="muted">
+          <span>
             Salidas
           </span>
 
@@ -4589,10 +6091,19 @@ function renderCash() {
         </div>
 
 
-        <div class="kpi">
+        <div class="divider">
+        </div>
 
-          <span class="muted">
-            Esperado
+
+        <div
+          class="
+            ticket-line
+            ticket-total
+          "
+        >
+
+          <span>
+            Efectivo esperado
           </span>
 
           <strong>
@@ -4603,13 +6114,12 @@ function renderCash() {
 
         </div>
 
-
       </div>
 
 
       <div
         class="toolbar"
-        style="margin-top:15px"
+        style="margin-top:14px"
       >
 
         <button
@@ -4634,17 +6144,26 @@ function renderCash() {
         </button>
 
 
-        <button
-          class="btn primary"
+        ${
+          currentRole ===
+          "owner"
 
-          onclick="
-            closeShiftForm(
-              ${expected}
-            )
-          "
-        >
-          Cerrar caja
-        </button>
+            ? `
+              <button
+                class="btn primary"
+
+                onclick="
+                  closeShiftForm(
+                    ${expected}
+                  )
+                "
+              >
+                Cerrar caja
+              </button>
+            `
+
+            : ""
+        }
 
       </div>
 
@@ -4654,6 +6173,19 @@ function renderCash() {
 
 window.openShiftForm =
 () => {
+
+  if (
+    currentRole !==
+    "owner"
+  ) {
+
+    toast(
+      "Solo el dueño puede abrir la caja."
+    );
+
+    return;
+  }
+
 
   modal(`
 
@@ -4678,23 +6210,27 @@ window.openShiftForm =
     </div>
 
 
-    <button
-      class="
-        btn
-        primary
-        full
-      "
-
-      style="
-        margin-top:14px
-      "
-
-      onclick="
-        openShift()
-      "
+    <div
+      class="toolbar"
+      style="margin-top:14px"
     >
-      Abrir caja
-    </button>
+
+      <button
+        class="btn primary"
+        onclick="openShift()"
+      >
+        Abrir caja
+      </button>
+
+
+      <button
+        class="btn"
+        onclick="closeModal()"
+      >
+        Cancelar
+      </button>
+
+    </div>
   `);
 };
 
@@ -4702,7 +6238,7 @@ window.openShiftForm =
 window.openShift =
 async () => {
 
-  const shift = {
+  const session = {
 
     id:
       uid("shift"),
@@ -4730,21 +6266,28 @@ async () => {
 
   await idbPut(
     "cashSessions",
-    shift
+    session
   );
 
 
-  appState.cashSessions.push(
-    shift
-  );
+  appState.cashSessions
+    .push(
+      session
+    );
 
 
   closeModal();
 
-  renderCash();
+
+  currentScreen =
+    "home";
+
+
+  renderHome();
+
 
   toast(
-    "Caja abierta."
+    "Caja abierta. Ya puedes vender."
   );
 };
 
@@ -4794,25 +6337,32 @@ type => {
     </div>
 
 
-    <button
-      class="
-        btn
-        primary
-        full
-      "
-
-      style="
-        margin-top:14px
-      "
-
-      onclick="
-        saveCashMovement(
-          '${type}'
-        )
-      "
+    <div
+      class="toolbar"
+      style="margin-top:14px"
     >
-      Guardar
-    </button>
+
+      <button
+        class="btn primary"
+
+        onclick="
+          saveCashMovement(
+            '${type}'
+          )
+        "
+      >
+        Guardar
+      </button>
+
+
+      <button
+        class="btn"
+        onclick="closeModal()"
+      >
+        Cancelar
+      </button>
+
+    </div>
   `);
 };
 
@@ -4880,6 +6430,7 @@ async type => {
 
   renderCash();
 
+
   toast(
     "Movimiento guardado."
   );
@@ -4888,6 +6439,19 @@ async type => {
 
 window.closeShiftForm =
 expected => {
+
+  if (
+    currentRole !==
+    "owner"
+  ) {
+
+    toast(
+      "Solo el dueño puede cerrar la caja."
+    );
+
+    return;
+  }
+
 
   modal(`
 
@@ -4898,7 +6462,7 @@ expected => {
 
     <p>
 
-      Esperado:
+      Efectivo esperado:
 
       <strong>
         ${money(
@@ -4948,25 +6512,32 @@ expected => {
     </div>
 
 
-    <button
-      class="
-        btn
-        primary
-        full
-      "
-
-      style="
-        margin-top:14px
-      "
-
-      onclick="
-        closeShift(
-          ${expected}
-        )
-      "
+    <div
+      class="toolbar"
+      style="margin-top:14px"
     >
-      Confirmar cierre
-    </button>
+
+      <button
+        class="btn primary"
+
+        onclick="
+          closeShift(
+            ${expected}
+          )
+        "
+      >
+        Confirmar cierre
+      </button>
+
+
+      <button
+        class="btn"
+        onclick="closeModal()"
+      >
+        Cancelar
+      </button>
+
+    </div>
   `);
 };
 
@@ -5019,16 +6590,20 @@ async expected => {
   shift.expected =
     expected;
 
+
   shift.counted =
     counted;
+
 
   shift.difference =
     counted -
     expected;
 
+
   shift.closedAt =
     new Date()
       .toISOString();
+
 
   shift.status =
     "closed";
@@ -5042,35 +6617,75 @@ async expected => {
 
   closeModal();
 
-  renderCash();
+
+  currentScreen =
+    "home";
+
+
+  renderHome();
+
 
   toast(
-    "Caja cerrada."
+    "Caja cerrada. Las ventas quedan bloqueadas hasta una nueva apertura."
   );
 };
 
 
-/* =====================================================
-   CATÁLOGO
-===================================================== */
+/* =========================================
+   CATÁLOGO QR
+========================================= */
+
+function catalogLink() {
+
+  const url =
+    new URL(
+      window.location.href
+    );
+
+
+  url.search = "";
+
+  url.hash = "";
+
+
+  url.searchParams
+    .set(
+      "catalog",
+      "1"
+    );
+
+
+  return url.toString();
+}
+
 
 function renderCatalog() {
+
+  const label =
+    isFood()
+      ? "Menú QR"
+      : "Catálogo QR";
+
+
+  const link =
+    catalogLink();
+
 
   document
     .querySelector("#app")
     .innerHTML =
     shell(`
 
-      <section class="
-        screen-title
-      ">
+      <section class="screen-title">
 
         <h2>
-          Catálogo
+          ${label}
         </h2>
 
         <p>
-          Comparte tus productos.
+          El cliente puede abrir
+          tu catálogo desde
+          un enlace o QR.
         </p>
 
       </section>
@@ -5079,102 +6694,175 @@ function renderCatalog() {
       <div class="panel">
 
         ${appState.products
-          .map(product => `
+          .map(
+            product => `
 
-            <div class="
-              catalog-card
-            ">
+              <div class="
+                catalog-card
+              ">
 
-              <div>
+                <div>
+
+                  <strong>
+                    ${escapeHtml(
+                      product.name
+                    )}
+                  </strong>
+
+                  <div class="muted">
+                    ${escapeHtml(
+                      product.category ||
+                      ""
+                    )}
+                  </div>
+
+                </div>
+
 
                 <strong>
-                  ${escapeHtml(
-                    product.name
-                  )}
-                </strong>
 
-                <div class="muted">
-                  ${escapeHtml(
-                    product.category ||
-                    ""
+                  ${money(
+                    product.price
                   )}
-                </div>
+
+                </strong>
 
               </div>
 
-
-              <strong>
-
-                ${money(
-                  product.price
-                )}
-
-              </strong>
-
-            </div>
-
-          `)
+            `
+          )
           .join("")}
 
       </div>
 
 
-      <button
-        class="
-          btn
-          primary
-          full
-        "
+      <div
+        class="panel"
 
         style="
-          margin-top:14px
-        "
-
-        onclick="
-          shareCatalog()
+          margin-top:14px;
+          text-align:center
         "
       >
-        Compartir por WhatsApp
-      </button>
+
+        <p class="muted">
+          Enlace público
+        </p>
+
+
+        <div
+          style="
+            word-break:break-all
+          "
+        >
+
+          ${escapeHtml(
+            link
+          )}
+
+        </div>
+
+
+        <img
+
+          src="
+            https://quickchart.io/qr?size=220&text=${
+              encodeURIComponent(
+                link
+              )
+            }
+          "
+
+          alt="
+            QR del catálogo
+          "
+
+          style="
+            width:220px;
+            max-width:100%;
+            margin-top:14px;
+            border-radius:14px
+          "
+        >
+
+      </div>
+
+
+      <div
+        class="toolbar"
+        style="margin-top:14px"
+      >
+
+        <button
+          class="btn primary"
+
+          onclick="
+            copyCatalogLink()
+          "
+        >
+          Copiar enlace
+        </button>
+
+
+        <button
+          class="btn ghost"
+
+          onclick="
+            shareCatalog()
+          "
+        >
+          Compartir por WhatsApp
+        </button>
+
+      </div>
 
     `, "more");
 }
 
 
+window.copyCatalogLink =
+async () => {
+
+  try {
+
+    await navigator
+      .clipboard
+      .writeText(
+        catalogLink()
+      );
+
+
+    toast(
+      "Enlace copiado."
+    );
+
+  } catch {
+
+    toast(
+      "No se pudo copiar automáticamente."
+    );
+  }
+};
+
+
 window.shareCatalog =
 () => {
 
-  const lines = [
-
-    appState.settings
-      .businessName,
-
-    "",
-
-    "Catálogo"
-  ];
-
-
-  appState.products.forEach(
-    product => {
-
-      lines.push(
-
-        `${product.name} - ${
-          money(
-            product.price
-          )
-        }`
-      );
-    }
-  );
+  const text =
+    `${appState.settings.businessName}\n` +
+    `${
+      isFood()
+        ? "Menú"
+        : "Catálogo"
+    }: ` +
+    `${catalogLink()}`;
 
 
   window.open(
 
     `https://wa.me/?text=${
       encodeURIComponent(
-        lines.join("\n")
+        text
       )
     }`,
 
@@ -5183,27 +6871,169 @@ window.shareCatalog =
 };
 
 
-/* =====================================================
+/* =========================================
    MÁS
-===================================================== */
+========================================= */
 
 function renderMore() {
+
+  const cards = [];
+
+
+  if (isFood()) {
+
+    cards.push(
+      homeCard(
+        "products",
+        "Productos",
+        "Comidas, bebidas y stock"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "clients",
+        "Clientes / Crédito",
+        "Saldos y abonos"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "cash",
+        "Caja",
+        "Apertura, movimientos y cierre"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "sales",
+        "Mis ventas",
+        "Comprobantes e historial"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "catalog",
+        "Menú QR",
+        "Comparte tu menú"
+      )
+    );
+  }
+
+
+  if (isProducts()) {
+
+    cards.push(
+      homeCard(
+        "products",
+        "Productos",
+        "Artículos, variantes y stock"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "clients",
+        "Clientes / Crédito",
+        "Saldos y abonos"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "sales",
+        "Mis ventas",
+        "Comprobantes e historial"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "catalog",
+        "Catálogo QR",
+        "Comparte tus productos"
+      )
+    );
+  }
+
+
+  if (isServices()) {
+
+    cards.push(
+      homeCard(
+        "products",
+        "Servicios",
+        "Precios y categorías"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "clients",
+        "Clientes",
+        "Contactos y crédito"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "sales",
+        "Mis ventas",
+        "Comprobantes e historial"
+      )
+    );
+
+
+    cards.push(
+      homeCard(
+        "catalog",
+        "Catálogo QR",
+        "Comparte tus servicios"
+      )
+    );
+  }
+
+
+  if (
+    currentRole === "owner"
+  ) {
+
+    cards.push(
+      homeCard(
+        "settings",
+        "Configuración",
+        "Datos básicos"
+      )
+    );
+  }
+
 
   document
     .querySelector("#app")
     .innerHTML =
     shell(`
 
-      <section class="
-        screen-title
-      ">
+      <section class="screen-title">
 
         <h2>
           Más
         </h2>
 
         <p>
-          Herramientas adicionales.
+          Solo herramientas útiles
+          para este negocio.
         </p>
 
       </section>
@@ -5211,47 +7041,7 @@ function renderMore() {
 
       <div class="home-grid">
 
-
-        ${homeCard(
-          "products",
-          "Productos",
-          "Precios y stock"
-        )}
-
-
-        ${homeCard(
-          "clients",
-          "Clientes / Fiado",
-          "Saldos y abonos"
-        )}
-
-
-        ${homeCard(
-          "cash",
-          "Caja",
-          "Apertura y cierre"
-        )}
-
-
-        ${homeCard(
-          "catalog",
-          "Catálogo",
-          "Comparte productos"
-        )}
-
-
-        ${
-          currentRole ===
-          "owner"
-
-            ? homeCard(
-                "settings",
-                "Configuración",
-                "Datos básicos"
-              )
-
-            : ""
-        }
+        ${cards.join("")}
 
 
         ${
@@ -5275,15 +7065,13 @@ function renderMore() {
                   </strong>
 
                   <small>
-                    Solicitar PIN
+                    Solicitar PIN nuevamente
                   </small>
 
                 </span>
 
 
-                <span class="
-                  card-arrow
-                ">
+                <span class="card-arrow">
                   ›
                 </span>
 
@@ -5294,21 +7082,21 @@ function renderMore() {
             : ""
         }
 
-
       </div>
 
     `, "more");
 }
 
 
-/* =====================================================
+/* =========================================
    CONFIGURACIÓN
-===================================================== */
+========================================= */
 
 function renderSettings() {
 
   if (
-    currentRole !== "owner"
+    currentRole !==
+    "owner"
   ) {
 
     go("home");
@@ -5326,16 +7114,15 @@ function renderSettings() {
     .innerHTML =
     shell(`
 
-      <section class="
-        screen-title
-      ">
+      <section class="screen-title">
 
         <h2>
           Configuración
         </h2>
 
         <p>
-          Solo lo necesario.
+          Elige el tipo de negocio
+          y Mi Punto CR se adapta.
         </p>
 
       </section>
@@ -5343,8 +7130,64 @@ function renderSettings() {
 
       <div class="panel">
 
-
         <div class="form-grid">
+
+
+          <div class="field">
+
+            <label>
+              Tipo de negocio
+            </label>
+
+
+            <select
+              id="businessType"
+            >
+
+              <option
+                value="food"
+
+                ${
+                  s.businessType ===
+                  "food"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Comida / Soda / Repostería
+              </option>
+
+
+              <option
+                value="products"
+
+                ${
+                  s.businessType ===
+                  "products"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Venta de artículos
+              </option>
+
+
+              <option
+                value="services"
+
+                ${
+                  s.businessType ===
+                  "services"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Servicios
+              </option>
+
+            </select>
+
+          </div>
 
 
           <div class="field">
@@ -5426,6 +7269,7 @@ function renderSettings() {
 
               <option
                 value="included"
+
                 ${
                   s.taxMode ===
                   "included"
@@ -5439,6 +7283,7 @@ function renderSettings() {
 
               <option
                 value="added"
+
                 ${
                   s.taxMode ===
                   "added"
@@ -5452,6 +7297,7 @@ function renderSettings() {
 
               <option
                 value="exempt"
+
                 ${
                   s.taxMode ===
                   "exempt"
@@ -5496,6 +7342,7 @@ function renderSettings() {
 
               <option
                 value="no"
+
                 ${
                   !s.pinEnabled
                     ? "selected"
@@ -5508,6 +7355,7 @@ function renderSettings() {
 
               <option
                 value="yes"
+
                 ${
                   s.pinEnabled
                     ? "selected"
@@ -5561,7 +7409,6 @@ function renderSettings() {
 
           </div>
 
-
         </div>
 
 
@@ -5583,7 +7430,6 @@ function renderSettings() {
           Guardar cambios
         </button>
 
-
       </div>
 
     `, "more");
@@ -5596,6 +7442,13 @@ async () => {
   const settings = {
 
     ...appState.settings,
+
+    businessType:
+      document
+        .querySelector(
+          "#businessType"
+        )
+        .value,
 
     businessName:
       document
@@ -5682,7 +7535,12 @@ async () => {
     settings;
 
 
-  renderSettings();
+  currentScreen =
+    "home";
+
+
+  renderHome();
+
 
   toast(
     "Configuración guardada."
@@ -5690,9 +7548,9 @@ async () => {
 };
 
 
-/* =====================================================
+/* =========================================
    PIN
-===================================================== */
+========================================= */
 
 window.lockApp =
 () => {
@@ -5721,6 +7579,7 @@ function renderLock() {
             Ingresa tu PIN.
           </p>
 
+
           <input
             id="unlockPin"
             class="pin-input"
@@ -5729,6 +7588,7 @@ function renderLock() {
             maxlength="6"
             placeholder="••••"
           >
+
 
           <button
             class="
@@ -5817,9 +7677,9 @@ window.unlockApp =
 };
 
 
-/* =====================================================
-   MODALES
-===================================================== */
+/* =========================================
+   MODAL
+========================================= */
 
 function modal(content) {
 
@@ -5827,10 +7687,9 @@ function modal(content) {
 
 
   const background =
-    document
-      .createElement(
-        "div"
-      );
+    document.createElement(
+      "div"
+    );
 
 
   background.id =
@@ -5865,9 +7724,10 @@ function modal(content) {
     );
 
 
-  document.body.appendChild(
-    background
-  );
+  document.body
+    .appendChild(
+      background
+    );
 }
 
 
@@ -5882,17 +7742,16 @@ window.closeModal =
 };
 
 
-/* =====================================================
+/* =========================================
    AVISOS
-===================================================== */
+========================================= */
 
 function toast(message) {
 
   const element =
-    document
-      .createElement(
-        "div"
-      );
+    document.createElement(
+      "div"
+    );
 
 
   element.className =
@@ -5903,9 +7762,10 @@ function toast(message) {
     message;
 
 
-  document.body.appendChild(
-    element
-  );
+  document.body
+    .appendChild(
+      element
+    );
 
 
   setTimeout(
@@ -5916,9 +7776,590 @@ function toast(message) {
 }
 
 
-/* =====================================================
+/* =========================================
+   CATÁLOGO PÚBLICO QR
+========================================= */
+
+function renderPublicCatalog() {
+
+  const groups = {};
+
+
+  appState.products
+    .forEach(
+      product => {
+
+        const category =
+          product.category
+            ?.trim() ||
+          "Otros";
+
+
+        if (
+          !groups[category]
+        ) {
+
+          groups[category] = [];
+        }
+
+
+        groups[category]
+          .push(
+            product
+          );
+      }
+    );
+
+
+  const total =
+    publicCart.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        item.price *
+        item.qty,
+      0
+    );
+
+
+  document
+    .querySelector("#app")
+    .innerHTML = `
+
+      <main class="shell">
+
+        <header class="topbar">
+
+          <div class="brand">
+
+            <h1>
+              ${escapeHtml(
+                appState.settings
+                  .businessName
+              )}
+            </h1>
+
+
+            <p>
+
+              ${
+                isFood()
+                  ? "Menú"
+                  : isServices()
+                    ? "Servicios"
+                    : "Catálogo"
+              }
+
+            </p>
+
+          </div>
+
+        </header>
+
+
+        ${Object.entries(groups)
+          .map(
+            (
+              [
+                category,
+                products
+              ]
+            ) => `
+
+              <section
+                class="panel"
+                style="margin-bottom:12px"
+              >
+
+                <h3>
+                  ${escapeHtml(
+                    category
+                  )}
+                </h3>
+
+
+                ${products
+                  .map(
+                    product => `
+
+                      <div class="
+                        catalog-card
+                      ">
+
+                        <div>
+
+                          <strong>
+                            ${escapeHtml(
+                              product.name
+                            )}
+                          </strong>
+
+
+                          <div class="muted">
+
+                            ${money(
+                              product.price
+                            )}
+
+                          </div>
+
+                        </div>
+
+
+                        <button
+                          class="btn ghost"
+
+                          onclick="
+                            addPublicItem(
+                              '${product.id}'
+                            )
+                          "
+                        >
+                          Agregar
+                        </button>
+
+                      </div>
+
+                    `
+                  )
+                  .join("")}
+
+              </section>
+
+            `
+          )
+          .join("")}
+
+
+        <section
+          class="panel"
+          style="margin-top:14px"
+        >
+
+          <h3>
+            Tu pedido
+          </h3>
+
+
+          ${
+            publicCart.length
+
+              ? publicCart
+                  .map(
+                    item => `
+
+                      <div class="
+                        ticket-line
+                      ">
+
+                        <span>
+
+                          ${item.qty}
+                          ×
+                          ${escapeHtml(
+                            item.name
+                          )}
+
+                        </span>
+
+
+                        <span>
+
+                          ${money(
+                            item.price *
+                            item.qty
+                          )}
+
+
+                          <button
+                            class="btn ghost"
+
+                            style="
+                              margin-left:6px;
+                              padding:5px 9px;
+                              min-height:auto
+                            "
+
+                            onclick="
+                              removePublicItem(
+                                '${item.id}'
+                              )
+                            "
+                          >
+                            −
+                          </button>
+
+                        </span>
+
+                      </div>
+
+                    `
+                  )
+                  .join("")
+
+              : `
+                <div class="empty">
+                  Selecciona lo que deseas.
+                </div>
+              `
+          }
+
+
+          <div class="divider">
+          </div>
+
+
+          <div
+            class="
+              ticket-line
+              ticket-total
+            "
+          >
+
+            <span>
+              Total
+            </span>
+
+            <strong>
+              ${money(total)}
+            </strong>
+
+          </div>
+
+
+          <div
+            class="field"
+            style="margin-top:12px"
+          >
+
+            <label>
+              Nombre
+            </label>
+
+            <input
+              id="publicName"
+              placeholder="Tu nombre"
+            >
+
+          </div>
+
+
+          ${
+            isFood()
+
+              ? `
+
+                <div
+                  class="field"
+                  style="margin-top:10px"
+                >
+
+                  <label>
+                    Tipo de pedido
+                  </label>
+
+
+                  <select
+                    id="publicOrderType"
+                  >
+
+                    <option value="Recoger">
+                      Recoger
+                    </option>
+
+                    <option value="Para llevar">
+                      Para llevar
+                    </option>
+
+                    <option value="Mesa">
+                      Mesa
+                    </option>
+
+                  </select>
+
+                </div>
+
+              `
+
+              : ""
+          }
+
+
+          <div
+            class="field"
+            style="margin-top:10px"
+          >
+
+            <label>
+              Nota opcional
+            </label>
+
+            <textarea
+              id="publicNote"
+              rows="3"
+              placeholder="Alguna indicación"
+            ></textarea>
+
+          </div>
+
+
+          <button
+            class="
+              btn
+              primary
+              full
+            "
+
+            style="
+              margin-top:14px
+            "
+
+            onclick="
+              sendCatalogRequest()
+            "
+
+            ${
+              publicCart.length
+                ? ""
+                : "disabled"
+            }
+          >
+            Enviar por WhatsApp
+          </button>
+
+        </section>
+
+      </main>
+    `;
+}
+
+
+window.addPublicItem =
+id => {
+
+  const product =
+    appState.products.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (!product) return;
+
+
+  const existing =
+    publicCart.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (existing) {
+
+    existing.qty += 1;
+
+  } else {
+
+    publicCart.push({
+
+      id:
+        product.id,
+
+      name:
+        product.name,
+
+      price:
+        product.price,
+
+      qty: 1
+    });
+  }
+
+
+  renderPublicCatalog();
+};
+
+
+window.removePublicItem =
+id => {
+
+  const item =
+    publicCart.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (!item) return;
+
+
+  item.qty -= 1;
+
+
+  if (
+    item.qty <= 0
+  ) {
+
+    publicCart =
+      publicCart.filter(
+        item =>
+          item.id !== id
+      );
+  }
+
+
+  renderPublicCatalog();
+};
+
+
+window.sendCatalogRequest =
+() => {
+
+  if (!publicCart.length) {
+
+    return;
+  }
+
+
+  const name =
+    document
+      .querySelector(
+        "#publicName"
+      )
+      ?.value
+      .trim() ||
+    "Cliente";
+
+
+  const note =
+    document
+      .querySelector(
+        "#publicNote"
+      )
+      ?.value
+      .trim() ||
+    "";
+
+
+  const orderType =
+    document
+      .querySelector(
+        "#publicOrderType"
+      )
+      ?.value ||
+    "";
+
+
+  const total =
+    publicCart.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        item.price *
+        item.qty,
+      0
+    );
+
+
+  const lines = [
+
+    `Pedido / consulta para ${
+      appState.settings
+        .businessName
+    }`,
+
+    `Cliente: ${name}`,
+
+    orderType
+      ? `Tipo: ${orderType}`
+      : "",
+
+    ""
+  ]
+    .filter(Boolean);
+
+
+  publicCart.forEach(
+    item => {
+
+      lines.push(
+
+        `${item.qty} x ${item.name} - ${
+          money(
+            item.price *
+            item.qty
+          )
+        }`
+      );
+    }
+  );
+
+
+  lines.push("");
+
+  lines.push(
+    `Total: ${money(total)}`
+  );
+
+
+  if (note) {
+
+    lines.push(
+      `Nota: ${note}`
+    );
+  }
+
+
+  const number =
+    String(
+      appState.settings
+        .whatsapp ||
+      ""
+    )
+      .replace(
+        /\D/g,
+        ""
+      );
+
+
+  const text =
+    lines.join("\n");
+
+
+  const url =
+    number
+
+      ? `https://wa.me/${
+          number.startsWith("506")
+            ? number
+            : `506${number}`
+        }?text=${
+          encodeURIComponent(
+            text
+          )
+        }`
+
+      : `https://wa.me/?text=${
+          encodeURIComponent(
+            text
+          )
+        }`;
+
+
+  window.open(
+    url,
+    "_blank"
+  );
+};
+
+
+/* =========================================
    CONEXIÓN
-===================================================== */
+========================================= */
 
 window.addEventListener(
   "online",
@@ -5932,9 +8373,9 @@ window.addEventListener(
 );
 
 
-/* =====================================================
+/* =========================================
    INICIAR
-===================================================== */
+========================================= */
 
 (async function init() {
 
@@ -5945,10 +8386,44 @@ window.addEventListener(
   await loadAll();
 
 
+  /*
+    Convierte automáticamente
+    versiones antiguas que tenían
+    "general" en Comida/Soda.
+  */
+
+  appState.settings
+    .businessType =
+    businessType();
+
+
   await idbPut(
     "settings",
     appState.settings
   );
+
+
+  /*
+    Si el enlace viene del QR,
+    muestra catálogo público.
+  */
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+
+  if (
+    params.get(
+      "catalog"
+    ) === "1"
+  ) {
+
+    renderPublicCatalog();
+
+    return;
+  }
 
 
   if (
