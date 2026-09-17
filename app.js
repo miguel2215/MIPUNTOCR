@@ -880,16 +880,162 @@ window.askCleanTable=id=>{const a=state.tableAccounts.find(x=>x.id===id);if(!a)r
 window.cleanTable=async id=>{const a=state.tableAccounts.find(x=>x.id===id);if(!a)return;await del("tableAccounts",id);state.tableAccounts=state.tableAccounts.filter(x=>x.id!==id);closeModal();cart=[];resetSaleMeta();screen="tables";renderTables();toast(`Mesa ${a.tableNumber} libre.`);};
 
 /* =========================
-   PEDIDOS
+   PEDIDOS · RESTAURANTE
 ========================= */
+let orderDraft = null;
+
+function normalizeOrderStatus(status) {
+  if (status === "Pendiente") return "Tomado";
+  if (status === "Preparando") return "En preparación";
+  return status || "Tomado";
+}
+function orderStatusTime(o) {
+  const s = normalizeOrderStatus(o.status);
+  const at = s === "Entregado" ? o.deliveredAt : s === "Listo" ? o.readyAt : s === "En preparación" ? o.preparingAt : o.createdAt;
+  return at ? new Date(at).toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit" }) : "";
+}
+function nextOrderNumber() {
+  return Math.max(0, ...state.orders.map(o => Number(o.number || 0))) + 1;
+}
+function orderDraftSubtotal() {
+  return (orderDraft?.items || []).reduce((a, i) => a + Number(i.price || 0) * Number(i.qty || 0), 0);
+}
+function mergeTableItems(base = [], added = []) {
+  const out = base.map(i => ({ ...i }));
+  for (const item of added) {
+    const variant = item.variant || "";
+    const found = out.find(x => x.id === item.id && (x.variant || "") === variant);
+    if (found) found.qty = Number(found.qty || 0) + Number(item.qty || 0);
+    else out.push({ id: item.id, name: item.name, variant, price: Number(item.price || 0), qty: Number(item.qty || 0) });
+  }
+  return out;
+}
+function orderTablePickerHtml() {
+  const count = Number(state.settings.tableCount || 0);
+  return Array.from({ length: count }, (_, i) => i + 1).map(n => {
+    const a = tableAccount(n);
+    const paid = a?.status === "paid";
+    const label = paid ? "Pagada · limpiar primero" : a?.status === "open" ? `Cuenta abierta · ${money(tableItemsTotal(a.items))}` : "Libre";
+    return `<button class="table-pick" ${paid ? "disabled" : ""} style="${paid ? "opacity:.45;cursor:not-allowed" : ""}" onclick="startOrderForTable(${n})">Mesa ${n}<small>${label}</small></button>`;
+  }).join("");
+}
 function renderOrders() {
   if (!isFood()) { screen = "home"; return renderHome(); }
-  const html = state.orders.length ? [...state.orders].reverse().map(o => `<div class="row-card"><div class="row-head"><strong>Pedido #${o.number}</strong><span class="badge">${esc(o.status)}</span></div>${o.customer ? `<div class="muted">${esc(o.customer)}</div>` : ""}<div style="margin-top:10px">${(o.items || []).map(i => `<div class="ticket-line"><span>${i.qty} × ${esc(i.name)}</span><span>${money(i.price * i.qty)}</span></div>`).join("")}${o.notes ? `<div>${esc(o.notes)}</div>` : ""}</div><div class="toolbar" style="margin-top:10px">${o.status === "Pendiente" ? `<button class="btn primary" onclick="orderStatus('${o.id}','Preparando')">Preparando</button>` : ""}${o.status === "Preparando" ? `<button class="btn primary" onclick="orderStatus('${o.id}','Listo')">Listo</button>` : ""}${o.status === "Listo" ? `<button class="btn primary" onclick="orderStatus('${o.id}','Entregado')">Entregado</button>` : ""}</div></div>`).join("") : `<div class="empty">No hay pedidos.</div>`;
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Pedidos</h2><p>Pendiente → preparando → listo → entregado.</p></section><div class="toolbar"><button class="btn primary" onclick="newOrder()">Nuevo pedido</button></div><div class="list">${html}</div>`, "orders");
+  const list = [...state.orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const html = list.length ? list.map(o => {
+    const status = normalizeOrderStatus(o.status);
+    const account = o.tableAccountId ? state.tableAccounts.find(a => a.id === o.tableAccountId) : tableAccount(o.tableNumber);
+    const accountState = account?.status === "open" ? `Cuenta abierta · ${money(tableItemsTotal(account.items))}` : account?.status === "paid" ? "Cuenta pagada" : "Cuenta cerrada";
+    const actions = status === "Tomado"
+      ? `<button class="btn primary" onclick="orderStatus('${o.id}','En preparación')">Iniciar preparación</button>`
+      : status === "En preparación"
+        ? `<button class="btn primary" onclick="orderStatus('${o.id}','Listo')">Marcar listo</button>`
+        : status === "Listo"
+          ? `<button class="btn primary" onclick="orderStatus('${o.id}','Entregado')">Marcar entregado</button>`
+          : `<span class="badge" style="background:#e8f4ec;color:#2d6d43">Comida entregada</span>`;
+    const openBtn = account?.status === "open" ? `<button class="btn ghost" onclick="openTable(${Number(o.tableNumber)})">Abrir cuenta de mesa</button>` : "";
+    return `<div class="row-card">
+      <div class="row-head"><div><strong style="font-size:21px">Mesa ${esc(o.tableNumber || "-")}</strong><div class="muted">Pedido #${o.number} · ${dateTime(o.createdAt)}</div></div><span class="badge">${esc(status)}</span></div>
+      <div class="muted" style="margin-top:8px">${esc(accountState)}${orderStatusTime(o) ? ` · ${esc(status)} ${esc(orderStatusTime(o))}` : ""}</div>
+      <div style="margin-top:12px">${(o.items || []).map(i => `<div class="ticket-line"><span>${i.qty} × ${esc(i.name)}</span><strong>${money(Number(i.price || 0) * Number(i.qty || 0))}</strong></div>`).join("")}</div>
+      ${o.notes ? `<div class="panel" style="box-shadow:none;margin-top:10px;padding:12px"><span class="muted">Nota</span><div>${esc(o.notes)}</div></div>` : ""}
+      <div class="toolbar" style="margin-top:12px">${actions}${openBtn}</div>
+    </div>`;
+  }).join("") : `<div class="empty">Todavía no hay pedidos tomados en mesa.</div>`;
+
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Pedidos</h2><p>Tomado → en preparación → listo → entregado. La cuenta de la mesa se cobra después en Caja.</p></section><div class="toolbar"><button class="btn primary" onclick="newOrder()">Tomar pedido en mesa</button><button class="btn ghost" onclick="go('tables')">Ver mesas</button></div><div class="list">${html}</div>`, "orders");
 }
-window.newOrder = () => modal(`<h3>Nuevo pedido</h3><div class="field"><label>Cliente opcional</label><input id="oClient"></div><div class="field"><label>Productos / nota</label><textarea id="oNote" rows="4" placeholder="Ej. 2 casados, 1 fresco, sin cebolla"></textarea></div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveOrder()">Guardar pedido</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
-window.saveOrder = async () => { const note = $("#oNote").value.trim(); if (!note) return toast("Escribe el pedido."); const o = { id: uid("o"), number: state.orders.length + 1, customer: $("#oClient").value.trim(), notes: note, items: [], status: "Pendiente", createdAt: new Date().toISOString() }; await put("orders", o); state.orders.push(o); closeModal(); renderOrders(); };
-window.orderStatus = async (id, status) => { const o = state.orders.find(x => x.id === id); if (!o) return; o.status = status; await put("orders", o); renderOrders(); };
+window.newOrder = () => {
+  if (!currentShift()) return toast("Primero debes abrir la caja.");
+  if (!Number(state.settings.tableCount || 0)) return configureTables();
+  modal(`<h3>¿En qué mesa vas a tomar el pedido?</h3><p class="muted">Elige la mesa. Si ya tiene una cuenta abierta, el nuevo pedido se agregará a esa misma cuenta.</p><div class="table-picker-grid">${orderTablePickerHtml()}</div><div class="toolbar"><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+};
+window.startOrderForTable = n => {
+  const a = tableAccount(n);
+  if (a?.status === "paid") return toast(`Mesa ${n} ya fue pagada. Límpiala antes de usarla de nuevo.`);
+  closeModal();
+  const cats = productCategories();
+  orderDraft = { tableNumber: Number(n), items: [], note: "", category: cats[0] || "" };
+  renderOrderEntry();
+};
+function renderOrderEntry() {
+  if (!orderDraft) return renderOrders();
+  const categories = productCategories();
+  if (!orderDraft.category && categories.length) orderDraft.category = categories[0];
+  if (orderDraft.category && !categories.includes(orderDraft.category)) orderDraft.category = categories[0] || "";
+  const existing = tableAccount(orderDraft.tableNumber);
+  const categoryHtml = categories.length ? categories.map(c => `<button class="category-card" style="${orderDraft.category === c ? "background:var(--soft);border-color:#94b9b3" : ""}" onclick="orderPickCategory(decodeURIComponent('${enc(c)}'))"><span class="category-name">${esc(c)}</span><span class="category-count">${state.products.filter(p => (p.category?.trim() || "Otros") === c).length} productos</span><span class="category-arrow">›</span></button>`).join("") : `<div class="empty">Primero agrega productos.</div>`;
+  const products = state.products.filter(p => (p.category?.trim() || "Otros") === orderDraft.category);
+  const productHtml = products.length ? products.map(p => `<button class="category-product" onclick="addOrderProduct('${p.id}')"><div><strong>${esc(p.name)}</strong><small>${esc(orderDraft.category)}</small></div><span class="category-product-price">${money(p.price)}</span></button>`).join("") : `<div class="empty">No hay productos en esta categoría.</div>`;
+  const draftItems = orderDraft.items.length ? orderDraft.items.map(i => `<div class="cart-item"><div><strong>${esc(i.name)}</strong><div class="muted">${money(i.price)} c/u</div></div><div class="qty"><button onclick="orderQty('${i.cartId}',-1)">−</button><strong>${i.qty}</strong><button onclick="orderQty('${i.cartId}',1)">+</button></div></div>`).join("") : `<div class="empty">Agrega productos al pedido.</div>`;
+  const draftTotal = totals(orderDraftSubtotal()).total;
+  const existingText = existing?.status === "open" ? `Cuenta actual: ${money(tableItemsTotal(existing.items))}` : "Mesa sin cuenta abierta";
+
+  $("#app").innerHTML = shell(`<button class="back-link" onclick="cancelOrderDraft()">‹ Volver a pedidos</button><section class="screen-title"><h2>Tomar pedido · Mesa ${orderDraft.tableNumber}</h2><p>${esc(existingText)}. Este pedido se agregará a la cuenta, pero no se cobrará todavía.</p></section><div class="sale-layout"><section class="panel"><h3 style="margin-top:0">1. Categoría</h3><div class="category-grid">${categoryHtml}</div></section><section class="panel"><div class="row-head"><h3 style="margin:0">2. ${esc(orderDraft.category || "Productos")}</h3><span class="muted">Toca para agregar</span></div><div class="category-products" style="margin-top:14px">${productHtml}</div></section><section class="panel"><div class="row-head"><h3 style="margin:0">Pedido de Mesa ${orderDraft.tableNumber}</h3><button class="btn ghost" onclick="clearOrderDraft()">Vaciar</button></div><div class="cart-list">${draftItems}</div><div class="divider"></div><div class="field"><label>Nota opcional</label><textarea rows="3" placeholder="Ej. una hamburguesa sin cebolla" oninput="orderSetNote(this.value)">${esc(orderDraft.note)}</textarea></div><div class="total-box"><span>Total de este pedido</span><span>${money(draftTotal)}</span></div><button class="btn primary full" onclick="saveTableOrder()">Guardar pedido</button><button class="btn ghost full" style="margin-top:9px" onclick="cancelOrderDraft()">Cancelar</button></section></div>`, "orders");
+}
+window.orderPickCategory = category => { if (!orderDraft) return; orderDraft.category = category; renderOrderEntry(); };
+window.addOrderProduct = id => {
+  if (!orderDraft) return;
+  const p = state.products.find(x => x.id === id); if (!p) return;
+  const cartId = `${p.id}_normal`;
+  const hit = orderDraft.items.find(x => x.cartId === cartId);
+  if (hit) hit.qty++;
+  else orderDraft.items.push({ cartId, id: p.id, name: p.name, variant: "", price: Number(p.price || 0), qty: 1 });
+  renderOrderEntry();
+};
+window.orderQty = (cartId, delta) => {
+  if (!orderDraft) return;
+  const item = orderDraft.items.find(x => x.cartId === cartId); if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) orderDraft.items = orderDraft.items.filter(x => x.cartId !== cartId);
+  renderOrderEntry();
+};
+window.orderSetNote = value => { if (orderDraft) orderDraft.note = value; };
+window.clearOrderDraft = () => { if (!orderDraft) return; orderDraft.items = []; orderDraft.note = ""; renderOrderEntry(); };
+window.cancelOrderDraft = () => { orderDraft = null; screen = "orders"; renderOrders(); };
+window.saveTableOrder = async () => {
+  if (!orderDraft?.items?.length) return toast("Agrega al menos un producto.");
+  const now = new Date().toISOString();
+  let account = tableAccount(orderDraft.tableNumber);
+  if (account?.status === "paid") return toast("Esta mesa ya fue pagada. Límpiala primero.");
+  if (!account) {
+    account = { id: uid("table"), tableNumber: Number(orderDraft.tableNumber), openedAt: now, status: "open", items: [], orderIds: [] };
+    state.tableAccounts.push(account);
+  }
+  const order = {
+    id: uid("o"),
+    number: nextOrderNumber(),
+    tableNumber: Number(orderDraft.tableNumber),
+    tableAccountId: account.id,
+    customer: "",
+    items: orderDraft.items.map(i => ({ id: i.id, name: i.name, variant: i.variant || "", price: Number(i.price || 0), qty: Number(i.qty || 0) })),
+    notes: orderDraft.note.trim(),
+    status: "Tomado",
+    createdAt: now,
+    statusHistory: [{ status: "Tomado", at: now }]
+  };
+  account.status = "open";
+  account.items = mergeTableItems(account.items || [], order.items);
+  account.orderIds = [...new Set([...(account.orderIds || []), order.id])];
+  account.updatedAt = now;
+  account.total = tableItemsTotal(account.items);
+  delete account.paidSaleId; delete account.paidAt;
+  await put("orders", order); state.orders.push(order);
+  await put("tableAccounts", account);
+  orderDraft = null; screen = "orders"; renderOrders();
+  toast(`Pedido #${order.number} guardado en Mesa ${order.tableNumber}.`);
+};
+window.orderStatus = async (id, status) => {
+  const o = state.orders.find(x => x.id === id); if (!o) return;
+  const now = new Date().toISOString();
+  o.status = status; o.updatedAt = now;
+  o.statusHistory = [...(o.statusHistory || []), { status, at: now }];
+  if (status === "En preparación") o.preparingAt = now;
+  if (status === "Listo") o.readyAt = now;
+  if (status === "Entregado") o.deliveredAt = now;
+  await put("orders", o);
+  renderOrders();
+};
 
 /* =========================
    CAJA
