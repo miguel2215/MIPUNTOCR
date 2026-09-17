@@ -1,4 +1,4 @@
-const CACHE = 'mipuntocr-v5-desktop-pos';
+const CACHE = 'mipuntocr-v6-oracle-cards';
 const CORE = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
