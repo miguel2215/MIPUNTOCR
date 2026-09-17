@@ -86,6 +86,12 @@ function openDB() {
     };
     r.onsuccess = () => resolve(r.result);
     r.onerror = () => reject(r.error);
+    r.onblocked = () => {
+      const app = document.querySelector("#app");
+      if (app && !app.innerHTML.trim()) {
+        app.innerHTML = `<section class="onboarding"><div class="onboard-card"><h1 class="onboard-brand">Mi Punto CR</h1><h2>Actualizando datos…</h2><p>Espera unos segundos. Si tienes Mi Punto CR abierto en otra pestaña, ciérrala y vuelve aquí.</p></div></section>`;
+      }
+    };
   });
 }
 function store(name, mode = "readonly") { return db.transaction(name, mode).objectStore(name); }
@@ -973,6 +979,11 @@ window.addEventListener("resize", handleViewportChange);
 window.addEventListener("orientationchange", handleViewportChange);
 window.addEventListener("online", render);
 window.addEventListener("offline", render);
+window.addEventListener("pageshow", () => {
+  setTimeout(() => {
+    if (db && !document.querySelector("#modalRoot")) render();
+  }, 80);
+});
 
 (async () => {
   injectStyles();
@@ -981,6 +992,10 @@ window.addEventListener("offline", render);
   await load();
   locked = !!state.settings.pinEnabled;
   render();
+  // Hotfix v7.1: algunos navegadores restauran la página antes de repintar #app.
+  // Forzamos un segundo render estable; el mismo efecto que provocaba F12 al redimensionar.
+  requestAnimationFrame(() => { if (!document.querySelector("#modalRoot")) render(); });
+  setTimeout(() => { if (!document.querySelector("#modalRoot")) render(); }, 250);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(console.error);
 })().catch(err => {
   console.error(err);
