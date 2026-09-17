@@ -1,5 +1,5 @@
-const CACHE = 'mipuntocr-v7-3-pedidos-flotantes';
-const CORE = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest'];
+const CACHE = 'mipuntocr-v7-4-brand';
+const CORE = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './assets/brand/logo-horizontal.png', './assets/brand/logo-vertical.png', './assets/brand/icon-192.png', './assets/brand/icon-512.png', './assets/brand/apple-touch-icon.png', './assets/brand/favicon-32.png'];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
