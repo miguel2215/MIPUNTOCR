@@ -1,4 +1,4 @@
-const CACHE = 'mipuntocr-v6-oracle-cards';
+const CACHE = 'mipuntocr-v7-restaurante-mesas-cierre';
 const CORE = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
