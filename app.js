@@ -106,6 +106,60 @@ function injectStyles() {
       .desktop-pos-page{height:100%;display:flex;flex-direction:column;min-height:0}.desktop-pos-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;flex:0 0 auto}.desktop-pos-header h2{font-size:25px;margin:0}.desktop-pos-header p{font-size:13px;color:var(--muted);margin:3px 0 0}.desktop-pos-layout{display:grid;grid-template-columns:180px minmax(0,1fr) 340px;gap:10px;min-height:0;flex:1}.desktop-pos-box{background:#fff;border:1px solid var(--line);border-radius:18px;min-height:0;overflow:hidden}.desktop-category-pane{padding:12px;overflow:auto}.desktop-category-title{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin:3px 5px 10px}.desktop-category-btn{width:100%;border:0;background:#f5f7f6;border-radius:12px;padding:11px 10px;margin-bottom:6px;text-align:left;font-size:13px;font-weight:800}.desktop-category-btn.active{background:var(--primary);color:#fff}.desktop-product-pane{display:flex;flex-direction:column;min-width:0}.desktop-product-toolbar{padding:12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}.desktop-product-toolbar .search{margin:0;padding:11px 12px;border-radius:12px;font-size:14px}.desktop-product-grid{padding:12px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;overflow:auto;align-content:start}.desktop-product{border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px;text-align:left;min-height:92px}.desktop-product:hover{border-color:#a9c7c2;background:#fbfdfc}.desktop-product strong{display:block;font-size:14px;line-height:1.25}.desktop-product small{display:block;color:var(--muted);font-size:11px;margin-top:4px}.desktop-product span{display:block;color:var(--primary-dark);font-weight:900;font-size:15px;margin-top:10px}.desktop-cart-pane{display:flex;flex-direction:column;padding:12px}.desktop-cart-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}.desktop-cart-head h3{font-size:17px;margin:0}.desktop-cart-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}.desktop-cart-meta button{border:1px solid var(--line);background:#f7f8f7;border-radius:10px;padding:7px 9px;font-size:11px;font-weight:800}.desktop-cart-meta button.active{background:var(--soft);color:var(--primary-dark);border-color:#abc6c2}.desktop-cart-list{flex:1;min-height:0;overflow:auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0}.desktop-cart-list .cart-item{padding:9px 0}.desktop-cart-list .cart-item strong{font-size:13px}.desktop-cart-list .muted{font-size:11px}.desktop-cart-list .qty{gap:5px}.desktop-cart-list .qty button{width:30px;height:30px;border-radius:9px;font-size:18px}.desktop-summary{padding:9px 0 7px}.desktop-summary .ticket-line{font-size:12px}.desktop-summary .total-box{font-size:22px;padding:8px 0}.desktop-pay-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}.desktop-pay-grid .pay-btn{padding:11px 6px;border-radius:12px;font-size:12px}.desktop-client-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.desktop-client-row span{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.desktop-client-row button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 9px;font-size:11px;font-weight:800;white-space:nowrap}
     }
     @media(min-width:1500px) and (min-height:650px){.desktop-app{grid-template-columns:245px minmax(0,1fr)}.desktop-pos-layout{grid-template-columns:200px minmax(0,1fr) 380px}.desktop-product-grid{grid-template-columns:repeat(5,minmax(0,1fr))}.desktop-page{padding-left:32px;padding-right:32px}}
+    /* Mi Punto CR v4 · escritorio POS con tarjetas grandes y ventanas flotantes */
+    @media(min-width:1100px) and (min-height:650px){
+      .desktop-app{grid-template-columns:250px minmax(0,1fr);gap:14px;padding:14px;background:#eef1ee}
+      .desktop-sidebar{height:100%;min-height:0;border:1px solid #dde3df;border-radius:26px;padding:20px 14px;background:#fff;box-shadow:0 16px 42px rgba(32,41,56,.07)}
+      .desktop-logo{padding:4px 14px 20px;margin-bottom:16px}
+      .desktop-logo strong{font-size:25px}.desktop-logo small{font-size:13px;margin-top:5px}
+      .desktop-nav{gap:8px;padding:2px 2px 6px}
+      .desktop-nav button{min-height:52px;border:1px solid transparent;border-radius:16px;padding:14px 15px;font-size:15px;transition:.14s ease}
+      .desktop-nav button:hover{background:#f5f8f6;border-color:#e7ebe8;transform:translateX(2px)}
+      .desktop-nav button.active{background:var(--soft);border-color:#d5e7e3;color:var(--primary-dark);box-shadow:inset 4px 0 0 var(--primary)}
+      .desktop-sidebar-foot{padding:16px 12px 2px;font-size:13px}
+      .desktop-main{height:100%;min-height:0;border-radius:26px;overflow:hidden;background:transparent}
+      .desktop-topbar{height:76px;flex-basis:76px;margin:0 0 12px;border:1px solid #dde3df;border-radius:22px;background:#fff;padding:0 26px;box-shadow:0 10px 30px rgba(32,41,56,.045)}
+      .desktop-page{padding:10px 4px 24px 4px}
+      .desktop-home{max-width:1280px}
+      .desktop-home h2{font-size:31px}.desktop-home-sub{font-size:16px;margin-bottom:20px}
+      .desktop-kpis{gap:14px;margin-bottom:16px}
+      .desktop-kpi{min-height:112px;border-radius:22px;padding:21px 22px;box-shadow:0 10px 28px rgba(32,41,56,.035)}
+      .desktop-kpi span{font-size:14px}.desktop-kpi strong{font-size:30px;margin-top:10px}
+      .desktop-primary-action{min-height:122px;border-radius:24px;padding:24px 28px;margin-bottom:16px;box-shadow:0 14px 34px rgba(78,139,131,.18)}
+      .desktop-primary-action strong{font-size:27px}.desktop-primary-action small{font-size:15px;margin-top:7px}.desktop-primary-action b{font-size:44px}
+      .desktop-tools{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+      .desktop-tool{min-height:128px;border-radius:22px;padding:22px;box-shadow:0 10px 28px rgba(32,41,56,.035);transition:.14s ease}
+      .desktop-tool:hover{border-color:#bad0cc;transform:translateY(-2px);box-shadow:0 14px 34px rgba(32,41,56,.07)}
+      .desktop-tool strong{font-size:19px}.desktop-tool span{font-size:13px;margin-top:8px;line-height:1.45}
+      .desktop-cash-state{font-size:13px;padding:9px 13px}
+
+      .desktop-pos-header{margin-bottom:14px}.desktop-pos-header h2{font-size:28px}.desktop-pos-header p{font-size:14px}
+      .desktop-pos-layout{grid-template-columns:210px minmax(0,1fr) 390px;gap:14px}
+      .desktop-pos-box{border-radius:22px;border-color:#dde3df;box-shadow:0 10px 30px rgba(32,41,56,.04)}
+      .desktop-category-pane{padding:14px}.desktop-category-title{font-size:13px;margin:5px 7px 12px}
+      .desktop-category-btn{min-height:54px;border-radius:14px;padding:14px 13px;margin-bottom:8px;font-size:14px;border:1px solid transparent}
+      .desktop-category-btn:hover{border-color:#d9e4e0;background:#f8faf9}.desktop-category-btn.active{border-color:transparent}
+      .desktop-product-toolbar{padding:14px}.desktop-product-toolbar .search{min-height:48px;font-size:15px;padding:12px 14px}
+      .desktop-product-grid{padding:14px;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+      .desktop-product{min-height:125px;border-radius:18px;padding:17px;box-shadow:0 7px 18px rgba(32,41,56,.025)}
+      .desktop-product strong{font-size:16px}.desktop-product small{font-size:12px;margin-top:6px}.desktop-product span{font-size:18px;margin-top:14px}
+      .desktop-cart-pane{padding:16px}.desktop-cart-head h3{font-size:19px}.desktop-cart-head .btn{min-height:42px!important;padding:9px 13px!important;font-size:12px!important}
+      .desktop-cart-meta{gap:8px;margin-bottom:10px}.desktop-cart-meta button{min-height:42px;padding:9px 11px;font-size:12px;border-radius:12px}
+      .desktop-client-row{margin-bottom:10px}.desktop-client-row span{font-size:13px}.desktop-client-row button{min-height:42px;padding:9px 12px;font-size:12px;border-radius:12px}
+      .desktop-cart-list .cart-item{padding:12px 0}.desktop-cart-list .cart-item strong{font-size:14px}.desktop-cart-list .qty button{width:36px;height:36px;border-radius:11px}
+      .desktop-summary{padding:12px 0 10px}.desktop-summary .ticket-line{font-size:13px}.desktop-summary .total-box{font-size:27px;padding:11px 0}
+      .desktop-pay-grid{gap:9px}.desktop-pay-grid .pay-btn{min-height:56px;padding:14px 8px;border-radius:15px;font-size:14px}
+
+      .modal-backdrop{background:rgba(22,31,39,.42);backdrop-filter:blur(4px)}
+      .modal{width:min(760px,calc(100vw - 72px));max-height:86vh;border:1px solid #e0e5e2;border-radius:26px!important;padding:28px;box-shadow:0 26px 80px rgba(18,28,36,.22)}
+      .modal h3{font-size:29px}.modal .btn{min-height:46px;padding:13px 18px}.modal .field input,.modal .field select,.modal .field textarea{min-height:48px}
+      .cash-quick-grid{grid-template-columns:repeat(3,1fr);gap:11px}.cash-chip{min-height:58px;border-radius:16px;font-size:16px}
+    }
+    @media(min-width:1500px) and (min-height:650px){
+      .desktop-app{grid-template-columns:270px minmax(0,1fr)}
+      .desktop-pos-layout{grid-template-columns:225px minmax(0,1fr) 420px}
+      .desktop-product-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+    }
   `;
   document.head.appendChild(s);
 }
