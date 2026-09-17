@@ -789,3 +789,188 @@ button {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+/* ================================
+   CATEGORÍAS DE VENTA
+================================ */
+
+.category-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 11px;
+}
+
+.category-card {
+  position: relative;
+
+  width: 100%;
+  min-height: 82px;
+
+  border: 1px solid var(--line);
+  border-radius: 19px;
+
+  background: white;
+
+  padding: 17px 48px 17px 18px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+
+  text-align: left;
+
+  box-shadow:
+    0 4px 13px
+    rgba(0, 0, 0, 0.035);
+}
+
+.category-card:active {
+  background: var(--primary-soft);
+  transform: scale(.985);
+}
+
+.category-name {
+  color: var(--text);
+
+  font-size: 1.08rem;
+  font-weight: 820;
+}
+
+.category-count {
+  margin-top: 5px;
+
+  color: var(--muted);
+
+  font-size: .86rem;
+}
+
+.category-arrow {
+  position: absolute;
+
+  right: 18px;
+  top: 50%;
+
+  transform: translateY(-50%);
+
+  color: #a4a8af;
+
+  font-size: 1.65rem;
+}
+
+
+/* ================================
+   VENTANA DE CATEGORÍA
+================================ */
+
+.category-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-bottom: 15px;
+}
+
+.category-modal-header h3 {
+  margin: 0;
+}
+
+.category-modal-header p {
+  margin: 5px 0 0;
+}
+
+.modal-close {
+  flex: 0 0 auto;
+
+  width: 42px;
+  height: 42px;
+
+  border: 0;
+  border-radius: 50%;
+
+  background: #f0f1f0;
+
+  color: var(--text);
+
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+
+.category-products,
+.variant-list {
+  display: grid;
+  gap: 9px;
+}
+
+
+.category-product {
+  width: 100%;
+  min-height: 68px;
+
+  border: 1px solid var(--line);
+  border-radius: 16px;
+
+  background: white;
+
+  padding: 13px 15px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  text-align: left;
+}
+
+
+.category-product:active {
+  background: var(--primary-soft);
+}
+
+
+.category-product strong {
+  display: block;
+
+  color: var(--text);
+
+  font-size: 1rem;
+}
+
+
+.category-product small {
+  display: block;
+
+  margin-top: 4px;
+
+  color: var(--muted);
+
+  font-size: .82rem;
+}
+
+
+.category-product-price {
+  flex: 0 0 auto;
+
+  color: var(--primary);
+
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+
+@media (min-width: 700px) {
+
+  .category-grid {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+
+  .category-products {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+
+}
