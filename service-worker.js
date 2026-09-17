@@ -1,1 +1,90 @@
-const C='mipuntocr-v1',A=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest'];self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(x=>{let y=x.clone();caches.open(C).then(c=>c.put(e.request,y));return x}).catch(()=>caches.match('./index.html')))));
+const CACHE_NAME = "mipuntocr-web-v1-1";
+
+const APP_FILES = [
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./app.js",
+  "./manifest.webmanifest"
+];
+
+self.addEventListener(
+  "install",
+  event => {
+    event.waitUntil(
+      caches
+        .open(CACHE_NAME)
+        .then(cache =>
+          cache.addAll(APP_FILES)
+        )
+    );
+
+    self.skipWaiting();
+  }
+);
+
+self.addEventListener(
+  "activate",
+  event => {
+    event.waitUntil(
+      caches
+        .keys()
+        .then(keys =>
+          Promise.all(
+            keys
+              .filter(
+                key =>
+                  key !== CACHE_NAME
+              )
+              .map(key =>
+                caches.delete(key)
+              )
+          )
+        )
+        .then(() =>
+          self.clients.claim()
+        )
+    );
+  }
+);
+
+self.addEventListener(
+  "fetch",
+  event => {
+    if (
+      event.request.method !== "GET"
+    ) {
+      return;
+    }
+
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const copy =
+            response.clone();
+
+          caches
+            .open(CACHE_NAME)
+            .then(cache => {
+              cache.put(
+                event.request,
+                copy
+              );
+            });
+
+          return response;
+        })
+        .catch(() =>
+          caches
+            .match(event.request)
+            .then(
+              cached =>
+                cached ||
+                caches.match(
+                  "./index.html"
+                )
+            )
+        )
+    );
+  }
+);
