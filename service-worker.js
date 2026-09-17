@@ -1,90 +1,52 @@
-const CACHE_NAME = "mipuntocr-web-v1-1";
+const CACHE = 'mipuntocr-v4';
+const CORE = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest'];
 
-const APP_FILES = [
-  "./",
-  "./index.html",
-  "./styles.css",
-  "./app.js",
-  "./manifest.webmanifest"
-];
+self.addEventListener('install', event => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(CORE).catch(() => null))
+  );
+});
 
-self.addEventListener(
-  "install",
-  event => {
-    event.waitUntil(
-      caches
-        .open(CACHE_NAME)
-        .then(cache =>
-          cache.addAll(APP_FILES)
-        )
-    );
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
 
-    self.skipWaiting();
-  }
-);
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
 
-self.addEventListener(
-  "activate",
-  event => {
-    event.waitUntil(
-      caches
-        .keys()
-        .then(keys =>
-          Promise.all(
-            keys
-              .filter(
-                key =>
-                  key !== CACHE_NAME
-              )
-              .map(key =>
-                caches.delete(key)
-              )
-          )
-        )
-        .then(() =>
-          self.clients.claim()
-        )
-    );
-  }
-);
+  const url = new URL(request.url);
+  const isCoreCode = url.origin === self.location.origin && (
+    url.pathname.endsWith('/app.js') ||
+    url.pathname.endsWith('/styles.css') ||
+    url.pathname.endsWith('/index.html') ||
+    url.pathname === '/' ||
+    url.pathname.endsWith('/')
+  );
 
-self.addEventListener(
-  "fetch",
-  event => {
-    if (
-      event.request.method !== "GET"
-    ) {
-      return;
-    }
-
+  if (isCoreCode) {
     event.respondWith(
-      fetch(event.request)
+      fetch(request, { cache: 'no-store' })
         .then(response => {
-          const copy =
-            response.clone();
-
-          caches
-            .open(CACHE_NAME)
-            .then(cache => {
-              cache.put(
-                event.request,
-                copy
-              );
-            });
-
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put(request, copy));
           return response;
         })
-        .catch(() =>
-          caches
-            .match(event.request)
-            .then(
-              cached =>
-                cached ||
-                caches.match(
-                  "./index.html"
-                )
-            )
-        )
+        .catch(() => caches.match(request).then(hit => hit || caches.match('./index.html')))
     );
+    return;
   }
-);
+
+  event.respondWith(
+    caches.match(request).then(hit => hit || fetch(request).then(response => {
+      const copy = response.clone();
+      caches.open(CACHE).then(cache => cache.put(request, copy));
+      return response;
+    }))
+  );
+});
