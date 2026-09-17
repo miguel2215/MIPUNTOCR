@@ -1,6 +1,6 @@
 const DB_NAME = "mipuntocr";
-const DB_VERSION = 4;
-const STORES = ["products", "clients", "sales", "orders", "cashMoves", "cashSessions", "settings", "creditMoves"];
+const DB_VERSION = 5;
+const STORES = ["products", "clients", "sales", "orders", "cashMoves", "cashSessions", "settings", "creditMoves", "tableAccounts"];
 
 let db;
 let screen = "home";
@@ -11,7 +11,7 @@ let activeClientId = "";
 let quickCategory = "";
 let authStep = "welcome";
 let setupDraft = {};
-let saleMeta = { clientId: "", orderType: "Mostrador", table: "", note: "" };
+let saleMeta = { clientId: "", orderType: "Mostrador", table: "", note: "", tableAccountId: "" };
 
 const state = {
   products: [],
@@ -21,6 +21,7 @@ const state = {
   cashMoves: [],
   cashSessions: [],
   creditMoves: [],
+  tableAccounts: [],
   settings: {
     id: "main",
     businessName: "Mi Punto CR",
@@ -43,7 +44,8 @@ const state = {
     passwordHash: "",
     pendingActivationCode: "",
     activationCodeHash: "",
-    sessionActive: true
+    sessionActive: true,
+    tableCount: 0
   }
 };
 
@@ -62,6 +64,17 @@ const currentShift = () => [...state.cashSessions].reverse().find(x => x.status 
 const canSell = () => !isFood() || !!currentShift();
 const isQuickLandscape = () => window.matchMedia?.("(orientation: landscape) and (max-height: 600px)")?.matches === true;
 const isDesktopPOS = () => window.matchMedia?.("(min-width: 1100px) and (min-height: 650px)")?.matches === true;
+const openTableAccounts = () => state.tableAccounts.filter(a => a.status === "open");
+const tableAccount = n => [...state.tableAccounts].reverse().find(a => Number(a.tableNumber) === Number(n));
+const activeShiftSales = () => {
+  const shift = currentShift();
+  return shift ? state.sales.filter(s => s.shiftId === shift.id) : [];
+};
+const localDayKey = value => {
+  const d = new Date(value);
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+};
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -81,7 +94,7 @@ function put(name, value) { return new Promise((res, rej) => { const r = store(n
 function del(name, id) { return new Promise((res, rej) => { const r = store(name, "readwrite").delete(id); r.onsuccess = () => res(); r.onerror = () => rej(r.error); }); }
 
 async function load() {
-  for (const name of ["products", "clients", "sales", "orders", "cashMoves", "cashSessions", "creditMoves"]) state[name] = await all(name);
+  for (const name of ["products", "clients", "sales", "orders", "cashMoves", "cashSessions", "creditMoves", "tableAccounts"]) state[name] = await all(name);
   const saved = await all("settings");
   if (saved[0]) state.settings = { ...state.settings, ...saved[0] };
   if (state.settings.businessType === "general") state.settings.businessType = "food";
@@ -164,11 +177,40 @@ function injectStyles() {
   document.head.appendChild(s);
 }
 
+function injectV7Styles() {
+  if (document.getElementById("mpcr-v7-style")) return;
+  const st = document.createElement("style");
+  st.id = "mpcr-v7-style";
+  st.textContent = `
+    .fullscreen-btn{border:1px solid var(--line);background:#fff;border-radius:14px;padding:10px 13px;font-weight:850;margin-right:10px}
+    .desktop-top-actions{display:flex;align-items:center;gap:8px}
+    .product-category-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .product-category-card{min-height:132px;border:1px solid var(--line);border-radius:24px;background:#fff;padding:22px;text-align:left;display:flex;justify-content:space-between;align-items:center;box-shadow:0 9px 24px rgba(32,41,56,.035)}
+    .product-category-card strong{font-size:22px}.product-category-card small{display:block;color:var(--muted);font-size:14px;margin-top:8px}.product-category-card b{font-size:38px;opacity:.45}
+    .category-products-page{display:grid;gap:12px}.product-row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .sales-scroll{max-height:calc(100vh - 245px);overflow:auto;padding-right:4px}.sales-day{margin-bottom:18px}.sales-day-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 10px;padding:0 4px}.sales-day-head h3{margin:0;font-size:22px}.sales-day-head span{color:var(--muted);font-size:14px}.sales-day-list{display:grid;gap:9px}
+    .table-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.table-card{border:1px solid var(--line);background:#fff;border-radius:24px;padding:18px;text-align:center;min-height:185px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;box-shadow:0 8px 24px rgba(32,41,56,.03)}.table-card strong{font-size:19px}.table-card small{color:var(--muted)}
+    .table-icon{position:relative;width:84px;height:84px;margin:0 auto}.table-icon .top,.table-icon .bottom,.table-icon .left,.table-icon .right{position:absolute;background:#202938;border-radius:4px}.table-icon .center{position:absolute;left:22px;top:22px;width:40px;height:40px;border:4px solid #202938;border-radius:5px;display:grid;place-items:center;font-weight:900;font-size:16px;background:#fff}.table-icon .top{width:26px;height:13px;left:29px;top:2px}.table-icon .bottom{width:26px;height:13px;left:29px;bottom:2px}.table-icon .left{width:13px;height:26px;left:2px;top:29px}.table-icon .right{width:13px;height:26px;right:2px;top:29px}
+    .table-picker-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}.table-pick{border:1px solid var(--line);background:#fff;border-radius:16px;padding:14px 8px;font-weight:850}.table-pick small{display:block;color:var(--muted);font-weight:600;margin-top:3px}
+    .table-account-banner{background:#f4f7f6;border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+    .report-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}.report-stat{background:#f7f9f8;border:1px solid var(--line);border-radius:16px;padding:13px}.report-stat span{display:block;color:var(--muted);font-size:12px}.report-stat strong{display:block;margin-top:5px;font-size:19px}.closing-list{display:grid;gap:10px;margin-top:14px}
+    @media(min-width:1100px){.product-category-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.table-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+    @media(max-width:699px){.product-category-grid{grid-template-columns:1fr}.table-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.table-picker-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.sales-scroll{max-height:none;overflow:visible}}
+    @media print{
+      body.print-receipt-mode *{visibility:hidden!important}
+      body.print-receipt-mode #printReceiptRoot,body.print-receipt-mode #printReceiptRoot *{visibility:visible!important}
+      body.print-receipt-mode #printReceiptRoot{position:absolute!important;left:0!important;top:0!important;width:80mm!important;background:#fff!important;padding:4mm!important;color:#000!important;font-family:Arial,sans-serif!important}
+      @page{size:80mm auto;margin:0}
+    }
+  `;
+  document.head.appendChild(st);
+}
+
 function badge() { return navigator.onLine ? `<span class="badge online">● En línea</span>` : `<span class="badge offline">● Sin conexión</span>`; }
 function navBtn(target, label, active) { return `<button class="${active === target ? "active" : ""}" onclick="go('${target}')">${label}</button>`; }
 function desktopNavItems() {
   const items = [["home", "Inicio"], ["sale", isServices() ? "Nuevo servicio" : "Vender"]];
-  if (isFood()) items.push(["orders", "Pedidos"], ["products", "Productos"], ["clients", "Clientes / Crédito"], ["cash", "Caja"], ["sales", "Mis ventas"], ["catalog", "Menú QR"]);
+  if (isFood()) items.push(["orders", "Pedidos"], ["tables", "Mesas"], ["products", "Productos"], ["clients", "Clientes / Crédito"], ["cash", "Caja"], ["sales", "Mis ventas"], ["catalog", "Menú QR"]);
   if (isProducts()) items.push(["products", "Productos"], ["clients", "Clientes / Crédito"], ["sales", "Mis ventas"], ["catalog", "Catálogo QR"]);
   if (isServices()) items.push(["products", "Servicios"], ["clients", "Clientes"], ["sales", "Mis ventas"], ["catalog", "Catálogo QR"]);
   if (role === "owner") items.push(["settings", "Configuración"]);
@@ -178,7 +220,7 @@ function desktopShell(content, active = "home") {
   const current = screen || active;
   const nav = desktopNavItems().map(([target, label]) => `<button class="${current === target ? "active" : ""}" onclick="go('${target}')">${label}</button>`).join("");
   const shift = currentShift();
-  return `<div class="desktop-app"><aside class="desktop-sidebar"><div class="desktop-logo"><strong>${esc(state.settings.businessName)}</strong><small>Mi Punto CR</small></div><nav class="desktop-nav">${nav}</nav><div class="desktop-sidebar-foot">${isFood() ? (shift ? `Caja abierta · ${dateTime(shift.openedAt)}` : "Caja cerrada") : "Listo para cobrar"}</div></aside><main class="desktop-main"><header class="desktop-topbar"><div class="desktop-topbar-title"><strong>${esc(state.settings.businessName)}</strong><span>${isFood() ? (shift ? "Punto de venta · Caja abierta" : "Punto de venta · Caja cerrada") : (isServices() ? "Servicios" : "Punto de venta")}</span></div>${badge()}</header><div class="desktop-page">${!navigator.onLine ? `<div class="offline-note">Sin conexión. Las funciones internas siguen guardándose en este dispositivo.</div>` : ""}${content}</div></main></div>`;
+  return `<div class="desktop-app"><aside class="desktop-sidebar"><div class="desktop-logo"><strong>${esc(state.settings.businessName)}</strong><small>Mi Punto CR</small></div><nav class="desktop-nav">${nav}</nav><div class="desktop-sidebar-foot">${isFood() ? (shift ? `Caja abierta · ${dateTime(shift.openedAt)}` : "Caja cerrada") : "Listo para cobrar"}</div></aside><main class="desktop-main"><header class="desktop-topbar"><div class="desktop-topbar-title"><strong>${esc(state.settings.businessName)}</strong><span>${isFood() ? (shift ? "Punto de venta · Caja abierta" : "Punto de venta · Caja cerrada") : (isServices() ? "Servicios" : "Punto de venta")}</span></div><div class="desktop-top-actions"><button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Pantalla completa</button>${badge()}</div></header><div class="desktop-page">${!navigator.onLine ? `<div class="offline-note">Sin conexión. Las funciones internas siguen guardándose en este dispositivo.</div>` : ""}${content}</div></main></div>`;
 }
 function shell(content, active = "home") {
   if (isDesktopPOS()) return desktopShell(content, active);
@@ -198,12 +240,19 @@ function rerenderSale() {
   if (isDesktopPOS()) return renderDesktopSale();
   renderSale();
 }
-function resetSaleMeta() { saleMeta = { clientId: "", orderType: "Mostrador", table: "", note: "" }; }
+function resetSaleMeta() { saleMeta = { clientId: "", orderType: "Mostrador", table: "", note: "", tableAccountId: "" }; }
 
 window.go = target => {
   if (target === "sale" && !canSell()) { toast("Primero debes abrir la caja."); screen = "cash"; return render(); }
   screen = target;
   render();
+};
+
+window.toggleFullscreen = async () => {
+  try {
+    if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.();
+    else await document.exitFullscreen?.();
+  } catch (e) { toast("El navegador no permitió pantalla completa."); }
 };
 
 function render() {
@@ -215,6 +264,7 @@ function render() {
     home: renderHome,
     sale: renderSale,
     orders: renderOrders,
+    tables: renderTables,
     products: renderProducts,
     clients: renderClients,
     clientDetail: renderClientDetail,
@@ -310,7 +360,8 @@ window.chooseBusinessType = async businessType => {
     businessId: state.settings.businessId || businessCode(),
     pendingActivationCode: code,
     activationCodeHash: await sha256(normalizeActivationCode(code)),
-    sessionActive: true
+    sessionActive: true,
+    tableCount: 0
   };
   await put("settings", state.settings);
   setupDraft = {};
@@ -377,7 +428,7 @@ window.logoutOwner = async () => {
 ========================= */
 function renderHome() {
   const today = new Date().toDateString();
-  const todaySales = state.sales.filter(s => new Date(s.createdAt).toDateString() === today);
+  const todaySales = isFood() ? activeShiftSales() : state.sales.filter(s => new Date(s.createdAt).toDateString() === today);
   const sold = todaySales.reduce((a, b) => a + Number(b.total || 0), 0);
   const credit = state.clients.reduce((a, b) => a + Number(b.balance || 0), 0);
   const shiftOpen = !!currentShift();
@@ -389,7 +440,7 @@ function renderHome() {
     const statusText = isFood() ? (shiftOpen ? "Abierta" : "Cerrada") : "No requerida";
     const statusClass = isFood() && shiftOpen ? "open" : "";
     const tools = [];
-    if (isFood()) tools.push(["orders", "Pedidos", "Pendientes y preparación"], ["products", "Productos", "Comidas, bebidas y stock"], ["clients", "Clientes / Crédito", "Saldos y abonos"], ["cash", "Caja", shiftOpen ? "Turno abierto" : "Abrir turno"], ["sales", "Mis ventas", "Comprobantes e historial"], ["catalog", "Menú QR", "Vista del menú"]);
+    if (isFood()) tools.push(["orders", "Pedidos", "Pendientes y preparación"], ["tables", "Mesas", "Cuentas abiertas del salón"], ["products", "Productos", "Comidas, bebidas y stock"], ["clients", "Clientes / Crédito", "Saldos y abonos"], ["cash", "Caja", shiftOpen ? "Turno abierto" : "Abrir turno"], ["sales", "Mis ventas", "Comprobantes e historial"], ["catalog", "Menú QR", "Vista del menú"]);
     if (isProducts()) tools.push(["products", "Productos", "Artículos, variantes y stock"], ["clients", "Clientes / Crédito", "Saldos y abonos"], ["sales", "Mis ventas", "Comprobantes e historial"], ["catalog", "Catálogo QR", "Vista del catálogo"]);
     if (isServices()) tools.push(["products", "Servicios", "Precios y categorías"], ["clients", "Clientes", "Contactos y crédito"], ["sales", "Mis ventas", "Comprobantes e historial"], ["catalog", "Catálogo QR", "Vista de servicios"]);
     const toolsHtml = tools.map(([target, title, sub]) => `<button class="desktop-tool" onclick="go('${target}')"><strong>${title}</strong><span>${sub}</span></button>`).join("");
@@ -399,7 +450,7 @@ function renderHome() {
   }
 
   let cards = "";
-  if (isFood()) cards = `${card("sale", "Nueva venta", shiftOpen ? "Vende y cobra rápido" : "Abre caja para poder vender", true, !shiftOpen)}${card("orders", "Pedidos", "Pendientes, preparando y listos")}${card("cash", shiftOpen ? "Caja abierta" : "Abrir caja", shiftOpen ? "Ventas y cierre" : "Fondo inicial y apertura")}${card("products", "Productos", "Comidas, bebidas y stock")}${card("clients", "Clientes / Crédito", "Compras, saldos y abonos")}${card("catalog", "Menú QR", "Vista del menú")}`;
+  if (isFood()) cards = `${card("sale", "Nueva venta", shiftOpen ? "Vende y cobra rápido" : "Abre caja para poder vender", true, !shiftOpen)}${card("orders", "Pedidos", "Pendientes, preparando y listos")}${card("tables", "Mesas", "Cuentas abiertas del salón")}${card("cash", shiftOpen ? "Caja abierta" : "Abrir caja", shiftOpen ? "Ventas y cierre" : "Fondo inicial y apertura")}${card("products", "Productos", "Comidas, bebidas y stock")}${card("clients", "Clientes / Crédito", "Compras, saldos y abonos")}${card("catalog", "Menú QR", "Vista del menú")}`;
   if (isProducts()) cards = `${card("sale", "Vender", "Selecciona artículos y cobra", true)}${card("products", "Productos", "Artículos, variantes y stock")}${card("clients", "Clientes / Crédito", "Compras, saldos y abonos")}${card("catalog", "Catálogo QR", "Vista del catálogo")}${card("sales", "Mis ventas", "Comprobantes e historial")}`;
   if (isServices()) cards = `${card("sale", "Nuevo servicio", "Selecciona el servicio y cobra", true)}${card("products", "Servicios", "Precios y categorías")}${card("clients", "Clientes", "Contactos, compras y crédito")}${card("catalog", "Catálogo QR", "Vista de servicios")}${card("sales", "Mis ventas", "Comprobantes e historial")}`;
   $("#app").innerHTML = shell(`<section class="screen-title"><h2>¿Qué necesitas hacer?</h2><p>Solo mostramos lo que realmente sirve para tu negocio.</p></section><div class="kpi-grid"><button class="kpi" style="text-align:left" onclick="go('sales')"><span class="muted">Ventas hoy</span><strong>${money(sold)}</strong></button><button class="kpi" style="text-align:left" onclick="go('clients')"><span class="muted">Por cobrar</span><strong>${money(credit)}</strong></button></div><div class="home-grid" style="margin-top:14px">${cards}${role === "owner" ? card("settings", "Configuración", "Datos básicos del negocio") : ""}</div>`, "home");
@@ -429,7 +480,7 @@ function renderSale() {
   const cartHtml = cart.length ? cart.map(i => `<div class="cart-item"><div><strong>${esc(i.name)}</strong>${i.variant ? `<div class="muted">${esc(i.variant)}</div>` : ""}<div class="muted">${money(i.price)} c/u</div></div><div class="qty"><button onclick="qty('${i.cartId}',-1)">−</button><strong>${i.qty}</strong><button onclick="qty('${i.cartId}',1)">+</button></div></div>`).join("") : `<div class="empty">Selecciona una categoría para comenzar.</div>`;
   const foodMeta = isFood() ? `<div class="quick-meta"><button class="${saleMeta.orderType === "Mostrador" ? "active" : ""}" onclick="setOrderType('Mostrador')">Mostrador</button><button class="${saleMeta.orderType === "Para llevar" ? "active" : ""}" onclick="setOrderType('Para llevar')">Para llevar</button><button class="${saleMeta.orderType === "Mesa" ? "active" : ""}" onclick="askTable()">${saleMeta.table ? `Mesa ${esc(saleMeta.table)}` : "Mesa"}</button><button onclick="editSaleNote()">${saleMeta.note ? "Nota ✓" : "Nota"}</button></div>` : "";
   const selectedClient = saleMeta.clientId ? `<span><strong>${esc(clientName(saleMeta.clientId))}</strong></span>` : `<span class="muted">Sin cliente</span>`;
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>${isServices() ? "Nuevo servicio" : "Nueva venta"}</h2><p>Selecciona una categoría.</p></section><div class="sale-layout"><section class="panel"><input class="search" placeholder="Buscar categoría..." oninput="filterCategories(this.value)"><div class="category-grid">${categoryHtml || `<div class="empty">Primero agrega ${isServices() ? "servicios" : "productos"}.</div>`}</div></section><section class="panel">${foodMeta}<div class="row-head"><h3 style="margin:0">${isServices() ? "Servicio actual" : "Venta actual"}</h3><button class="btn ghost" onclick="clearCart()">Vaciar</button></div><div class="row-head" style="margin:12px 0"><div>${selectedClient}</div><button class="btn ghost" onclick="selectSaleClient()">${saleMeta.clientId ? "Cambiar cliente" : "Cliente opcional"}</button></div><div class="cart-list">${cartHtml}</div>${state.settings.taxMode !== "exempt" ? `<div class="divider"></div><div class="ticket-line"><span class="muted">Impuesto</span><span>${money(t.tax)}</span></div>` : ""}<div class="total-box"><span>Total</span><span>${money(t.total)}</span></div><div class="payment-grid"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta / Otro</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div></section></div>`, "sale");
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>${isServices() ? "Nuevo servicio" : "Nueva venta"}</h2><p>Selecciona una categoría.</p></section><div class="sale-layout"><section class="panel"><input class="search" placeholder="Buscar categoría..." oninput="filterCategories(this.value)"><div class="category-grid">${categoryHtml || `<div class="empty">Primero agrega ${isServices() ? "servicios" : "productos"}.</div>`}</div></section><section class="panel">${foodMeta}<div class="row-head"><h3 style="margin:0">${isServices() ? "Servicio actual" : "Venta actual"}</h3><button class="btn ghost" onclick="clearCart()">Vaciar</button></div><div class="row-head" style="margin:12px 0"><div>${selectedClient}</div><button class="btn ghost" onclick="selectSaleClient()">${saleMeta.clientId ? "Cambiar cliente" : "Cliente opcional"}</button></div><div class="cart-list">${cartHtml}</div>${state.settings.taxMode !== "exempt" ? `<div class="divider"></div><div class="ticket-line"><span class="muted">Impuesto</span><span>${money(t.tax)}</span></div>` : ""}<div class="total-box"><span>Total</span><span>${money(t.total)}</span></div>${isFood() && saleMeta.orderType === "Mesa" ? `<div class="toolbar"><button class="btn primary" onclick="saveTableAccount()">Guardar mesa</button><button class="btn ghost" onclick="previewCurrentPrebill()">Precuenta</button><button class="btn ghost" onclick="go('tables')">Ver mesas</button></div>` : ""}<div class="payment-grid"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta / Otro</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div></section></div>`, "sale");
 }
 window.openCategory = c => {
   const items = state.products.filter(p => (p.category?.trim() || "Otros") === c);
@@ -437,7 +488,7 @@ window.openCategory = c => {
 };
 window.pickProduct = id => {
   const p = state.products.find(x => x.id === id); if (!p) return;
-  if (p.variants?.length) return modal(`<h3>${esc(p.name)}</h3><p class="muted">Elige una opción.</p><div class="variant-list">${p.variants.map(v => `<button class="category-product" onclick="addCart('${p.id}',decodeURIComponent('${enc(v)}'))"><strong>${esc(v)}</strong><span class="category-product-price">${money(p.price)}</span></button>`).join("")}</div>`);
+  if (!isFood() && p.variants?.length) return modal(`<h3>${esc(p.name)}</h3><p class="muted">Elige una opción.</p><div class="variant-list">${p.variants.map(v => `<button class="category-product" onclick="addCart('${p.id}',decodeURIComponent('${enc(v)}'))"><strong>${esc(v)}</strong><span class="category-product-price">${money(p.price)}</span></button>`).join("")}</div>`);
   addCart(id, "");
 };
 window.addCart = (id, variant = "") => {
@@ -452,8 +503,7 @@ window.qty = (id, change) => { const i = cart.find(x => x.cartId === id); if (!i
 window.clearCart = () => { cart = []; resetSaleMeta(); rerenderSale(); };
 window.filterCategories = q => $$(".category-card").forEach(el => el.style.display = el.innerText.toLowerCase().includes(q.toLowerCase().trim()) ? "" : "none");
 window.setOrderType = value => { saleMeta.orderType = value; if (value !== "Mesa") saleMeta.table = ""; rerenderSale(); };
-window.askTable = () => modal(`<h3>Mesa</h3><div class="field"><label>Número o nombre</label><input id="tableValue" value="${esc(saleMeta.table)}" inputmode="numeric"></div><div class="toolbar"><button class="btn primary" onclick="saveTable()">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
-window.saveTable = () => { saleMeta.orderType = "Mesa"; saleMeta.table = $("#tableValue").value.trim(); closeModal(); rerenderSale(); };
+window.askTable = () => showTablePicker();
 window.editSaleNote = () => modal(`<h3>Nota de la venta</h3><div class="field"><textarea id="saleNote" rows="4" placeholder="Ej. sin cebolla, entregar a las 3...">${esc(saleMeta.note)}</textarea></div><div class="toolbar"><button class="btn primary" onclick="saveSaleNote()">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
 window.saveSaleNote = () => { saleMeta.note = $("#saleNote").value.trim(); closeModal(); rerenderSale(); };
 window.selectSaleClient = () => {
@@ -473,12 +523,12 @@ function renderDesktopSale() {
   const items = state.products.filter(p => (p.category?.trim() || "Otros") === quickCategory);
   const t = totals(saleSubtotal());
   const catHtml = categories.map(c => `<button class="desktop-category-btn ${c === quickCategory ? "active" : ""}" onclick="desktopSetCategory(decodeURIComponent('${enc(c)}'))">${esc(c)}</button>`).join("") || `<div class="empty" style="padding:10px">Sin categorías.</div>`;
-  const itemHtml = items.map(p => `<button class="desktop-product" data-desktop-product="1" data-search="${esc((p.name + " " + (p.category || "")).toLowerCase())}" onclick="pickProduct('${p.id}')"><strong>${esc(p.name)}</strong>${p.variants?.length ? `<small>${p.variants.length} opciones</small>` : (!isServices() ? `<small>Stock: ${Number(p.stock || 0)}</small>` : `<small>${esc(p.category || "Servicio")}</small>`)}<span>${money(p.price)}</span></button>`).join("") || `<div class="empty" style="grid-column:1/-1">No hay ${isServices() ? "servicios" : "productos"} en esta categoría.</div>`;
+  const itemHtml = items.map(p => `<button class="desktop-product" data-desktop-product="1" data-search="${esc((p.name + " " + (p.category || "")).toLowerCase())}" onclick="pickProduct('${p.id}')"><strong>${esc(p.name)}</strong>${!isFood() && p.variants?.length ? `<small>${p.variants.length} opciones</small>` : (!isServices() ? `<small>Stock: ${Number(p.stock || 0)}</small>` : `<small>${esc(p.category || "Servicio")}</small>`)}<span>${money(p.price)}</span></button>`).join("") || `<div class="empty" style="grid-column:1/-1">No hay ${isServices() ? "servicios" : "productos"} en esta categoría.</div>`;
   const cartHtml = cart.length ? cart.map(i => `<div class="cart-item"><div style="min-width:0"><strong>${esc(i.name)}</strong>${i.variant ? `<div class="muted">${esc(i.variant)}</div>` : ""}<div class="muted">${money(i.price)} c/u</div></div><div class="qty"><button onclick="qty('${i.cartId}',-1)">−</button><strong>${i.qty}</strong><button onclick="qty('${i.cartId}',1)">+</button></div></div>`).join("") : `<div class="empty" style="padding:18px 8px">Selecciona ${isServices() ? "un servicio" : "un producto"}.</div>`;
   const foodMeta = isFood() ? `<div class="desktop-cart-meta"><button class="${saleMeta.orderType === "Mostrador" ? "active" : ""}" onclick="setOrderType('Mostrador')">Mostrador</button><button class="${saleMeta.orderType === "Para llevar" ? "active" : ""}" onclick="setOrderType('Para llevar')">Para llevar</button><button class="${saleMeta.orderType === "Mesa" ? "active" : ""}" onclick="askTable()">${saleMeta.table ? `Mesa ${esc(saleMeta.table)}` : "Mesa"}</button><button onclick="editSaleNote()">${saleMeta.note ? "Nota ✓" : "Nota"}</button></div>` : "";
   const selectedClient = saleMeta.clientId ? esc(clientName(saleMeta.clientId)) : "Sin cliente";
   const shift = currentShift();
-  const content = `<section class="desktop-pos-page"><div class="desktop-pos-header"><div><h2>${isServices() ? "Nuevo servicio" : "Punto de venta"}</h2><p>${isServices() ? "Selecciona el servicio y cobra." : "Selecciona productos y cobra desde la misma pantalla."}</p></div>${isFood() ? `<span class="desktop-cash-state open">Caja abierta${shift ? ` · ${dateTime(shift.openedAt)}` : ""}</span>` : `<span class="desktop-cash-state open">Listo para cobrar</span>`}</div><div class="desktop-pos-layout"><aside class="desktop-pos-box desktop-category-pane"><div class="desktop-category-title">Categorías</div>${catHtml}</aside><section class="desktop-pos-box desktop-product-pane"><div class="desktop-product-toolbar"><input class="search" placeholder="Buscar en ${esc(quickCategory || (isServices() ? "servicios" : "productos"))}..." oninput="desktopFilterProducts(this.value)"></div><div class="desktop-product-grid">${itemHtml}</div></section><aside class="desktop-pos-box desktop-cart-pane">${foodMeta}<div class="desktop-cart-head"><h3>${isServices() ? "Servicio actual" : "Venta actual"}</h3><button class="btn ghost" style="padding:7px 9px;font-size:11px" onclick="clearCart()">Vaciar</button></div><div class="desktop-client-row"><span><strong>${selectedClient}</strong></span><button onclick="selectSaleClient()">${saleMeta.clientId ? "Cambiar" : "Cliente"}</button></div><div class="desktop-cart-list">${cartHtml}</div><div class="desktop-summary">${state.settings.taxMode !== "exempt" ? `<div class="ticket-line"><span class="muted">Impuesto</span><span>${money(t.tax)}</span></div>` : ""}<div class="total-box"><span>Total</span><span>${money(t.total)}</span></div></div><div class="desktop-pay-grid"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div></aside></div></section>`;
+  const content = `<section class="desktop-pos-page"><div class="desktop-pos-header"><div><h2>${isServices() ? "Nuevo servicio" : "Punto de venta"}</h2><p>${isServices() ? "Selecciona el servicio y cobra." : "Selecciona productos y cobra desde la misma pantalla."}</p></div>${isFood() ? `<span class="desktop-cash-state open">Caja abierta${shift ? ` · ${dateTime(shift.openedAt)}` : ""}</span>` : `<span class="desktop-cash-state open">Listo para cobrar</span>`}</div><div class="desktop-pos-layout"><aside class="desktop-pos-box desktop-category-pane"><div class="desktop-category-title">Categorías</div>${catHtml}</aside><section class="desktop-pos-box desktop-product-pane"><div class="desktop-product-toolbar"><input class="search" placeholder="Buscar en ${esc(quickCategory || (isServices() ? "servicios" : "productos"))}..." oninput="desktopFilterProducts(this.value)"></div><div class="desktop-product-grid">${itemHtml}</div></section><aside class="desktop-pos-box desktop-cart-pane">${foodMeta}<div class="desktop-cart-head"><h3>${isServices() ? "Servicio actual" : "Venta actual"}</h3><button class="btn ghost" style="padding:7px 9px;font-size:11px" onclick="clearCart()">Vaciar</button></div><div class="desktop-client-row"><span><strong>${selectedClient}</strong></span><button onclick="selectSaleClient()">${saleMeta.clientId ? "Cambiar" : "Cliente"}</button></div><div class="desktop-cart-list">${cartHtml}</div><div class="desktop-summary">${state.settings.taxMode !== "exempt" ? `<div class="ticket-line"><span class="muted">Impuesto</span><span>${money(t.tax)}</span></div>` : ""}<div class="total-box"><span>Total</span><span>${money(t.total)}</span></div></div>${isFood() && saleMeta.orderType === "Mesa" ? `<div class="toolbar"><button class="btn primary" onclick="saveTableAccount()">Guardar mesa</button><button class="btn ghost" onclick="previewCurrentPrebill()">Precuenta</button></div>` : ""}<div class="desktop-pay-grid"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div></aside></div></section>`;
   $("#app").innerHTML = shell(content, "sale");
 }
 window.desktopSetCategory = c => { quickCategory = c; renderDesktopSale(); };
@@ -501,10 +551,10 @@ function renderQuickSale() {
   const items = state.products.filter(p => (p.category?.trim() || "Otros") === quickCategory);
   const t = totals(saleSubtotal());
   const catHtml = categories.map(c => `<button class="quick-category ${c === quickCategory ? "active" : ""}" onclick="quickSetCategory(decodeURIComponent('${enc(c)}'))">${esc(c)}</button>`).join("");
-  const itemHtml = items.map(p => `<button class="quick-product" onclick="pickProduct('${p.id}')"><strong>${esc(p.name)}</strong>${p.variants?.length ? `<small class="muted">${p.variants.length} opciones</small>` : ""}<span>${money(p.price)}</span></button>`).join("") || `<div class="empty">No hay ${isServices() ? "servicios" : "productos"}.</div>`;
+  const itemHtml = items.map(p => `<button class="quick-product" onclick="pickProduct('${p.id}')"><strong>${esc(p.name)}</strong>${!isFood() && p.variants?.length ? `<small class="muted">${p.variants.length} opciones</small>` : ""}<span>${money(p.price)}</span></button>`).join("") || `<div class="empty">No hay ${isServices() ? "servicios" : "productos"}.</div>`;
   const cartHtml = cart.length ? cart.map(i => `<div class="cart-item" style="padding:8px 0"><div><strong style="font-size:14px">${esc(i.name)}</strong>${i.variant ? `<div class="muted" style="font-size:11px">${esc(i.variant)}</div>` : ""}</div><div class="qty"><button style="width:32px;height:32px" onclick="qty('${i.cartId}',-1)">−</button><strong>${i.qty}</strong><button style="width:32px;height:32px" onclick="qty('${i.cartId}',1)">+</button></div></div>`).join("") : `<div class="empty" style="padding:12px">Toca un artículo.</div>`;
   const foodButtons = isFood() ? `<div class="quick-meta"><button class="${saleMeta.orderType === "Mostrador" ? "active" : ""}" onclick="setOrderType('Mostrador')">Mostrador</button><button class="${saleMeta.orderType === "Para llevar" ? "active" : ""}" onclick="setOrderType('Para llevar')">Para llevar</button><button class="${saleMeta.orderType === "Mesa" ? "active" : ""}" onclick="askTable()">${saleMeta.table ? `Mesa ${esc(saleMeta.table)}` : "Mesa"}</button><button onclick="editSaleNote()">${saleMeta.note ? "Nota ✓" : "Nota"}</button></div>` : "";
-  $("#app").innerHTML = `<section class="quick-shell"><aside class="quick-col"><div class="quick-brand">Mi Punto CR</div>${catHtml}</aside><main class="quick-col"><div class="row-head" style="margin-bottom:9px"><strong>${esc(quickCategory || (isServices() ? "Servicios" : "Productos"))}</strong><span class="muted">Cobro rápido</span></div><div class="quick-products">${itemHtml}</div></main><aside class="quick-col quick-cart">${foodButtons}<div class="quick-meta"><button onclick="selectSaleClient()">${saleMeta.clientId ? esc(clientName(saleMeta.clientId)) : "Cliente"}</button><button onclick="clearCart()">Vaciar</button></div><div class="quick-cart-list">${cartHtml}</div><div class="quick-total"><span>Total</span><span>${money(t.total)}</span></div><div class="quick-pay"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div></aside></section>`;
+  $("#app").innerHTML = `<section class="quick-shell"><aside class="quick-col"><div class="quick-brand">Mi Punto CR</div>${catHtml}</aside><main class="quick-col"><div class="row-head" style="margin-bottom:9px"><strong>${esc(quickCategory || (isServices() ? "Servicios" : "Productos"))}</strong><span class="muted">Cobro rápido</span></div><div class="quick-products">${itemHtml}</div></main><aside class="quick-col quick-cart">${foodButtons}<div class="quick-meta"><button onclick="selectSaleClient()">${saleMeta.clientId ? esc(clientName(saleMeta.clientId)) : "Cliente"}</button><button onclick="clearCart()">Vaciar</button></div><div class="quick-cart-list">${cartHtml}</div><div class="quick-total"><span>Total</span><span>${money(t.total)}</span></div>${isFood() && saleMeta.orderType === "Mesa" ? `<div class="quick-meta"><button class="active" onclick="saveTableAccount()">Guardar mesa</button><button onclick="previewCurrentPrebill()">Precuenta</button></div>` : ""}<div class="quick-pay"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div></aside></section>`;
 }
 window.quickSetCategory = c => { quickCategory = c; renderQuickSale(); };
 window.renderPortraitFallback = () => { if (isQuickLandscape()) { toast("Pon el teléfono vertical para administrar la caja."); } else render(); };
@@ -573,6 +623,7 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
     change: received === null ? 0 : Math.max(0, received - t.total),
     orderType: saleMeta.orderType || "Mostrador",
     table: saleMeta.table || "",
+    tableAccountId: saleMeta.tableAccountId || "",
     note: saleMeta.note || ""
   };
   await put("sales", sale);
@@ -582,6 +633,24 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
       const p = state.products.find(x => x.id === item.id);
       if (p) { p.stock = Math.max(0, Number(p.stock || 0) - item.qty); await put("products", p); }
     }
+  }
+  if (isFood() && sale.orderType === "Mesa" && sale.table) {
+    let acc = sale.tableAccountId ? state.tableAccounts.find(a => a.id === sale.tableAccountId) : tableAccount(Number(sale.table));
+    if (!acc) {
+      acc = { id: uid("table"), tableNumber: Number(sale.table), openedAt: sale.createdAt };
+      state.tableAccounts.push(acc);
+    }
+    acc.status = "paid";
+    acc.items = sale.items.map(i => ({ ...i }));
+    acc.note = sale.note || "";
+    acc.clientId = sale.clientId || "";
+    acc.total = sale.total;
+    acc.paidSaleId = sale.id;
+    acc.paidAt = sale.createdAt;
+    acc.updatedAt = sale.createdAt;
+    await put("tableAccounts", acc);
+    sale.tableAccountId = acc.id;
+    await put("sales", sale);
   }
   cart = [];
   resetSaleMeta();
@@ -600,7 +669,8 @@ function receiptTypeLabel(sale) {
 function showReceipt(sale) {
   const c = sale.clientId ? state.clients.find(x => x.id === sale.clientId) : null;
   const context = sale.businessType === "food" ? `<div class="ticket-line"><span>Pedido</span><strong>${esc(sale.orderType || "Mostrador")}${sale.table ? ` · Mesa ${esc(sale.table)}` : ""}</strong></div>` : "";
-  modal(`<div class="ticket"><div class="ticket-business"><h3>${esc(state.settings.businessName)}</h3><div class="muted">${receiptTypeLabel(sale)}</div><div class="muted">Comprobante #${sale.number} · ${dateTime(sale.createdAt)}</div></div><div class="divider"></div>${context}${c ? `<div class="ticket-line"><span>Cliente</span><strong>${esc(c.name)}</strong></div>` : ""}${sale.items.map(i => `<div class="ticket-line"><span>${i.qty} × ${esc(i.name)}${i.variant ? ` · ${esc(i.variant)}` : ""}</span><span>${money(i.price * i.qty)}</span></div>`).join("")}${sale.note ? `<div class="panel" style="box-shadow:none;margin-top:10px"><span class="muted">Nota</span><div>${esc(sale.note)}</div></div>` : ""}<div class="divider"></div>${sale.tax > 0 ? `<div class="ticket-line"><span>Impuesto</span><span>${money(sale.tax)}</span></div>` : ""}<div class="ticket-line ticket-total"><span>Total</span><span>${money(sale.total)}</span></div><div class="ticket-line"><span>Pago</span><span>${esc(sale.method)}</span></div>${sale.change > 0 ? `<div class="ticket-line"><span>Vuelto</span><span>${money(sale.change)}</span></div>` : ""}${sale.method === "Crédito" ? `<div class="panel" style="box-shadow:none;margin-top:10px;background:#fff5dc"><strong>Saldo pendiente: ${money(sale.total)}</strong></div>` : ""}<div class="divider"></div><div class="toolbar"><button class="btn primary" onclick="sharePdf('${sale.id}')">Compartir PDF</button><button class="btn ghost" onclick="closeModal();go('sale')">Nueva venta</button><button class="btn" onclick="closeModal();go('home')">Inicio</button></div></div>`);
+  const tableClean = sale.businessType === "food" && sale.orderType === "Mesa" && sale.tableAccountId ? `<button class="btn primary" onclick="askCleanTable('${sale.tableAccountId}')">Limpiar mesa ${esc(sale.table)}</button>` : "";
+  modal(`<div class="ticket"><div class="ticket-business"><h3>${esc(state.settings.businessName)}</h3><div class="muted">${receiptTypeLabel(sale)}</div><div class="muted">Comprobante #${sale.number} · ${dateTime(sale.createdAt)}</div></div><div class="divider"></div>${context}${c ? `<div class="ticket-line"><span>Cliente</span><strong>${esc(c.name)}</strong></div>` : ""}${sale.items.map(i => `<div class="ticket-line"><span>${i.qty} × ${esc(i.name)}${i.variant ? ` · ${esc(i.variant)}` : ""}</span><span>${money(i.price * i.qty)}</span></div>`).join("")}${sale.note ? `<div class="panel" style="box-shadow:none;margin-top:10px"><span class="muted">Nota</span><div>${esc(sale.note)}</div></div>` : ""}<div class="divider"></div>${sale.tax > 0 ? `<div class="ticket-line"><span>Impuesto</span><span>${money(sale.tax)}</span></div>` : ""}<div class="ticket-line ticket-total"><span>Total</span><span>${money(sale.total)}</span></div><div class="ticket-line"><span>Pago</span><span>${esc(sale.method)}</span></div>${sale.change > 0 ? `<div class="ticket-line"><span>Vuelto</span><span>${money(sale.change)}</span></div>` : ""}${sale.method === "Crédito" ? `<div class="panel" style="box-shadow:none;margin-top:10px;background:#fff5dc"><strong>Saldo pendiente: ${money(sale.total)}</strong></div>` : ""}<div class="divider"></div><div class="toolbar"><button class="btn primary" onclick="sharePdf('${sale.id}')">Compartir PDF</button><button class="btn ghost" onclick="printReceipt('${sale.id}')">Imprimir comprobante</button>${tableClean}<button class="btn ghost" onclick="closeModal();go('sale')">Nueva venta</button><button class="btn" onclick="closeModal();go('home')">Inicio</button></div></div>`);
 }
 function loadExternalScript(src, id) {
   return new Promise((resolve, reject) => {
@@ -664,26 +734,71 @@ window.sharePdf = async id => {
 /* =========================
    MIS VENTAS
 ========================= */
+function salesGroupLabel(key) {
+  const today = localDayKey(new Date());
+  const y = new Date(); y.setDate(y.getDate()-1);
+  if (key === today) return `Hoy · ${new Date(key+"T12:00:00").toLocaleDateString("es-CR")}`;
+  if (key === localDayKey(y)) return `Ayer · ${new Date(key+"T12:00:00").toLocaleDateString("es-CR")}`;
+  return new Date(key+"T12:00:00").toLocaleDateString("es-CR", { weekday:"long", day:"2-digit", month:"2-digit", year:"numeric" });
+}
+function groupedSalesHtml(items) {
+  if (!items.length) return `<div class="empty">No hay ventas en este período.</div>`;
+  const groups = {};
+  for (const sale of items) (groups[localDayKey(sale.createdAt)] ||= []).push(sale);
+  return Object.keys(groups).sort().reverse().map(key => {
+    const daySales = groups[key].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    const total = daySales.reduce((a,b)=>a+Number(b.total||0),0);
+    return `<section class="sales-day"><div class="sales-day-head"><div><h3>${esc(salesGroupLabel(key))}</h3><span>${daySales.length} ${daySales.length===1?"venta":"ventas"}</span></div><strong>${money(total)}</strong></div><div class="sales-day-list">${daySales.map(s => `<button class="row-card" style="width:100%;text-align:left" onclick="openSale('${s.id}')"><div class="row-head"><div><strong>Comprobante #${s.number}</strong><div class="muted">${new Date(s.createdAt).toLocaleTimeString("es-CR",{hour:"2-digit",minute:"2-digit"})}</div></div><strong>${money(s.total)}</strong></div><div class="muted" style="margin-top:7px">${esc(s.method)}${s.clientId ? ` · ${esc(clientName(s.clientId))}` : ""}${s.table ? ` · Mesa ${esc(s.table)}` : ""}</div></button>`).join("")}</div></section>`;
+  }).join("");
+}
 function renderSales() {
   const sorted = [...state.sales].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Mis ventas</h2><p>Comprobantes generados.</p></section><div class="toolbar"><button class="btn ghost" onclick="filterSales('today')">Hoy</button><button class="btn ghost" onclick="filterSales('yesterday')">Ayer</button><button class="btn ghost" onclick="filterSales('week')">Esta semana</button><button class="btn ghost" onclick="filterSales('all')">Todas</button></div><div id="salesList" class="list">${salesHtml(sorted)}</div>`, isFood() ? "more" : "sales");
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Mis ventas</h2><p>Agrupadas por día. Toca una venta para abrir su comprobante.</p></section><div class="toolbar"><button class="btn ghost" onclick="filterSales('today')">Hoy</button><button class="btn ghost" onclick="filterSales('yesterday')">Ayer</button><button class="btn ghost" onclick="filterSales('week')">Esta semana</button><button class="btn ghost" onclick="filterSales('all')">Todas</button></div><div id="salesList" class="sales-scroll">${groupedSalesHtml(sorted)}</div>`, isFood() ? "more" : "sales");
 }
-function salesHtml(items) { return items.length ? items.map(s => `<button class="row-card" style="width:100%;text-align:left" onclick="openSale('${s.id}')"><div class="row-head"><div><strong>Comprobante #${s.number}</strong><div class="muted">${dateTime(s.createdAt)}</div></div><strong>${money(s.total)}</strong></div><div class="muted" style="margin-top:7px">${esc(s.method)}${s.clientId ? ` · ${esc(clientName(s.clientId))}` : ""}</div></button>`).join("") : `<div class="empty">No hay ventas en este período.</div>`; }
-window.filterSales = mode => { const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()), yesterday = new Date(today), week = new Date(today); yesterday.setDate(yesterday.getDate() - 1); const d = week.getDay() || 7; week.setDate(week.getDate() - d + 1); let list = [...state.sales]; if (mode === "today") list = list.filter(s => new Date(s.createdAt) >= today); if (mode === "yesterday") list = list.filter(s => { const x = new Date(s.createdAt); return x >= yesterday && x < today; }); if (mode === "week") list = list.filter(s => new Date(s.createdAt) >= week); list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); $("#salesList").innerHTML = salesHtml(list); };
-window.openSale = id => { const s = state.sales.find(x => x.id === id); if (s) showReceipt(s); };
+window.filterSales = mode => {
+  const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()), yesterday = new Date(today), week = new Date(today);
+  yesterday.setDate(yesterday.getDate()-1); const d=week.getDay()||7; week.setDate(week.getDate()-d+1);
+  let list=[...state.sales];
+  if(mode==="today") list=list.filter(s=>new Date(s.createdAt)>=today);
+  if(mode==="yesterday") list=list.filter(s=>{const x=new Date(s.createdAt);return x>=yesterday&&x<today;});
+  if(mode==="week") list=list.filter(s=>new Date(s.createdAt)>=week);
+  list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  $("#salesList").innerHTML=groupedSalesHtml(list);
+};
+window.openSale = id => { const sale=state.sales.find(x=>x.id===id); if(sale) showReceipt(sale); };
 
 /* =========================
    PRODUCTOS / SERVICIOS
 ========================= */
+function productCategories() { return [...new Set(state.products.map(p => p.category?.trim() || "Otros"))].sort((a,b)=>a.localeCompare(b,"es")); }
 function renderProducts() {
   const label = isServices() ? "Servicios" : "Productos", singular = isServices() ? "servicio" : "producto";
-  const html = state.products.length ? state.products.map(p => `<div class="row-card"><div class="row-head"><div><strong>${esc(p.name)}</strong><div class="muted">${esc(p.category || "Sin categoría")}</div>${!isServices() ? `<div class="muted">Stock: ${Number(p.stock || 0)}</div>` : ""}${p.variants?.length ? `<div class="muted">${p.variants.map(esc).join(" · ")}</div>` : ""}</div><strong>${money(p.price)}</strong></div><div class="toolbar" style="margin-top:12px;margin-bottom:0"><button class="btn ghost" onclick="productForm('${p.id}')">Editar</button><button class="btn danger" onclick="askDeleteProduct('${p.id}')">Eliminar</button></div></div>`).join("") : `<div class="empty">No hay ${label.toLowerCase()}.</div>`;
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>${label}</h2><p>Organiza por categorías para vender más rápido.</p></section><div class="toolbar"><button class="btn primary" onclick="productForm('')">Nuevo ${singular}</button></div><div class="list">${html}</div>`, "more");
+  const cats = productCategories();
+  const html = cats.length ? cats.map(c => {
+    const items=state.products.filter(p=>(p.category?.trim()||"Otros")===c);
+    return `<button class="product-category-card" onclick="openProductCategory(decodeURIComponent('${enc(c)}'))"><span><strong>${esc(c)}</strong><small>${items.length} ${isServices() ? (items.length===1?"servicio":"servicios") : (items.length===1?"producto":"productos")}</small></span><b>›</b></button>`;
+  }).join("") : `<div class="empty">No hay ${label.toLowerCase()}.</div>`;
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>${label}</h2><p>Primero categorías; después ${label.toLowerCase()} dentro de cada categoría.</p></section><div class="toolbar"><button class="btn primary" onclick="productForm('')">Nuevo ${singular}</button></div><div class="product-category-grid">${html}</div>`, "more");
 }
-window.productForm = id => { const p = id ? state.products.find(x => x.id === id) : null; modal(`<h3>${p ? "Editar" : "Nuevo"} ${isServices() ? "servicio" : "producto"}</h3><div class="form-grid"><div class="field"><label>Nombre</label><input id="pName" value="${esc(p?.name || "")}"></div><div class="field"><label>Precio</label><input id="pPrice" type="number" value="${Number(p?.price || 0)}"></div><div class="field"><label>Categoría</label><input id="pCategory" value="${esc(p?.category || "")}"></div>${!isServices() ? `<div class="field"><label>Stock</label><input id="pStock" type="number" value="${Number(p?.stock || 0)}"></div><div class="field"><label>Variantes opcionales</label><input id="pVariants" value="${esc(p?.variants?.join(", ") || "")}" placeholder="Ej. 50ml, 100ml o S, M, L"></div>` : `<input id="pStock" type="hidden" value="0"><input id="pVariants" type="hidden" value="">`}</div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveProduct('${p?.id || ""}')">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
-window.saveProduct = async id => { const name = $("#pName").value.trim(), price = Number($("#pPrice").value || 0); if (!name || price <= 0) return toast("Nombre y precio son obligatorios."); let p = id ? state.products.find(x => x.id === id) : null; if (!p) { p = { id: uid("p") }; state.products.push(p); } p.name = name; p.price = price; p.category = $("#pCategory").value.trim() || "Otros"; p.stock = Number($("#pStock").value || 0); p.variants = $("#pVariants").value.split(",").map(x => x.trim()).filter(Boolean); await put("products", p); closeModal(); renderProducts(); toast("Guardado."); };
-window.askDeleteProduct = id => { const p = state.products.find(x => x.id === id); if (!p) return; modal(`<h3>Eliminar</h3><p>¿Quieres eliminar <strong>${esc(p.name)}</strong>?</p><p class="muted">Las ventas anteriores no se borrarán.</p><div class="toolbar"><button class="btn danger" onclick="deleteProduct('${id}')">Sí, eliminar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
-window.deleteProduct = async id => { await del("products", id); state.products = state.products.filter(x => x.id !== id); cart = cart.filter(x => x.id !== id); closeModal(); renderProducts(); toast("Eliminado."); };
+window.openProductCategory = category => {
+  const items=state.products.filter(p=>(p.category?.trim()||"Otros")===category);
+  const singular=isServices()?"servicio":"producto";
+  const html=items.length?items.map(p=>`<div class="row-card"><div class="row-head"><div><strong style="font-size:19px">${esc(p.name)}</strong>${!isServices()?`<div class="muted">Stock: ${Number(p.stock||0)}</div>`:""}${!isFood()&&p.variants?.length?`<div class="muted">${p.variants.map(esc).join(" · ")}</div>`:""}</div><strong>${money(p.price)}</strong></div><div class="product-row-actions"><button class="btn ghost" onclick="productForm('${p.id}')">Editar</button><button class="btn danger" onclick="askDeleteProduct('${p.id}')">Eliminar</button></div></div>`).join(""):`<div class="empty">Esta categoría está vacía.</div>`;
+  $("#app").innerHTML=shell(`<button class="back-link" onclick="go('products')">‹ Categorías</button><section class="screen-title"><h2>${esc(category)}</h2><p>${items.length} ${items.length===1?singular:`${singular}s`}.</p></section><div class="toolbar"><button class="btn primary" onclick="productForm('',decodeURIComponent('${enc(category)}'))">Nuevo ${singular}</button></div><div class="category-products-page">${html}</div>`,"more");
+};
+window.productForm = (id, presetCategory="") => {
+  const p=id?state.products.find(x=>x.id===id):null;
+  const variantField = isProducts() ? `<div class="field"><label>Variantes opcionales</label><input id="pVariants" value="${esc(p?.variants?.join(", ")||"")}" placeholder="Ej. 50ml, 100ml o S, M, L"></div>` : `<input id="pVariants" type="hidden" value="">`;
+  const stockField = !isServices() ? `<div class="field"><label>Stock</label><input id="pStock" type="number" value="${Number(p?.stock||0)}"></div>` : `<input id="pStock" type="hidden" value="0">`;
+  modal(`<h3>${p?"Editar":"Nuevo"} ${isServices()?"servicio":"producto"}</h3><div class="form-grid"><div class="field"><label>Nombre</label><input id="pName" value="${esc(p?.name||"")}"></div><div class="field"><label>Precio</label><input id="pPrice" type="number" value="${Number(p?.price||0)}"></div><div class="field"><label>Categoría</label><input id="pCategory" value="${esc(p?.category||presetCategory||"")}" placeholder="Ej. Bebidas"></div>${stockField}${variantField}</div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveProduct('${p?.id||""}')">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+};
+window.saveProduct = async id => {
+  const name=$("#pName").value.trim(), price=Number($("#pPrice").value||0); if(!name||price<=0)return toast("Nombre y precio son obligatorios.");
+  let p=id?state.products.find(x=>x.id===id):null; if(!p){p={id:uid("p")};state.products.push(p);} p.name=name;p.price=price;p.category=$("#pCategory").value.trim()||"Otros";p.stock=Number($("#pStock").value||0);p.variants=isProducts()?$("#pVariants").value.split(",").map(x=>x.trim()).filter(Boolean):[];
+  await put("products",p); const cat=p.category; closeModal(); openProductCategory(cat); toast("Guardado.");
+};
+window.askDeleteProduct = id => { const p=state.products.find(x=>x.id===id); if(!p)return; modal(`<h3>Eliminar</h3><p>¿Quieres eliminar <strong>${esc(p.name)}</strong>?</p><p class="muted">Las ventas anteriores no se borrarán.</p><div class="toolbar"><button class="btn danger" onclick="deleteProduct('${id}')">Sí, eliminar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
+window.deleteProduct = async id => { const p=state.products.find(x=>x.id===id); const cat=p?.category||"Otros"; await del("products",id); state.products=state.products.filter(x=>x.id!==id);cart=cart.filter(x=>x.id!==id);closeModal(); if(state.products.some(x=>(x.category?.trim()||"Otros")===cat))openProductCategory(cat);else renderProducts();toast("Eliminado."); };
 
 /* =========================
    CLIENTES / CRÉDITO
@@ -721,6 +836,44 @@ window.saveAbono = async id => {
 };
 
 /* =========================
+   MESAS / CUENTAS ABIERTAS
+========================= */
+function tableIconHtml(number){return `<div class="table-icon"><span class="top"></span><span class="bottom"></span><span class="left"></span><span class="right"></span><span class="center">${number}</span></div>`;}
+function tableItemsTotal(items){return totals((items||[]).reduce((a,i)=>a+Number(i.price||0)*Number(i.qty||0),0)).total;}
+function renderTables(){
+  if(!isFood()){screen="home";return renderHome();}
+  const count=Math.max(0,Number(state.settings.tableCount||0));
+  if(!count){$("#app").innerHTML=shell(`<section class="screen-title"><h2>Mesas</h2><p>Configura cuántas mesas tiene el restaurante.</p></section><div class="panel"><h3>Aún no hay mesas</h3><p class="muted">Mi Punto CR las numerará automáticamente.</p><button class="btn primary" onclick="configureTables()">Configurar mesas</button></div>`,"more");return;}
+  const cards=Array.from({length:count},(_,i)=>i+1).map(n=>{const a=tableAccount(n);let status="Libre",detail="Toca para abrir cuenta";if(a?.status==="open"){status="Cuenta abierta";detail=`${money(tableItemsTotal(a.items))} · ${dateTime(a.openedAt)}`;}if(a?.status==="paid"){status="Pagada";detail=`${money(a.total||tableItemsTotal(a.items))} · pendiente de limpiar`;}return `<button class="table-card" onclick="openTable(${n})">${tableIconHtml(n)}<strong>Mesa ${n}</strong><small>${status}</small><small>${detail}</small></button>`;}).join("");
+  $("#app").innerHTML=shell(`<section class="screen-title"><h2>Mesas</h2><p>Cuentas abiertas sin cobrar mientras los clientes están comiendo.</p></section><div class="toolbar"><button class="btn ghost" onclick="configureTables()">Cantidad de mesas</button></div><div class="table-grid">${cards}</div>`,"more");
+}
+window.configureTables=()=>modal(`<h3>Configurar mesas</h3><p class="muted">El sistema las numerará automáticamente desde Mesa 1.</p><div class="field"><label>¿Cuántas mesas tiene el restaurante?</label><input id="tableCountInput" type="number" min="1" max="100" inputmode="numeric" value="${Number(state.settings.tableCount||0)||""}"></div><div class="toolbar"><button class="btn primary" onclick="saveTableCount()">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+window.saveTableCount=async()=>{const count=Math.floor(Number($("#tableCountInput").value||0));if(count<1||count>100)return toast("Escribe una cantidad entre 1 y 100.");const blocked=state.tableAccounts.some(a=>Number(a.tableNumber)>count);if(blocked)return toast("Hay una cuenta activa en una mesa mayor a ese número.");state.settings.tableCount=count;await put("settings",state.settings);closeModal();screen="tables";renderTables();toast("Mesas configuradas.");};
+function tablePickerButtons(){const count=Number(state.settings.tableCount||0);return Array.from({length:count},(_,i)=>i+1).map(n=>{const a=tableAccount(n);const status=a?.status==="open"?"Abierta":a?.status==="paid"?"Pagada":"Libre";return `<button class="table-pick" onclick="selectTable(${n})">Mesa ${n}<small>${status}</small></button>`;}).join("");}
+window.showTablePicker=()=>{if(!Number(state.settings.tableCount||0))return configureTables();modal(`<h3>Seleccionar mesa</h3><p class="muted">Elige una mesa para abrir o continuar su cuenta.</p><div class="table-picker-grid">${tablePickerButtons()}</div><div class="toolbar"><button class="btn ghost" onclick="closeModal();go('tables')">Ver todas las mesas</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);};
+window.selectTable=n=>{closeModal();openTable(n);};
+window.openTable=n=>{
+  const a=tableAccount(n);
+  if(a?.status==="paid") return modal(`<h3>Mesa ${n}</h3><p>La cuenta ya fue pagada.</p><p><strong>${money(a.total||tableItemsTotal(a.items))}</strong></p><div class="toolbar"><button class="btn primary" onclick="askCleanTable('${a.id}')">Limpiar mesa</button>${a.paidSaleId?`<button class="btn ghost" onclick="openSale('${a.paidSaleId}')">Ver comprobante</button>`:""}<button class="btn" onclick="closeModal()">Cerrar</button></div>`);
+  cart=(a?.items||[]).map(i=>({...i,cartId:`${i.id}_${i.variant||"normal"}`}));
+  saleMeta={clientId:a?.clientId||"",orderType:"Mesa",table:String(n),note:a?.note||"",tableAccountId:a?.id||""};
+  screen="sale";rerenderSale();
+};
+window.saveTableAccount=async()=>{
+  if(saleMeta.orderType!=="Mesa"||!saleMeta.table)return toast("Selecciona una mesa.");
+  if(!cart.length)return toast("Agrega al menos un producto.");
+  let a=saleMeta.tableAccountId?state.tableAccounts.find(x=>x.id===saleMeta.tableAccountId):tableAccount(Number(saleMeta.table));
+  const now=new Date().toISOString();
+  if(!a){a={id:uid("table"),tableNumber:Number(saleMeta.table),openedAt:now,status:"open"};state.tableAccounts.push(a);}
+  a.status="open";a.items=cart.map(i=>({id:i.id,name:i.name,variant:i.variant||"",price:i.price,qty:i.qty}));a.note=saleMeta.note||"";a.clientId=saleMeta.clientId||"";a.updatedAt=now;a.total=tableItemsTotal(a.items);delete a.paidSaleId;delete a.paidAt;
+  await put("tableAccounts",a);cart=[];resetSaleMeta();screen="tables";renderTables();toast(`Mesa ${a.tableNumber} guardada.`);
+};
+window.previewCurrentPrebill=()=>{if(saleMeta.orderType!=="Mesa"||!saleMeta.table)return toast("Selecciona una mesa.");if(!cart.length)return toast("La mesa no tiene productos.");const total=tableItemsTotal(cart);modal(`<h3>Precuenta · Mesa ${esc(saleMeta.table)}</h3><div>${cart.map(i=>`<div class="ticket-line"><span>${i.qty} × ${esc(i.name)}</span><strong>${money(i.price*i.qty)}</strong></div>`).join("")}</div><div class="divider"></div><div class="ticket-line ticket-total"><span>Total actual</span><strong>${money(total)}</strong></div><div class="toolbar"><button class="btn primary" onclick="printPrebill()">Imprimir precuenta</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);};
+window.printPrebill=()=>printSimpleDocument(`Precuenta · Mesa ${esc(saleMeta.table)}`,cart.map(i=>`<div class="line"><span>${i.qty} × ${esc(i.name)}</span><strong>${money(i.price*i.qty)}</strong></div>`).join("")+`<hr><div class="line total"><span>TOTAL</span><strong>${money(tableItemsTotal(cart))}</strong></div><p class="center">Precuenta · No es comprobante de pago</p>`);
+window.askCleanTable=id=>{const a=state.tableAccounts.find(x=>x.id===id);if(!a)return;modal(`<h3>¿Limpiar Mesa ${a.tableNumber}?</h3><p>La venta y el comprobante quedarán guardados en Mis ventas.</p><div class="toolbar"><button class="btn primary" onclick="cleanTable('${id}')">Limpiar mesa</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);};
+window.cleanTable=async id=>{const a=state.tableAccounts.find(x=>x.id===id);if(!a)return;await del("tableAccounts",id);state.tableAccounts=state.tableAccounts.filter(x=>x.id!==id);closeModal();cart=[];resetSaleMeta();screen="tables";renderTables();toast(`Mesa ${a.tableNumber} libre.`);};
+
+/* =========================
    PEDIDOS
 ========================= */
 function renderOrders() {
@@ -735,28 +888,48 @@ window.orderStatus = async (id, status) => { const o = state.orders.find(x => x.
 /* =========================
    CAJA
 ========================= */
-function renderCash() {
-  if (!isFood()) { screen = "home"; return renderHome(); }
-  const shift = currentShift();
-  if (!shift) {
-    $("#app").innerHTML = shell(`<section class="screen-title"><h2>Caja</h2><p>Debes abrir la caja antes de vender.</p></section><div class="panel"><h3>Caja cerrada</h3>${role === "owner" ? `<button class="btn primary full" onclick="openCash()">Abrir caja</button>` : `<p class="muted">El dueño debe abrir la caja.</p>`}</div>`, "more"); return;
-  }
-  const sales = state.sales.filter(s => s.shiftId === shift.id);
-  const sumMethod = m => sales.filter(s => s.method === m).reduce((a, b) => a + Number(b.total || 0), 0);
-  const cash = sumMethod("Efectivo"), sinpe = sumMethod("SINPE"), cardTotal = sumMethod("Tarjeta/Otro"), credit = sumMethod("Crédito");
-  const moves = state.cashMoves.filter(m => m.shiftId === shift.id || new Date(m.createdAt) >= new Date(shift.openedAt));
-  const ins = moves.filter(m => m.type === "in").reduce((a, b) => a + Number(b.amount || 0), 0);
-  const outs = moves.filter(m => m.type === "out").reduce((a, b) => a + Number(b.amount || 0), 0);
-  const creditCash = moves.filter(m => m.type === "creditPayment" && m.method === "Efectivo").reduce((a, b) => a + Number(b.amount || 0), 0);
-  const expected = Number(shift.opening || 0) + cash + ins + creditCash - outs;
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Caja</h2><p>Todo lo vendido en este turno queda ligado aquí.</p></section><div class="kpi-grid"><div class="kpi"><span class="muted">Efectivo</span><strong>${money(cash)}</strong></div><div class="kpi"><span class="muted">SINPE</span><strong>${money(sinpe)}</strong></div><div class="kpi"><span class="muted">Tarjeta</span><strong>${money(cardTotal)}</strong></div><div class="kpi"><span class="muted">Crédito</span><strong>${money(credit)}</strong></div></div><div class="panel" style="margin-top:14px"><div class="ticket-line"><span>Fondo inicial</span><strong>${money(shift.opening)}</strong></div><div class="ticket-line"><span>Abonos en efectivo</span><strong>${money(creditCash)}</strong></div><div class="ticket-line"><span>Entradas</span><strong>${money(ins)}</strong></div><div class="ticket-line"><span>Salidas</span><strong>${money(outs)}</strong></div><div class="ticket-line ticket-total"><span>Efectivo esperado</span><strong>${money(expected)}</strong></div></div><div class="toolbar"><button class="btn ghost" onclick="cashMoveForm('in')">Entrada de efectivo</button><button class="btn ghost" onclick="cashMoveForm('out')">Salida de efectivo</button></div>${role === "owner" ? `<button class="btn primary full" style="margin-top:4px" onclick="closeCash(${expected})">Cerrar caja</button>` : ""}`, "more");
+function shiftReportData(shift){
+  const sales=state.sales.filter(s=>s.shiftId===shift.id);
+  const sum=m=>sales.filter(s=>s.method===m).reduce((a,b)=>a+Number(b.total||0),0);
+  const moves=state.cashMoves.filter(m=>m.shiftId===shift.id);
+  const ins=moves.filter(m=>m.type==="in").reduce((a,b)=>a+Number(b.amount||0),0);
+  const outs=moves.filter(m=>m.type==="out").reduce((a,b)=>a+Number(b.amount||0),0);
+  const creditCash=moves.filter(m=>m.type==="creditPayment"&&m.method==="Efectivo").reduce((a,b)=>a+Number(b.amount||0),0);
+  const products={};for(const sale of sales)for(const item of sale.items||[]){const k=item.name+(item.variant?` · ${item.variant}`:"");products[k]=(products[k]||0)+Number(item.qty||0);}
+  const cash=sum("Efectivo"),sinpe=sum("SINPE"),card=sum("Tarjeta/Otro"),credit=sum("Crédito");
+  const creditPayments=state.creditMoves.filter(m=>m.shiftId===shift.id&&m.type==="payment").reduce((a,b)=>a+Number(b.amount||0),0);
+  const orderCounts={Mostrador:0,"Para llevar":0,Mesa:0};
+  for(const sale of sales){const key=sale.orderType||"Mostrador";orderCounts[key]=(orderCounts[key]||0)+1;}
+  return {sales,count:sales.length,gross:sales.reduce((a,b)=>a+Number(b.total||0),0),tax:sales.reduce((a,b)=>a+Number(b.tax||0),0),cash,sinpe,card,credit,creditCash,creditPayments,ins,outs,expected:Number(shift.opening||0)+cash+ins+creditCash-outs,products,orderCounts};
 }
-window.openCash = () => modal(`<h3>Abrir caja</h3><div class="field"><label>Fondo inicial</label><input id="opening" type="number" value="0"></div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveOpenCash()">Abrir caja</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
-window.saveOpenCash = async () => { const s = { id: uid("shift"), opening: Number($("#opening").value || 0), openedAt: new Date().toISOString(), status: "open" }; await put("cashSessions", s); state.cashSessions.push(s); closeModal(); screen = "home"; render(); toast("Caja abierta. Ya puedes vender."); };
-window.cashMoveForm = kind => modal(`<h3>${kind === "in" ? "Entrada" : "Salida"} de efectivo</h3><div class="field"><label>Monto</label><input id="cashMoveAmount" type="number" inputmode="decimal"></div><div class="field"><label>Motivo</label><input id="cashMoveNote"></div><div class="toolbar"><button class="btn primary" onclick="saveCashMove('${kind}')">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
-window.saveCashMove = async kind => { const amount = Number($("#cashMoveAmount").value || 0), note = $("#cashMoveNote").value.trim(), shift = currentShift(); if (!shift || amount <= 0) return toast("Escribe un monto válido."); const m = { id: uid("move"), type: kind, amount, note, method: "Efectivo", shiftId: shift.id, createdAt: new Date().toISOString() }; await put("cashMoves", m); state.cashMoves.push(m); closeModal(); renderCash(); };
-window.closeCash = expected => modal(`<h3>Cerrar caja</h3><p>Esperado: <strong>${money(expected)}</strong></p><div class="field"><label>Efectivo contado</label><input id="counted" type="number" inputmode="decimal"></div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveCloseCash(${expected})">Confirmar cierre</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
-window.saveCloseCash = async expected => { const s = currentShift(); if (!s) return; s.expected = expected; s.counted = Number($("#counted").value || 0); s.difference = s.counted - expected; s.closedAt = new Date().toISOString(); s.status = "closed"; await put("cashSessions", s); closeModal(); screen = "home"; render(); toast(`Caja cerrada. Diferencia: ${money(s.difference)}`); };
+function closingHistoryHtml(){const closed=[...state.cashSessions].filter(s=>s.status==="closed").sort((a,b)=>new Date(b.closedAt)-new Date(a.closedAt));return closed.length?closed.map(s=>`<button class="row-card" style="width:100%;text-align:left" onclick="showDayReport('${s.id}')"><div class="row-head"><div><strong>${new Date(s.closedAt).toLocaleDateString("es-CR")}</strong><div class="muted">${dateTime(s.openedAt)} → ${dateTime(s.closedAt)}</div></div><strong>${money(s.report?.gross||shiftReportData(s).gross)}</strong></div><div class="muted" style="margin-top:7px">${s.report?.count??shiftReportData(s).count} ventas · Diferencia ${money(s.difference||0)}</div></button>`).join(""):`<div class="empty">Todavía no hay cierres guardados.</div>`;}
+function renderCash(){
+  if(!isFood()){screen="home";return renderHome();}
+  const shift=currentShift();
+  if(!shift){$("#app").innerHTML=shell(`<section class="screen-title"><h2>Caja</h2><p>Abre una caja para comenzar un nuevo turno.</p></section><div class="panel"><h3>Caja cerrada</h3>${role==="owner"?`<button class="btn primary full" onclick="openCash()">Abrir caja</button>`:`<p class="muted">El dueño debe abrir la caja.</p>`}</div><section class="screen-title" style="margin-top:24px"><h2 style="font-size:26px">Historial de cierres</h2><p>Reportes del día guardados.</p></section><div class="closing-list">${closingHistoryHtml()}</div>`,"more");return;}
+  const r=shiftReportData(shift);
+  $("#app").innerHTML=shell(`<section class="screen-title"><h2>Caja</h2><p>Todo lo vendido en este turno queda ligado aquí.</p></section><div class="kpi-grid"><div class="kpi"><span class="muted">Efectivo</span><strong>${money(r.cash)}</strong></div><div class="kpi"><span class="muted">SINPE</span><strong>${money(r.sinpe)}</strong></div><div class="kpi"><span class="muted">Tarjeta</span><strong>${money(r.card)}</strong></div><div class="kpi"><span class="muted">Crédito</span><strong>${money(r.credit)}</strong></div></div><div class="panel" style="margin-top:14px"><div class="ticket-line"><span>Ventas del turno</span><strong>${r.count}</strong></div><div class="ticket-line"><span>Fondo inicial</span><strong>${money(shift.opening)}</strong></div><div class="ticket-line"><span>Abonos en efectivo</span><strong>${money(r.creditCash)}</strong></div><div class="ticket-line"><span>Entradas</span><strong>${money(r.ins)}</strong></div><div class="ticket-line"><span>Salidas</span><strong>${money(r.outs)}</strong></div><div class="ticket-line ticket-total"><span>Efectivo esperado</span><strong>${money(r.expected)}</strong></div></div><div class="toolbar"><button class="btn ghost" onclick="cashMoveForm('in')">Entrada de efectivo</button><button class="btn ghost" onclick="cashMoveForm('out')">Salida de efectivo</button></div>${role==="owner"?`<button class="btn primary full" style="margin-top:4px" onclick="closeCash(${r.expected})">Cerrar caja</button>`:""}`,"more");
+}
+window.openCash=()=>modal(`<h3>Abrir caja</h3><div class="field"><label>Fondo inicial</label><input id="opening" type="number" value="0"></div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveOpenCash()">Abrir caja</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+window.saveOpenCash=async()=>{const s={id:uid("shift"),opening:Number($("#opening").value||0),openedAt:new Date().toISOString(),status:"open"};await put("cashSessions",s);state.cashSessions.push(s);closeModal();screen="home";render();toast("Caja abierta. Ya puedes vender.");};
+window.cashMoveForm=kind=>modal(`<h3>${kind==="in"?"Entrada":"Salida"} de efectivo</h3><div class="field"><label>Monto</label><input id="cashMoveAmount" type="number" inputmode="decimal"></div><div class="field"><label>Motivo</label><input id="cashMoveNote"></div><div class="toolbar"><button class="btn primary" onclick="saveCashMove('${kind}')">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+window.saveCashMove=async kind=>{const amount=Number($("#cashMoveAmount").value||0),note=$("#cashMoveNote").value.trim(),shift=currentShift();if(!shift||amount<=0)return toast("Escribe un monto válido.");const m={id:uid("move"),type:kind,amount,note,method:"Efectivo",shiftId:shift.id,createdAt:new Date().toISOString()};await put("cashMoves",m);state.cashMoves.push(m);closeModal();renderCash();};
+window.closeCash=expected=>{const open=openTableAccounts();if(open.length)return modal(`<h3>No puedes cerrar la caja</h3><p>Hay ${open.length} ${open.length===1?"mesa con cuenta abierta":"mesas con cuentas abiertas"}.</p><p class="muted">Cobra o resuelve esas mesas antes de cerrar.</p><div class="toolbar"><button class="btn primary" onclick="closeModal();go('tables')">Ver mesas</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);modal(`<h3>Cerrar caja</h3><p>Esperado: <strong>${money(expected)}</strong></p><div class="field"><label>Efectivo contado</label><input id="counted" type="number" inputmode="decimal"></div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveCloseCash(${expected})">Confirmar cierre</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);};
+window.saveCloseCash=async expected=>{const sh=currentShift();if(!sh)return;const report=shiftReportData(sh);sh.expected=expected;sh.counted=Number($("#counted").value||0);sh.difference=sh.counted-expected;sh.closedAt=new Date().toISOString();sh.status="closed";sh.report={count:report.count,gross:report.gross,tax:report.tax,cash:report.cash,sinpe:report.sinpe,card:report.card,credit:report.credit,creditCash:report.creditCash,creditPayments:report.creditPayments,ins:report.ins,outs:report.outs,expected:report.expected,products:report.products,orderCounts:report.orderCounts,saleIds:report.sales.map(s=>s.id)};await put("cashSessions",sh);closeModal();showDayReport(sh.id);};
+window.showDayReport=id=>{const sh=state.cashSessions.find(x=>x.id===id);if(!sh)return;const r=shiftReportData(sh);const products=Object.entries(sh.report?.products||r.products);modal(`<h3>Reporte del día</h3><p class="muted">${dateTime(sh.openedAt)} → ${sh.closedAt?dateTime(sh.closedAt):"Abierto"}</p><div class="report-grid"><div class="report-stat"><span>Ventas</span><strong>${sh.report?.count??r.count}</strong></div><div class="report-stat"><span>Total vendido</span><strong>${money(sh.report?.gross??r.gross)}</strong></div><div class="report-stat"><span>Efectivo</span><strong>${money(sh.report?.cash??r.cash)}</strong></div><div class="report-stat"><span>SINPE</span><strong>${money(sh.report?.sinpe??r.sinpe)}</strong></div><div class="report-stat"><span>Tarjeta</span><strong>${money(sh.report?.card??r.card)}</strong></div><div class="report-stat"><span>Crédito</span><strong>${money(sh.report?.credit??r.credit)}</strong></div><div class="report-stat"><span>Abonos recibidos</span><strong>${money(sh.report?.creditPayments??r.creditPayments)}</strong></div><div class="report-stat"><span>Mesas / Llevar</span><strong>${(sh.report?.orderCounts?.Mesa??r.orderCounts.Mesa)} / ${(sh.report?.orderCounts?.["Para llevar"]??r.orderCounts["Para llevar"])}</strong></div></div><div class="panel" style="box-shadow:none"><div class="ticket-line"><span>Fondo inicial</span><strong>${money(sh.opening)}</strong></div><div class="ticket-line"><span>Efectivo esperado</span><strong>${money(sh.expected??r.expected)}</strong></div><div class="ticket-line"><span>Efectivo contado</span><strong>${money(sh.counted||0)}</strong></div><div class="ticket-line ticket-total"><span>Diferencia</span><strong>${money(sh.difference||0)}</strong></div></div>${products.length?`<h4>Productos vendidos</h4><div class="list">${products.map(([name,qty])=>`<div class="ticket-line"><span>${esc(name)}</span><strong>${qty}</strong></div>`).join("")}</div>`:""}<div class="toolbar" style="margin-top:16px"><button class="btn primary" onclick="shareDayReportPdf('${sh.id}')">Compartir PDF</button><button class="btn ghost" onclick="printDayReport('${sh.id}')">Imprimir</button><button class="btn" onclick="closeModal();screen='home';render()">Cerrar</button></div>`);};
+
+/* =========================
+   IMPRESIÓN / REPORTES PDF
+========================= */
+function printSimpleDocument(title, bodyHtml){
+  const w=window.open("","_blank","width=520,height=760");if(!w)return toast("Permite ventanas emergentes para imprimir.");
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:80mm auto;margin:4mm}body{font-family:Arial,sans-serif;width:72mm;margin:0 auto;color:#111;font-size:12px}.center{text-align:center}.line{display:flex;justify-content:space-between;gap:10px;padding:4px 0}.total{font-size:16px;font-weight:700}h1{font-size:18px;text-align:center;margin:0 0 4px}h2{font-size:14px;text-align:center;margin:0 0 12px}hr{border:0;border-top:1px dashed #888;margin:10px 0}</style></head><body><h1>${esc(state.settings.businessName)}</h1><h2>${title}</h2>${bodyHtml}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script></body></html>`);w.document.close();
+}
+window.printReceipt=id=>{const sale=state.sales.find(x=>x.id===id);if(!sale)return;const client=sale.clientId?state.clients.find(x=>x.id===sale.clientId):null;const body=`<div class="center">Comprobante #${sale.number}<br>${dateTime(sale.createdAt)}</div><hr>${sale.orderType?`<div class="line"><span>Pedido</span><strong>${esc(sale.orderType)}${sale.table?` · Mesa ${esc(sale.table)}`:""}</strong></div>`:""}${client?`<div class="line"><span>Cliente</span><strong>${esc(client.name)}</strong></div>`:""}${sale.items.map(i=>`<div class="line"><span>${i.qty} × ${esc(i.name)}${i.variant?` · ${esc(i.variant)}`:""}</span><strong>${money(i.price*i.qty)}</strong></div>`).join("")}<hr>${sale.tax>0?`<div class="line"><span>Impuesto</span><strong>${money(sale.tax)}</strong></div>`:""}<div class="line total"><span>TOTAL</span><strong>${money(sale.total)}</strong></div><div class="line"><span>Pago</span><strong>${esc(sale.method)}</strong></div>${sale.change>0?`<div class="line"><span>Vuelto</span><strong>${money(sale.change)}</strong></div>`:""}<hr><p class="center">Gracias por su compra</p>`;printSimpleDocument(`Comprobante #${sale.number}`,body);};
+function buildDayReportElement(sh){const r=shiftReportData(sh);const e=document.createElement("div");e.style.cssText=`position:fixed;left:-10000px;top:0;width:700px;background:#fff;color:#202938;padding:34px;font-family:Arial,sans-serif;z-index:-1`;const sales=(sh.report?.saleIds||r.sales.map(s=>s.id)).map(id=>state.sales.find(s=>s.id===id)).filter(Boolean);const products=Object.entries(sh.report?.products||r.products);e.innerHTML=`<div style="text-align:center"><h1 style="margin:0">${esc(state.settings.businessName)}</h1><div style="font-size:22px;font-weight:800;margin-top:8px">REPORTE DEL DÍA</div><div style="color:#667085;margin-top:6px">${dateTime(sh.openedAt)} → ${dateTime(sh.closedAt)}</div></div><hr style="margin:24px 0"><table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td>Ventas</td><td style="text-align:right;font-weight:700">${sh.report?.count??r.count}</td></tr><tr><td>Total vendido</td><td style="text-align:right;font-weight:700">${money(sh.report?.gross??r.gross)}</td></tr><tr><td>Impuestos</td><td style="text-align:right">${money(sh.report?.tax??r.tax)}</td></tr><tr><td>Efectivo</td><td style="text-align:right">${money(sh.report?.cash??r.cash)}</td></tr><tr><td>SINPE</td><td style="text-align:right">${money(sh.report?.sinpe??r.sinpe)}</td></tr><tr><td>Tarjeta</td><td style="text-align:right">${money(sh.report?.card??r.card)}</td></tr><tr><td>Crédito</td><td style="text-align:right">${money(sh.report?.credit??r.credit)}</td></tr><tr><td>Abonos recibidos</td><td style="text-align:right">${money(sh.report?.creditPayments??r.creditPayments)}</td></tr><tr><td>Mostrador</td><td style="text-align:right">${sh.report?.orderCounts?.Mostrador??r.orderCounts.Mostrador}</td></tr><tr><td>Para llevar</td><td style="text-align:right">${sh.report?.orderCounts?.["Para llevar"]??r.orderCounts["Para llevar"]}</td></tr><tr><td>Mesas</td><td style="text-align:right">${sh.report?.orderCounts?.Mesa??r.orderCounts.Mesa}</td></tr><tr><td>Fondo inicial</td><td style="text-align:right">${money(sh.opening)}</td></tr><tr><td>Efectivo esperado</td><td style="text-align:right">${money(sh.expected??r.expected)}</td></tr><tr><td>Efectivo contado</td><td style="text-align:right">${money(sh.counted||0)}</td></tr><tr><td>Diferencia</td><td style="text-align:right;font-weight:700">${money(sh.difference||0)}</td></tr></table><h3 style="margin-top:28px">Comprobantes</h3>${sales.map(s=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid #e6e6e6;padding:8px 0"><span>#${s.number} · ${new Date(s.createdAt).toLocaleTimeString("es-CR",{hour:"2-digit",minute:"2-digit"})} · ${esc(s.method)}</span><strong>${money(s.total)}</strong></div>`).join("")||"Sin ventas"}<h3 style="margin-top:28px">Productos vendidos</h3>${products.map(([n,q])=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid #e6e6e6;padding:7px 0"><span>${esc(n)}</span><strong>${q}</strong></div>`).join("")||"Sin productos"}`;document.body.appendChild(e);return e;}
+async function createDayReportPdf(sh){await ensurePdfLibraries();const el=buildDayReportElement(sh);try{const canvas=await window.html2canvas(el,{scale:2,backgroundColor:"#fff",logging:false});const img=canvas.toDataURL("image/png");const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});const pageW=190,pageH=277,imgH=pageW*canvas.height/canvas.width;let offset=0,page=0;while(offset<imgH){if(page>0)pdf.addPage();pdf.addImage(img,"PNG",10,10-offset,pageW,imgH);offset+=pageH;page++;}return pdf.output("blob");}finally{el.remove();}}
+window.shareDayReportPdf=async id=>{const sh=state.cashSessions.find(x=>x.id===id);if(!sh)return;try{toast("Generando reporte...");const blob=await createDayReportPdf(sh);const file=new File([blob],`reporte-${localDayKey(sh.closedAt||new Date())}.pdf`,{type:"application/pdf"});if(navigator.share&&navigator.canShare?.({files:[file]}))return navigator.share({title:"Reporte del día",files:[file]});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){console.error(e);toast("No se pudo generar el reporte PDF.");}};
+window.printDayReport=id=>{const sh=state.cashSessions.find(x=>x.id===id);if(!sh)return;const r=shiftReportData(sh),products=Object.entries(sh.report?.products||r.products);printSimpleDocument("Reporte del día",`<div class="line"><span>Ventas</span><strong>${sh.report?.count??r.count}</strong></div><div class="line"><span>Total vendido</span><strong>${money(sh.report?.gross??r.gross)}</strong></div><div class="line"><span>Efectivo</span><strong>${money(sh.report?.cash??r.cash)}</strong></div><div class="line"><span>SINPE</span><strong>${money(sh.report?.sinpe??r.sinpe)}</strong></div><div class="line"><span>Tarjeta</span><strong>${money(sh.report?.card??r.card)}</strong></div><div class="line"><span>Crédito</span><strong>${money(sh.report?.credit??r.credit)}</strong></div><div class="line"><span>Abonos</span><strong>${money(sh.report?.creditPayments??r.creditPayments)}</strong></div><hr><div class="line"><span>Esperado</span><strong>${money(sh.expected??r.expected)}</strong></div><div class="line"><span>Contado</span><strong>${money(sh.counted||0)}</strong></div><div class="line total"><span>Diferencia</span><strong>${money(sh.difference||0)}</strong></div><hr>${products.map(([n,q])=>`<div class="line"><span>${esc(n)}</span><strong>${q}</strong></div>`).join("")}`);};
 
 /* =========================
    CATÁLOGO
@@ -772,13 +945,13 @@ function renderCatalog() {
 function renderSettings() {
   if (role !== "owner") { screen = "home"; return renderHome(); }
   const s = state.settings;
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Configuración</h2><p>Datos del negocio y protección del propietario.</p></section><div class="panel"><div class="form-grid"><div class="field"><label>Tipo de negocio</label><select id="sType"><option value="food" ${type() === "food" ? "selected" : ""}>Comida / Soda / Repostería</option><option value="products" ${type() === "products" ? "selected" : ""}>Venta de artículos</option><option value="services" ${type() === "services" ? "selected" : ""}>Servicios</option></select></div><div class="field"><label>Nombre del negocio</label><input id="sName" value="${esc(s.businessName)}"></div><div class="field"><label>Propietario</label><input value="${esc(s.ownerName || "")}" disabled></div><div class="field"><label>Correo activado</label><input value="${esc(s.email || "")}" disabled></div><div class="field"><label>Teléfono</label><input id="sPhone" value="${esc(s.phone || "")}"></div><div class="field"><label>WhatsApp</label><input id="sWa" value="${esc(s.whatsapp)}"></div><div class="field"><label>Número SINPE</label><input id="sSinpe" value="${esc(s.sinpe)}"></div><div class="field"><label>Impuesto</label><select id="sTax"><option value="included" ${s.taxMode === "included" ? "selected" : ""}>Incluido</option><option value="added" ${s.taxMode === "added" ? "selected" : ""}>Se suma al cobrar</option><option value="exempt" ${s.taxMode === "exempt" ? "selected" : ""}>Exento</option></select></div><div class="field"><label>Porcentaje</label><input id="sRate" type="number" value="${Number(s.taxRate || 13)}"></div><div class="field"><label>Código del negocio</label><input value="${esc(s.businessId || "")}" disabled></div></div><button class="btn primary full" style="margin-top:14px" onclick="saveSettings()">Guardar cambios</button></div><div class="panel" style="margin-top:14px"><strong>Activación</strong><p class="muted">Estado: ${s.activated ? "Activado" : "Pendiente"}. El código de activación es de un solo uso.</p><button class="btn ghost" onclick="logoutOwner()">Cerrar sesión</button></div>`, "more");
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Configuración</h2><p>Datos del negocio y protección del propietario.</p></section><div class="panel"><div class="form-grid"><div class="field"><label>Tipo de negocio</label><select id="sType"><option value="food" ${type() === "food" ? "selected" : ""}>Comida / Soda / Repostería</option><option value="products" ${type() === "products" ? "selected" : ""}>Venta de artículos</option><option value="services" ${type() === "services" ? "selected" : ""}>Servicios</option></select></div>${isFood() ? `<div class="field"><label>Cantidad de mesas</label><input id="sTableCount" type="number" min="0" max="100" value="${Number(s.tableCount || 0)}"></div>` : ""}<div class="field"><label>Nombre del negocio</label><input id="sName" value="${esc(s.businessName)}"></div><div class="field"><label>Propietario</label><input value="${esc(s.ownerName || "")}" disabled></div><div class="field"><label>Correo activado</label><input value="${esc(s.email || "")}" disabled></div><div class="field"><label>Teléfono</label><input id="sPhone" value="${esc(s.phone || "")}"></div><div class="field"><label>WhatsApp</label><input id="sWa" value="${esc(s.whatsapp)}"></div><div class="field"><label>Número SINPE</label><input id="sSinpe" value="${esc(s.sinpe)}"></div><div class="field"><label>Impuesto</label><select id="sTax"><option value="included" ${s.taxMode === "included" ? "selected" : ""}>Incluido</option><option value="added" ${s.taxMode === "added" ? "selected" : ""}>Se suma al cobrar</option><option value="exempt" ${s.taxMode === "exempt" ? "selected" : ""}>Exento</option></select></div><div class="field"><label>Porcentaje</label><input id="sRate" type="number" value="${Number(s.taxRate || 13)}"></div><div class="field"><label>Código del negocio</label><input value="${esc(s.businessId || "")}" disabled></div></div><button class="btn primary full" style="margin-top:14px" onclick="saveSettings()">Guardar cambios</button></div><div class="panel" style="margin-top:14px"><strong>Activación</strong><p class="muted">Estado: ${s.activated ? "Activado" : "Pendiente"}. El código de activación es de un solo uso.</p><button class="btn ghost" onclick="logoutOwner()">Cerrar sesión</button></div>`, "more");
 }
-window.saveSettings = async () => { state.settings = { ...state.settings, businessType: $("#sType").value, businessName: $("#sName").value.trim() || "Mi Punto CR", phone: $("#sPhone").value.trim(), whatsapp: $("#sWa").value.trim(), sinpe: $("#sSinpe").value.trim(), taxMode: $("#sTax").value, taxRate: Number($("#sRate").value || 0) }; await put("settings", state.settings); quickCategory = ""; screen = "home"; render(); toast("Configuración guardada."); };
+window.saveSettings = async () => { state.settings = { ...state.settings, businessType: $("#sType").value, businessName: $("#sName").value.trim() || "Mi Punto CR", phone: $("#sPhone").value.trim(), whatsapp: $("#sWa").value.trim(), sinpe: $("#sSinpe").value.trim(), taxMode: $("#sTax").value, taxRate: Number($("#sRate").value || 0), tableCount: isFood() ? Number($("#sTableCount")?.value || 0) : Number(state.settings.tableCount || 0) }; await put("settings", state.settings); quickCategory = ""; screen = "home"; render(); toast("Configuración guardada."); };
 
 function renderMore() {
   let cards = "";
-  if (isFood()) cards += card("products", "Productos", "Comidas, bebidas y stock") + card("clients", "Clientes / Crédito", "Compras, saldos y abonos") + card("cash", "Caja", "Apertura y cierre") + card("sales", "Mis ventas", "Comprobantes e historial") + card("catalog", "Menú QR", "Vista del menú");
+  if (isFood()) cards += card("tables", "Mesas", "Cuentas abiertas del salón") + card("products", "Productos", "Comidas, bebidas y stock") + card("clients", "Clientes / Crédito", "Compras, saldos y abonos") + card("cash", "Caja", "Apertura y cierre") + card("sales", "Mis ventas", "Comprobantes e historial") + card("catalog", "Menú QR", "Vista del menú");
   if (isProducts()) cards += card("products", "Productos", "Artículos, variantes y stock") + card("clients", "Clientes / Crédito", "Compras, saldos y abonos") + card("sales", "Mis ventas", "Comprobantes e historial") + card("catalog", "Catálogo QR", "Vista del catálogo");
   if (isServices()) cards += card("products", "Servicios", "Precios y categorías") + card("clients", "Clientes", "Compras y crédito") + card("sales", "Mis ventas", "Comprobantes e historial") + card("catalog", "Catálogo QR", "Vista de servicios");
   if (role === "owner") cards += card("settings", "Configuración", "Datos básicos");
@@ -803,6 +976,7 @@ window.addEventListener("offline", render);
 
 (async () => {
   injectStyles();
+  injectV7Styles();
   db = await openDB();
   await load();
   locked = !!state.settings.pinEnabled;
