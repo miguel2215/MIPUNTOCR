@@ -150,7 +150,11 @@ window.finishEmailConfirmation = async () => {
 };
 
 function renderLogin() {
-  $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<p class="onboard-sub">Acceso del propietario</p><h2>Iniciar sesión</h2><div class="field"><label>Correo</label><input id="loginEmail" type="email" autocomplete="email" value="${esc(state.settings.email || "")}"></div><div class="field"><label>Contraseña</label><input id="loginPass" type="password" autocomplete="current-password"></div><button id="loginButton" class="btn primary full" onclick="loginOwner()">Entrar</button><button class="btn ghost full" style="margin-top:9px" onclick="startAccount()">Crear nueva cuenta</button><p class="setup-note" style="margin-top:14px">Tu cuenta se valida con Supabase. Los datos operativos todavía siguen usando la copia local hasta completar la siguiente etapa de sincronización.</p></div></section>`;
+  const cloudMode = !!state.settings.cloudLinked;
+  const note = cloudMode
+    ? "Tu cuenta se valida con Supabase y puede usarse desde otros dispositivos."
+    : "Este negocio todavía usa el acceso local de pruebas. Puedes iniciar sesión con el correo y contraseña con los que lo creaste.";
+  $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<p class="onboard-sub">Acceso del propietario</p><h2>Iniciar sesión</h2><div class="field"><label>Correo</label><input id="loginEmail" type="email" autocomplete="email" value="${esc(state.settings.email || "")}"></div><div class="field"><label>Contraseña</label><input id="loginPass" type="password" autocomplete="current-password"></div><button id="loginButton" class="btn primary full" onclick="loginOwner()">Entrar</button>${cloudMode ? `<button class="btn ghost full" style="margin-top:9px" onclick="startAccount()">Crear nueva cuenta</button>` : ""}<p class="setup-note" style="margin-top:14px">${note}</p></div></section>`;
 }
 window.renderLogin = renderLogin;
 
@@ -160,9 +164,29 @@ window.loginOwner = async () => {
   const button = $("#loginButton");
 
   if (!email || !pass) return toast("Escribe correo y contraseña.");
-  if (!navigator.onLine) return toast("Necesitas Internet para iniciar sesión en un dispositivo nuevo.");
-
   if (button) { button.disabled = true; button.textContent = "Entrando…"; }
+
+  if (!state.settings.cloudLinked) {
+    try {
+      if (email !== String(state.settings.email || "").toLowerCase()) return toast("Correo incorrecto.");
+      if (!state.settings.passwordHash) return toast("Esta cuenta local no tiene contraseña guardada. Conéctala a la nube antes de cerrar sesión.");
+      if (await sha256(pass) !== state.settings.passwordHash) return toast("Contraseña incorrecta.");
+      state.settings.sessionActive = true;
+      await put("settings", state.settings);
+      locked = !!state.settings.pinEnabled;
+      screen = "home";
+      toast("Sesión iniciada.");
+      render();
+    } finally {
+      if (button) { button.disabled = false; button.textContent = "Entrar"; }
+    }
+    return;
+  }
+
+  if (!navigator.onLine) {
+    if (button) { button.disabled = false; button.textContent = "Entrar"; }
+    return toast("Necesitas Internet para iniciar sesión en un dispositivo nuevo.");
+  }
 
   try {
     await cloudLoginOwner(email, pass);
@@ -176,17 +200,59 @@ window.loginOwner = async () => {
   } catch (error) {
     console.error(error);
     toast(cloudAuthErrorMessage(error));
+  } finally {
     if (button) { button.disabled = false; button.textContent = "Entrar"; }
   }
 };
 
 window.logoutOwner = async () => {
-  await cloudLogoutOwner();
+  if (!state.settings.cloudLinked && !state.settings.passwordHash) {
+    return toast("Primero conecta este negocio a la nube. Esta cuenta local no tiene contraseña para volver a entrar.");
+  }
+  if (state.settings.cloudLinked) await cloudLogoutOwner();
   state.settings.sessionActive = false;
   await put("settings", state.settings);
   locked = false;
   screen = "home";
   renderLogin();
+};
+
+window.lockApp = () => {
+  if (!state.settings.pinEnabled || !state.settings.ownerPin) {
+    return openPinSettings();
+  }
+  closeModal();
+  locked = true;
+  screen = "home";
+  render();
+};
+
+window.openPinSettings = () => {
+  const configured = !!(state.settings.pinEnabled && state.settings.ownerPin);
+  modal(`<h3>${configured ? "Cambiar PIN" : "Configurar bloqueo"}</h3><p class="muted">El PIN sirve para bloquear rápidamente Mi Punto CR sin cerrar la sesión.</p><div class="field"><label>PIN del propietario</label><input id="newOwnerPin" type="password" inputmode="numeric" maxlength="6" placeholder="4 a 6 dígitos"></div><div class="field"><label>Confirmar PIN</label><input id="newOwnerPin2" type="password" inputmode="numeric" maxlength="6" placeholder="Repite el PIN"></div><div class="modal-actions">${configured ? `<button class="btn danger" onclick="disablePinLock()">Desactivar PIN</button>` : ""}<button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="savePinLock()">Guardar</button></div>`);
+};
+
+window.savePinLock = async () => {
+  const pin = $("#newOwnerPin")?.value.trim() || "";
+  const pin2 = $("#newOwnerPin2")?.value.trim() || "";
+  if (!/^\d{4,6}$/.test(pin)) return toast("El PIN debe tener entre 4 y 6 números.");
+  if (pin !== pin2) return toast("Los PIN no coinciden.");
+  state.settings.ownerPin = pin;
+  state.settings.pinEnabled = true;
+  await put("settings", state.settings);
+  closeModal();
+  toast("Bloqueo con PIN activado.");
+  render();
+};
+
+window.disablePinLock = async () => {
+  state.settings.pinEnabled = false;
+  state.settings.ownerPin = "";
+  state.settings.cashierPin = "";
+  await put("settings", state.settings);
+  closeModal();
+  toast("Bloqueo con PIN desactivado.");
+  render();
 };
 
 window.openCloudLink = () => {
