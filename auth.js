@@ -222,9 +222,59 @@ window.finishEmailConfirmation = async () => {
 
 function renderLogin() {
   const note = "Usa una cuenta real de Mi Punto CR. Cada negocio queda vinculado a su propia cuenta de Supabase.";
-  $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<p class="onboard-sub">Acceso a Mi Punto CR</p><h2>Iniciar sesión</h2><div class="field"><label>Correo</label><input id="loginEmail" type="email" autocomplete="email" value="${esc(state.settings.cloudLinked ? (state.settings.email || "") : "")}"></div><div class="field"><label>Contraseña</label><input id="loginPass" type="password" autocomplete="current-password"></div><button id="loginButton" class="btn primary full" onclick="loginOwner()">Entrar</button><button class="btn ghost full" style="margin-top:9px" onclick="startAccount()">Crear nueva cuenta</button><button class="btn ghost full" style="margin-top:9px" onclick="startJoinBusiness()">Tengo código de invitación</button><p class="setup-note" style="margin-top:14px">${note}</p></div></section>`;
+  $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<p class="onboard-sub">Acceso a Mi Punto CR</p><h2>Iniciar sesión</h2><div class="field"><label>Correo</label><input id="loginEmail" type="email" autocomplete="email" value="${esc(state.settings.cloudLinked ? (state.settings.email || "") : "")}"></div><div class="field"><label>Contraseña</label><input id="loginPass" type="password" autocomplete="current-password"></div><button id="loginButton" class="btn primary full" onclick="loginOwner()">Entrar</button><button class="btn ghost full" style="margin-top:9px" onclick="renderForgotPassword()">Olvidé mi contraseña</button><button class="btn ghost full" style="margin-top:9px" onclick="startAccount()">Crear nueva cuenta</button><button class="btn ghost full" style="margin-top:9px" onclick="startJoinBusiness()">Tengo código de invitación</button><p class="setup-note" style="margin-top:14px">${note}</p></div></section>`;
 }
 window.renderLogin = renderLogin;
+
+window.renderForgotPassword = () => {
+  const email = state.settings.email || "";
+  $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card"><button class="back-link" onclick="renderLogin()">‹ Volver</button>${brandHorizontal("brand-logo-horizontal compact")}<p class="onboard-sub">Recuperación de cuenta</p><h2>Restablecer contraseña</h2><p>Escribe el correo de tu cuenta. Te enviaremos un enlace seguro para crear una contraseña nueva.</p><div class="field"><label>Correo</label><input id="recoveryEmail" type="email" inputmode="email" autocomplete="email" value="${esc(email)}"></div><button id="recoveryButton" class="btn primary full" onclick="sendPasswordRecovery()">Enviar enlace</button></div></section>`;
+};
+
+window.sendPasswordRecovery = async () => {
+  const email = $("#recoveryEmail")?.value.trim().toLowerCase() || "";
+  const button = $("#recoveryButton");
+  if (!/^\S+@\S+\.\S+$/.test(email)) return toast("Escribe un correo válido.");
+  if (!navigator.onLine) return toast("Necesitas Internet para recuperar la contraseña.");
+  if (button) { button.disabled = true; button.textContent = "Enviando…"; }
+  try {
+    await cloudSendPasswordReset(email);
+    $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<p class="onboard-sub">Revisa tu correo</p><h2>Enlace enviado</h2><p>Si existe una cuenta para <strong>${esc(email)}</strong>, recibirás un enlace para cambiar la contraseña.</p><div class="setup-note">Por seguridad no mostramos si el correo está registrado o no. Abre el enlace desde este dispositivo o desde otro navegador.</div><button class="btn primary full" style="margin-top:16px" onclick="renderLogin()">Volver a iniciar sesión</button></div></section>`;
+  } catch (error) {
+    console.error(error);
+    toast(cloudAuthErrorMessage(error));
+    if (button) { button.disabled = false; button.textContent = "Enviar enlace"; }
+  }
+};
+
+function renderPasswordRecovery() {
+  const email = mpCloudUser?.email || state.settings.email || "";
+  $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<p class="onboard-sub">Cuenta verificada</p><h2>Crea una contraseña nueva</h2>${email ? `<p>Cuenta: <strong>${esc(email)}</strong></p>` : ""}<div class="field"><label>Nueva contraseña</label><input id="recoveryNewPass" type="password" autocomplete="new-password" minlength="6"></div><div class="field"><label>Confirmar contraseña</label><input id="recoveryNewPass2" type="password" autocomplete="new-password" minlength="6"></div><button id="saveRecoveryButton" class="btn primary full" onclick="saveRecoveredPassword()">Guardar contraseña</button></div></section>`;
+}
+window.renderPasswordRecovery = renderPasswordRecovery;
+
+window.saveRecoveredPassword = async () => {
+  const pass = $("#recoveryNewPass")?.value || "";
+  const pass2 = $("#recoveryNewPass2")?.value || "";
+  const button = $("#saveRecoveryButton");
+  if (pass.length < 6) return toast("La contraseña debe tener al menos 6 caracteres.");
+  if (pass !== pass2) return toast("Las contraseñas no coinciden.");
+  if (!navigator.onLine) return toast("Necesitas Internet para cambiar la contraseña.");
+  if (button) { button.disabled = true; button.textContent = "Guardando…"; }
+  try {
+    await cloudUpdateRecoveredPassword(pass);
+    mpPasswordRecovery = false;
+    await cloudLogoutOwner();
+    state.settings.sessionActive = false;
+    await put("settings", state.settings);
+    toast("Contraseña actualizada. Inicia sesión nuevamente.");
+    renderLogin();
+  } catch (error) {
+    console.error(error);
+    toast(cloudAuthErrorMessage(error));
+    if (button) { button.disabled = false; button.textContent = "Guardar contraseña"; }
+  }
+};
 
 window.loginOwner = async () => {
   const email = $("#loginEmail").value.trim().toLowerCase();
