@@ -1,0 +1,30 @@
+MI PUNTO CR v7.15 - COPIAS DE SEGURIDAD Y RESTAURACIÓN
+
+No requiere SQL nuevo.
+
+NUEVO:
+- Configuración > Copias de seguridad.
+- Descargar respaldo JSON del negocio directamente desde Supabase.
+- Restaurar un respaldo del MISMO negocio.
+- Solo el Dueño puede exportar/restaurar.
+- Confirmación escribiendo RESTAURAR antes de recuperar datos.
+- La restauración no elimina registros más nuevos que no estén en el archivo.
+- Exportación/restauración quedan registradas en auditoría.
+
+ARCHIVOS CAMBIADOS / NUEVOS:
+- backup.js (nuevo)
+- catalog-settings.js
+- index.html
+- service-worker.js
+
+PRUEBA RECOMENDADA:
+1. Configuración > Copias de seguridad > Descargar respaldo.
+2. Comprueba que se descargue un archivo .json.
+3. Crea un dato de prueba o modifica uno.
+4. Configuración > Restaurar respaldo.
+5. Selecciona el JSON, escribe RESTAURAR y confirma.
+
+IMPORTANTE:
+- El respaldo solo puede restaurarse dentro del mismo negocio de Supabase.
+- No incluye contraseñas, sesiones ni credenciales de Supabase.
+- No incluye otros negocios.

@@ -1,0 +1,12 @@
+MI PUNTO CR v7.16 — CENTRO DE ADMINISTRACIÓN
+
+Cambios:
+- Configuración pasa a ser el Centro de administración del Dueño.
+- Estado visible de sincronización con Supabase.
+- Contador de cambios pendientes.
+- Botón Sincronizar ahora.
+- Accesos rápidos a Usuarios, Productos/Servicios, Clientes, Mis ventas, Caja y QR.
+- Mantiene respaldos, seguridad y datos del negocio en la misma pantalla.
+
+No requiere SQL nuevo.
+Para la versión sin carpetas, reemplaza catalog-settings.js y service-worker.js.
