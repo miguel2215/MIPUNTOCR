@@ -449,6 +449,7 @@ window.toggleFullscreen = async () => {
 };
 
 function render() {
+  if (typeof mpPasswordRecovery !== "undefined" && mpPasswordRecovery) { clearInactivityTimer(); return renderPasswordRecovery(); }
   if (!state.settings.onboardingComplete) { clearInactivityTimer(); return renderOnboarding(); }
   if (state.settings.sessionActive === false) { clearInactivityTimer(); return renderLogin(); }
   if (locked) { clearInactivityTimer(); return renderLock(); }
