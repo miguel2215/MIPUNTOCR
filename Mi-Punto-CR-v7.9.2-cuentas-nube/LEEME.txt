@@ -1,0 +1,17 @@
+Mi Punto CR v7.9 — Supabase Auth
+
+BASE COMPLETA.
+
+Reemplaza el contenido actual del proyecto en GitHub por el contenido de este ZIP.
+No borra IndexedDB ni los datos locales existentes.
+
+Novedades:
+- Cuenta real en Supabase.
+- Inicio de sesión desde otros dispositivos.
+- Negocio real en la tabla businesses.
+- Confirmación de correo.
+- Conexión segura de negocios locales existentes.
+- Ajustes básicos del negocio se actualizan en Supabase.
+
+SIGUIENTE ETAPA:
+Migrar y sincronizar productos, clientes, ventas, Caja, pedidos y crédito con Supabase para que la nube sea la fuente oficial de todos los datos.
