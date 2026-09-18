@@ -1,0 +1,19 @@
+Mi Punto CR v7.8 — Frontend ordenado
+
+Esta es una BASE COMPLETA del proyecto.
+
+Recomendación para GitHub:
+- Reemplaza el contenido actual del proyecto por el contenido de esta carpeta/ZIP.
+- No borra los datos de IndexedDB del navegador.
+
+Incluye también todo lo de v7.7:
+- Anular comprobantes.
+- Ventas anuladas fuera de Caja/totales/crédito/reportes.
+- Restauración de stock al anular.
+- Filtros Activas / Anuladas / Todas.
+- Eliminar de Mis ventas después de anular sin borrar auditoría interna.
+- PDF e impresión muestran ANULADO.
+
+Cambio técnico principal:
+- app.js monolítico fue separado en archivos dentro de /js.
+- Service Worker actualizado para evitar caché vieja del código.
