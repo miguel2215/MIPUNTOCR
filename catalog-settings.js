@@ -30,6 +30,11 @@ function renderMore() {
   if (isProducts()) { add("products", "Productos", "Artículos, variantes y stock"); add("clients", "Clientes / Crédito", "Compras, saldos y abonos"); add("sales", "Mis ventas", "Comprobantes e historial"); add("catalog", "Catálogo QR", "Vista del catálogo"); }
   if (isServices()) { add("products", "Servicios", "Precios y categorías"); add("clients", "Clientes", "Compras y crédito"); add("sales", "Mis ventas", "Comprobantes e historial"); add("catalog", "Catálogo QR", "Vista de servicios"); }
   if (role === "owner") cards += card("users", "Usuarios", "Roles y permisos") + card("settings", "Configuración", "Datos básicos");
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Más</h2><p>Solo herramientas útiles para este negocio.</p></section><div class="home-grid">${cards || `<div class="empty">No tienes herramientas adicionales habilitadas.</div>`}</div>`, "more");
+
+  const roleLabel = role === "owner" ? "Dueño" : role === "admin" ? "Administrador" : "Empleado";
+  const email = state.settings.email ? ` · ${esc(state.settings.email)}` : "";
+  const accountPanel = `<div class="panel" style="margin-top:14px"><strong>Cuenta</strong><p class="muted">${roleLabel}${email}</p><div class="toolbar">${state.settings.pinEnabled && state.settings.ownerPin ? `<button class="btn ghost" onclick="lockApp()">Bloquear</button>` : ""}<button class="btn danger" onclick="logoutOwner()">Cerrar sesión</button></div></div>`;
+
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Más</h2><p>Solo herramientas útiles para este negocio.</p></section><div class="home-grid">${cards || `<div class="empty">No tienes herramientas adicionales habilitadas.</div>`}</div>${accountPanel}`, "more");
 }
 
