@@ -1,0 +1,11 @@
+MI PUNTO CR v7.13 - VERSION SIN CARPETAS
+
+Esta version esta preparada para GitHub desde telefono.
+TODOS los archivos van en la RAIZ del repositorio. No necesitas crear carpetas js ni assets.
+
+1. Elimina los archivos rotos de la version anterior si tienen el mismo nombre.
+2. Sube TODOS los archivos de esta carpeta directamente al nivel principal del repositorio.
+3. No ejecutes nuevamente el SQL v7.13; ya lo ejecutaste.
+4. Espera el despliegue de Cloudflare y abre la app.
+
+No borra Supabase ni IndexedDB.
