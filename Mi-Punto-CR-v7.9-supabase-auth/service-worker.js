@@ -1,4 +1,4 @@
-const CACHE = 'mipuntocr-v7-9-supabase-auth';
+const CACHE = 'mipuntocr-v7-9-1-sesion-bloqueo';
 
 const CORE = [
   './',
