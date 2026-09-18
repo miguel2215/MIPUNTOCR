@@ -12,6 +12,7 @@ let mpCloudUser = null;
 let mpCloudBusiness = null;
 let mpCloudMembership = null;
 let mpCloudAuthSubscription = null;
+let mpPasswordRecovery = false;
 
 function cloudSdkAvailable() {
   return !!window.supabase?.createClient;
@@ -515,6 +516,15 @@ async function initCloudAuth() {
         mpCloudSession = session || null;
         mpCloudUser = session?.user || null;
 
+        if (event === "PASSWORD_RECOVERY" && session?.user) {
+          mpPasswordRecovery = true;
+          state.settings.email = session.user.email || state.settings.email || "";
+          state.settings.sessionActive = true;
+          try { await put("settings", state.settings); } catch (error) { console.warn("No se pudo guardar el estado de recuperación:", error); }
+          if (db && !document.querySelector("#modalRoot")) render();
+          return;
+        }
+
         if (session?.user && ["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED", "INITIAL_SESSION"].includes(event)) {
           try {
             await cloudHydrateSession(session);
@@ -526,6 +536,7 @@ async function initCloudAuth() {
 
         if (event === "SIGNED_OUT") {
           mpCloudBusiness = null;
+          mpPasswordRecovery = false;
         }
       });
       mpCloudAuthSubscription = listener?.subscription || true;
@@ -651,6 +662,27 @@ async function cloudCancelInvite(inviteId) {
   const { error } = await mpCloud.from("business_invites").update({ status: "cancelled" }).eq("business_id", mpCloudBusiness.id).eq("id", inviteId);
   if (error) throw error;
   return true;
+}
+
+async function cloudSendPasswordReset(email) {
+  if (!initCloudClient()) throw new Error("No se pudo cargar Supabase.");
+  if (!navigator.onLine) throw new Error("Necesitas Internet para recuperar la contraseña.");
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!cleanEmail) throw new Error("Escribe tu correo.");
+  const { error } = await mpCloud.auth.resetPasswordForEmail(cleanEmail, {
+    redirectTo: MPCR_SITE_URL
+  });
+  if (error) throw error;
+  return true;
+}
+
+async function cloudUpdateRecoveredPassword(password) {
+  if (!initCloudClient()) throw new Error("No se pudo cargar Supabase.");
+  if (!navigator.onLine) throw new Error("Necesitas Internet para cambiar la contraseña.");
+  if (String(password || "").length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres.");
+  const { data, error } = await mpCloud.auth.updateUser({ password });
+  if (error) throw error;
+  return data;
 }
 
 async function cloudLoginOwner(email, password) {
