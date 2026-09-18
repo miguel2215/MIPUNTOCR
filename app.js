@@ -60,6 +60,15 @@ const type = () => state.settings.businessType || "food";
 const isFood = () => type() === "food";
 const isProducts = () => type() === "products";
 const isServices = () => type() === "services";
+const currentProducts = () => state.products.filter(p => p.businessType === type());
+const currentSales = () => state.sales.filter(s => s.businessType === type());
+const currentCreditMoves = () => state.creditMoves.filter(m => m.businessType === type());
+const nextSaleNumber = () => Math.max(0, ...currentSales().map(s => Number(s.number || 0))) + 1;
+const clientModuleBalance = clientId => {
+  const credit = currentSales().filter(s => s.clientId === clientId && s.method === "Crédito").reduce((sum, s) => sum + Number(s.total || 0), 0);
+  const paid = currentCreditMoves().filter(m => m.clientId === clientId && m.type === "payment").reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  return Math.max(0, credit - paid);
+};
 const currentShift = () => [...state.cashSessions].reverse().find(x => x.status === "open");
 const canSell = () => !isFood() || !!currentShift();
 const isQuickLandscape = () => window.matchMedia?.("(orientation: landscape) and (max-height: 600px)")?.matches === true;
@@ -68,7 +77,7 @@ const openTableAccounts = () => state.tableAccounts.filter(a => a.status === "op
 const tableAccount = n => [...state.tableAccounts].reverse().find(a => Number(a.tableNumber) === Number(n));
 const activeShiftSales = () => {
   const shift = currentShift();
-  return shift ? state.sales.filter(s => s.shiftId === shift.id) : [];
+  return shift ? state.sales.filter(s => s.shiftId === shift.id && s.businessType === "food") : [];
 };
 const localDayKey = value => {
   const d = new Date(value);
@@ -119,6 +128,21 @@ async function load() {
   if (state.settings.businessType === "general") state.settings.businessType = "food";
   if (state.settings.businessType === "retail") state.settings.businessType = "products";
   if (typeof state.settings.sessionActive !== "boolean") state.settings.sessionActive = true;
+
+  // Migración v7.5: lo que existía antes queda asociado al tipo de negocio
+  // que estaba activo. Desde aquí Restaurante, Artículos y Servicios ya no
+  // comparten productos, inventario, ventas ni crédito.
+  const legacyType = state.settings.businessType || "food";
+  for (const p of state.products) {
+    if (!p.businessType) { p.businessType = legacyType; await put("products", p); }
+  }
+  for (const sale of state.sales) {
+    if (!sale.businessType) { sale.businessType = legacyType; await put("sales", sale); }
+  }
+  for (const move of state.creditMoves) {
+    if (!move.businessType) { move.businessType = legacyType; await put("creditMoves", move); }
+  }
+
   await put("settings", state.settings);
 }
 
@@ -474,9 +498,9 @@ window.logoutOwner = async () => {
 ========================= */
 function renderHome() {
   const today = new Date().toDateString();
-  const todaySales = isFood() ? activeShiftSales() : state.sales.filter(s => new Date(s.createdAt).toDateString() === today);
+  const todaySales = isFood() ? activeShiftSales() : currentSales().filter(s => new Date(s.createdAt).toDateString() === today);
   const sold = todaySales.reduce((a, b) => a + Number(b.total || 0), 0);
-  const credit = state.clients.reduce((a, b) => a + Number(b.balance || 0), 0);
+  const credit = state.clients.reduce((a, b) => a + clientModuleBalance(b.id), 0);
   const shiftOpen = !!currentShift();
 
   if (isDesktopPOS()) {
@@ -518,9 +542,9 @@ function renderSale() {
   if (isDesktopPOS()) return renderDesktopSale();
   if (!canSell()) { screen = "cash"; return renderCash(); }
   const t = totals(saleSubtotal());
-  const categories = [...new Set(state.products.map(p => p.category?.trim() || "Otros"))];
+  const categories = [...new Set(currentProducts().map(p => p.category?.trim() || "Otros"))];
   const categoryHtml = categories.map(c => {
-    const count = state.products.filter(p => (p.category?.trim() || "Otros") === c).length;
+    const count = currentProducts().filter(p => (p.category?.trim() || "Otros") === c).length;
     return `<button class="category-card" onclick="openCategory(decodeURIComponent('${enc(c)}'))"><span class="category-name">${esc(c)}</span><span class="category-count">${count} ${isServices() ? (count === 1 ? "servicio" : "servicios") : (count === 1 ? "producto" : "productos")}</span><span class="category-arrow">›</span></button>`;
   }).join("");
   const cartHtml = cart.length ? cart.map(i => `<div class="cart-item"><div><strong>${esc(i.name)}</strong>${i.variant ? `<div class="muted">${esc(i.variant)}</div>` : ""}<div class="muted">${money(i.price)} c/u</div></div><div class="qty"><button onclick="qty('${i.cartId}',-1)">−</button><strong>${i.qty}</strong><button onclick="qty('${i.cartId}',1)">+</button></div></div>`).join("") : `<div class="empty">Selecciona una categoría para comenzar.</div>`;
@@ -529,16 +553,16 @@ function renderSale() {
   $("#app").innerHTML = shell(`<section class="screen-title"><h2>${isServices() ? "Nuevo servicio" : "Nueva venta"}</h2><p>Selecciona una categoría.</p></section><div class="sale-layout"><section class="panel"><input class="search" placeholder="Buscar categoría..." oninput="filterCategories(this.value)"><div class="category-grid">${categoryHtml || `<div class="empty">Primero agrega ${isServices() ? "servicios" : "productos"}.</div>`}</div></section><section class="panel">${foodMeta}<div class="row-head"><h3 style="margin:0">${isServices() ? "Servicio actual" : "Venta actual"}</h3><button class="btn ghost" onclick="clearCart()">Vaciar</button></div><div class="row-head" style="margin:12px 0"><div>${selectedClient}</div><button class="btn ghost" onclick="selectSaleClient()">${saleMeta.clientId ? "Cambiar cliente" : "Cliente opcional"}</button></div><div class="cart-list">${cartHtml}</div>${state.settings.taxMode !== "exempt" ? `<div class="divider"></div><div class="ticket-line"><span class="muted">Impuesto</span><span>${money(t.tax)}</span></div>` : ""}<div class="total-box"><span>Total</span><span>${money(t.total)}</span></div>${isFood() && saleMeta.orderType === "Mesa" ? `<div class="toolbar"><button class="btn primary" onclick="saveTableAccount()">Guardar mesa</button><button class="btn ghost" onclick="previewCurrentPrebill()">Precuenta</button><button class="btn ghost" onclick="go('tables')">Ver mesas</button></div>` : ""}<div class="payment-grid"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta / Otro</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div></section></div>`, "sale");
 }
 window.openCategory = c => {
-  const items = state.products.filter(p => (p.category?.trim() || "Otros") === c);
+  const items = currentProducts().filter(p => (p.category?.trim() || "Otros") === c);
   modal(`<div class="category-modal-header"><div><h3>${esc(c)}</h3><p class="muted">Toca ${isServices() ? "un servicio" : "un producto"} para agregarlo.</p></div><button class="modal-close" onclick="closeModal()">×</button></div><div class="category-products">${items.map(p => `<button class="category-product" onclick="pickProduct('${p.id}')"><span><strong>${esc(p.name)}</strong>${!isServices() ? `<small>Stock: ${Number(p.stock || 0)}</small>` : ""}</span><span class="category-product-price">${money(p.price)}</span></button>`).join("")}</div>`);
 };
 window.pickProduct = id => {
-  const p = state.products.find(x => x.id === id); if (!p) return;
+  const p = currentProducts().find(x => x.id === id); if (!p) return;
   if (!isFood() && p.variants?.length) return modal(`<h3>${esc(p.name)}</h3><p class="muted">Elige una opción.</p><div class="variant-list">${p.variants.map(v => `<button class="category-product" onclick="addCart('${p.id}',decodeURIComponent('${enc(v)}'))"><strong>${esc(v)}</strong><span class="category-product-price">${money(p.price)}</span></button>`).join("")}</div>`);
   addCart(id, "");
 };
 window.addCart = (id, variant = "") => {
-  const p = state.products.find(x => x.id === id); if (!p) return;
+  const p = currentProducts().find(x => x.id === id); if (!p) return;
   const cartId = `${id}_${variant || "normal"}`;
   const old = cart.find(x => x.cartId === cartId);
   if (old) old.qty++;
@@ -564,9 +588,9 @@ window.newClientFromSale = () => modal(`<h3>Nuevo cliente</h3><div class="field"
 ========================= */
 function renderDesktopSale() {
   if (!canSell()) { screen = "cash"; return renderCash(); }
-  const categories = [...new Set(state.products.map(p => p.category?.trim() || "Otros"))];
+  const categories = [...new Set(currentProducts().map(p => p.category?.trim() || "Otros"))];
   if (!quickCategory || !categories.includes(quickCategory)) quickCategory = categories[0] || "";
-  const items = state.products.filter(p => (p.category?.trim() || "Otros") === quickCategory);
+  const items = currentProducts().filter(p => (p.category?.trim() || "Otros") === quickCategory);
   const t = totals(saleSubtotal());
   const catHtml = categories.map(c => `<button class="desktop-category-btn ${c === quickCategory ? "active" : ""}" onclick="desktopSetCategory(decodeURIComponent('${enc(c)}'))">${esc(c)}</button>`).join("") || `<div class="empty" style="padding:10px">Sin categorías.</div>`;
   const itemHtml = items.map(p => `<button class="desktop-product" data-desktop-product="1" data-search="${esc((p.name + " " + (p.category || "")).toLowerCase())}" onclick="pickProduct('${p.id}')"><strong>${esc(p.name)}</strong>${!isFood() && p.variants?.length ? `<small>${p.variants.length} opciones</small>` : (!isServices() ? `<small>Stock: ${Number(p.stock || 0)}</small>` : `<small>${esc(p.category || "Servicio")}</small>`)}<span>${money(p.price)}</span></button>`).join("") || `<div class="empty" style="grid-column:1/-1">No hay ${isServices() ? "servicios" : "productos"} en esta categoría.</div>`;
@@ -592,9 +616,9 @@ function renderQuickSale() {
     $("#app").innerHTML = `<section class="quick-shell" style="grid-template-columns:1fr"><div class="quick-col" style="display:grid;place-items:center"><div style="max-width:420px;text-align:center"><h2>Caja cerrada</h2><p class="muted">Primero debes abrir la caja para vender comida.</p><button class="btn primary" onclick="openCash()">Abrir caja</button></div></div></section>`;
     return;
   }
-  const categories = [...new Set(state.products.map(p => p.category?.trim() || "Otros"))];
+  const categories = [...new Set(currentProducts().map(p => p.category?.trim() || "Otros"))];
   if (!quickCategory || !categories.includes(quickCategory)) quickCategory = categories[0] || "";
-  const items = state.products.filter(p => (p.category?.trim() || "Otros") === quickCategory);
+  const items = currentProducts().filter(p => (p.category?.trim() || "Otros") === quickCategory);
   const t = totals(saleSubtotal());
   const catHtml = categories.map(c => `<button class="quick-category ${c === quickCategory ? "active" : ""}" onclick="quickSetCategory(decodeURIComponent('${enc(c)}'))">${esc(c)}</button>`).join("");
   const itemHtml = items.map(p => `<button class="quick-product" onclick="pickProduct('${p.id}')"><strong>${esc(p.name)}</strong>${!isFood() && p.variants?.length ? `<small class="muted">${p.variants.length} opciones</small>` : ""}<span>${money(p.price)}</span></button>`).join("") || `<div class="empty">No hay ${isServices() ? "servicios" : "productos"}.</div>`;
@@ -637,9 +661,6 @@ window.finishCredit = async () => {
   const clientId = $("#creditClient").value;
   if (!clientId) return toast("Selecciona un cliente.");
   const t = totals(saleSubtotal());
-  const c = state.clients.find(x => x.id === clientId);
-  c.balance = Number(c.balance || 0) + t.total;
-  await put("clients", c);
   saleMeta.clientId = clientId;
   await saveSale("Crédito", "", clientId);
 };
@@ -654,7 +675,7 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
   const t = totals(saleSubtotal());
   const sale = {
     id: uid("sale"),
-    number: state.sales.length + 1,
+    number: nextSaleNumber(),
     createdAt: new Date().toISOString(),
     shiftId: currentShift()?.id || null,
     businessType: type(),
@@ -676,7 +697,7 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
   state.sales.push(sale);
   if (!isServices()) {
     for (const item of cart) {
-      const p = state.products.find(x => x.id === item.id);
+      const p = currentProducts().find(x => x.id === item.id);
       if (p) { p.stock = Math.max(0, Number(p.stock || 0) - item.qty); await put("products", p); }
     }
   }
@@ -799,13 +820,13 @@ function groupedSalesHtml(items) {
   }).join("");
 }
 function renderSales() {
-  const sorted = [...state.sales].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const sorted = [...currentSales()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   $("#app").innerHTML = shell(`<section class="screen-title"><h2>Mis ventas</h2><p>Agrupadas por día. Toca una venta para abrir su comprobante.</p></section><div class="toolbar"><button class="btn ghost" onclick="filterSales('today')">Hoy</button><button class="btn ghost" onclick="filterSales('yesterday')">Ayer</button><button class="btn ghost" onclick="filterSales('week')">Esta semana</button><button class="btn ghost" onclick="filterSales('all')">Todas</button></div><div id="salesList" class="sales-scroll">${groupedSalesHtml(sorted)}</div>`, isFood() ? "more" : "sales");
 }
 window.filterSales = mode => {
   const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()), yesterday = new Date(today), week = new Date(today);
   yesterday.setDate(yesterday.getDate()-1); const d=week.getDay()||7; week.setDate(week.getDate()-d+1);
-  let list=[...state.sales];
+  let list=[...currentSales()];
   if(mode==="today") list=list.filter(s=>new Date(s.createdAt)>=today);
   if(mode==="yesterday") list=list.filter(s=>{const x=new Date(s.createdAt);return x>=yesterday&&x<today;});
   if(mode==="week") list=list.filter(s=>new Date(s.createdAt)>=week);
@@ -817,66 +838,66 @@ window.openSale = id => { const sale=state.sales.find(x=>x.id===id); if(sale) sh
 /* =========================
    PRODUCTOS / SERVICIOS
 ========================= */
-function productCategories() { return [...new Set(state.products.map(p => p.category?.trim() || "Otros"))].sort((a,b)=>a.localeCompare(b,"es")); }
+function productCategories() { return [...new Set(currentProducts().map(p => p.category?.trim() || "Otros"))].sort((a,b)=>a.localeCompare(b,"es")); }
 function renderProducts() {
   const label = isServices() ? "Servicios" : "Productos", singular = isServices() ? "servicio" : "producto";
   const cats = productCategories();
   const html = cats.length ? cats.map(c => {
-    const items=state.products.filter(p=>(p.category?.trim()||"Otros")===c);
+    const items=currentProducts().filter(p=>(p.category?.trim()||"Otros")===c);
     return `<button class="product-category-card" onclick="openProductCategory(decodeURIComponent('${enc(c)}'))"><span><strong>${esc(c)}</strong><small>${items.length} ${isServices() ? (items.length===1?"servicio":"servicios") : (items.length===1?"producto":"productos")}</small></span><b>›</b></button>`;
   }).join("") : `<div class="empty">No hay ${label.toLowerCase()}.</div>`;
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>${label}</h2><p>Primero categorías; después ${label.toLowerCase()} dentro de cada categoría.</p></section><div class="toolbar"><button class="btn primary" onclick="productForm('')">Nuevo ${singular}</button></div><div class="product-category-grid">${html}</div>`, "more");
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>${label}</h2><p>Primero categorías; después ${label.toLowerCase()} dentro de cada categoría. Este módulo tiene inventario independiente.</p></section><div class="toolbar"><button class="btn primary" onclick="productForm('')">Nuevo ${singular}</button></div><div class="product-category-grid">${html}</div>`, "more");
 }
 window.openProductCategory = category => {
-  const items=state.products.filter(p=>(p.category?.trim()||"Otros")===category);
+  const items=currentProducts().filter(p=>(p.category?.trim()||"Otros")===category);
   const singular=isServices()?"servicio":"producto";
   const html=items.length?items.map(p=>`<div class="row-card"><div class="row-head"><div><strong style="font-size:19px">${esc(p.name)}</strong>${!isServices()?`<div class="muted">Stock: ${Number(p.stock||0)}</div>`:""}${!isFood()&&p.variants?.length?`<div class="muted">${p.variants.map(esc).join(" · ")}</div>`:""}</div><strong>${money(p.price)}</strong></div><div class="product-row-actions"><button class="btn ghost" onclick="productForm('${p.id}')">Editar</button><button class="btn danger" onclick="askDeleteProduct('${p.id}')">Eliminar</button></div></div>`).join(""):`<div class="empty">Esta categoría está vacía.</div>`;
   $("#app").innerHTML=shell(`<button class="back-link" onclick="go('products')">‹ Categorías</button><section class="screen-title"><h2>${esc(category)}</h2><p>${items.length} ${items.length===1?singular:`${singular}s`}.</p></section><div class="toolbar"><button class="btn primary" onclick="productForm('',decodeURIComponent('${enc(category)}'))">Nuevo ${singular}</button></div><div class="category-products-page">${html}</div>`,"more");
 };
 window.productForm = (id, presetCategory="") => {
-  const p=id?state.products.find(x=>x.id===id):null;
+  const p=id?currentProducts().find(x=>x.id===id):null;
   const variantField = isProducts() ? `<div class="field"><label>Variantes opcionales</label><input id="pVariants" value="${esc(p?.variants?.join(", ")||"")}" placeholder="Ej. 50ml, 100ml o S, M, L"></div>` : `<input id="pVariants" type="hidden" value="">`;
   const stockField = !isServices() ? `<div class="field"><label>Stock</label><input id="pStock" type="number" value="${Number(p?.stock||0)}"></div>` : `<input id="pStock" type="hidden" value="0">`;
   modal(`<h3>${p?"Editar":"Nuevo"} ${isServices()?"servicio":"producto"}</h3><div class="form-grid"><div class="field"><label>Nombre</label><input id="pName" value="${esc(p?.name||"")}"></div><div class="field"><label>Precio</label><input id="pPrice" type="number" value="${Number(p?.price||0)}"></div><div class="field"><label>Categoría</label><input id="pCategory" value="${esc(p?.category||presetCategory||"")}" placeholder="Ej. Bebidas"></div>${stockField}${variantField}</div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveProduct('${p?.id||""}')">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
 };
 window.saveProduct = async id => {
   const name=$("#pName").value.trim(), price=Number($("#pPrice").value||0); if(!name||price<=0)return toast("Nombre y precio son obligatorios.");
-  let p=id?state.products.find(x=>x.id===id):null; if(!p){p={id:uid("p")};state.products.push(p);} p.name=name;p.price=price;p.category=$("#pCategory").value.trim()||"Otros";p.stock=Number($("#pStock").value||0);p.variants=isProducts()?$("#pVariants").value.split(",").map(x=>x.trim()).filter(Boolean):[];
+  let p=id?currentProducts().find(x=>x.id===id):null; if(!p){p={id:uid("p"),businessType:type()};state.products.push(p);} p.businessType=type();p.name=name;p.price=price;p.category=$("#pCategory").value.trim()||"Otros";p.stock=Number($("#pStock").value||0);p.variants=isProducts()?$("#pVariants").value.split(",").map(x=>x.trim()).filter(Boolean):[];
   await put("products",p); const cat=p.category; closeModal(); openProductCategory(cat); toast("Guardado.");
 };
-window.askDeleteProduct = id => { const p=state.products.find(x=>x.id===id); if(!p)return; modal(`<h3>Eliminar</h3><p>¿Quieres eliminar <strong>${esc(p.name)}</strong>?</p><p class="muted">Las ventas anteriores no se borrarán.</p><div class="toolbar"><button class="btn danger" onclick="deleteProduct('${id}')">Sí, eliminar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
-window.deleteProduct = async id => { const p=state.products.find(x=>x.id===id); const cat=p?.category||"Otros"; await del("products",id); state.products=state.products.filter(x=>x.id!==id);cart=cart.filter(x=>x.id!==id);closeModal(); if(state.products.some(x=>(x.category?.trim()||"Otros")===cat))openProductCategory(cat);else renderProducts();toast("Eliminado."); };
+window.askDeleteProduct = id => { const p=currentProducts().find(x=>x.id===id); if(!p)return; modal(`<h3>Eliminar</h3><p>¿Quieres eliminar <strong>${esc(p.name)}</strong>?</p><p class="muted">Las ventas anteriores no se borrarán.</p><div class="toolbar"><button class="btn danger" onclick="deleteProduct('${id}')">Sí, eliminar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
+window.deleteProduct = async id => { const p=currentProducts().find(x=>x.id===id); const cat=p?.category||"Otros"; await del("products",id); state.products=state.products.filter(x=>x.id!==id);cart=cart.filter(x=>x.id!==id);closeModal(); if(currentProducts().some(x=>(x.category?.trim()||"Otros")===cat))openProductCategory(cat);else renderProducts();toast("Eliminado."); };
 
 /* =========================
    CLIENTES / CRÉDITO
 ========================= */
 function renderClients() {
-  const html = state.clients.length ? state.clients.map(c => `<div class="row-card clickable" onclick="openClient('${c.id}')"><div class="row-head"><div><strong style="font-size:20px">${esc(c.name)}</strong><div class="muted">${esc(c.phone || "Sin teléfono")}</div></div><strong style="font-size:23px">${money(c.balance || 0)}</strong></div><div class="toolbar" style="margin-top:10px;margin-bottom:0"><button class="btn ghost" onclick="event.stopPropagation();openClient('${c.id}')">Ver movimientos</button>${Number(c.balance || 0) > 0 ? `<button class="btn primary" onclick="event.stopPropagation();abono('${c.id}')">Registrar abono</button>` : ""}</div></div>`).join("") : `<div class="empty">No hay clientes.</div>`;
+  const html = state.clients.length ? state.clients.map(c => { const balance = clientModuleBalance(c.id); return `<div class="row-card clickable" onclick="openClient('${c.id}')"><div class="row-head"><div><strong style="font-size:20px">${esc(c.name)}</strong><div class="muted">${esc(c.phone || "Sin teléfono")}</div></div><strong style="font-size:23px">${money(balance)}</strong></div><div class="toolbar" style="margin-top:10px;margin-bottom:0"><button class="btn ghost" onclick="event.stopPropagation();openClient('${c.id}')">Ver movimientos</button>${balance > 0 ? `<button class="btn primary" onclick="event.stopPropagation();abono('${c.id}')">Registrar abono</button>` : ""}</div></div>`; }).join("") : `<div class="empty">No hay clientes.</div>`;
   $("#app").innerHTML = shell(`<section class="screen-title"><h2>${isServices() ? "Clientes" : "Clientes / Crédito"}</h2><p>Compras, saldos y abonos de cada cliente.</p></section><div class="toolbar"><button class="btn primary" onclick="newClient()">Nuevo cliente</button></div><div class="list">${html}</div>`, "more");
 }
 window.newClient = () => modal(`<h3>Nuevo cliente</h3><div class="form-grid"><div class="field"><label>Nombre</label><input id="cName"></div><div class="field"><label>Teléfono / WhatsApp</label><input id="cPhone"></div></div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveClient(false)">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
 window.saveClient = async selectAfter => { const name = $("#cName").value.trim(); if (!name) return toast("Escribe el nombre."); const c = { id: uid("c"), name, phone: $("#cPhone").value.trim(), balance: 0 }; await put("clients", c); state.clients.push(c); if (selectAfter) saleMeta.clientId = c.id; closeModal(); if (selectAfter) rerenderSale(); else renderClients(); };
 window.openClient = id => { activeClientId = id; screen = "clientDetail"; render(); };
 function clientMovements(id) {
-  const purchases = state.sales.filter(s => s.clientId === id && s.method === "Crédito").map(s => ({ id: `s_${s.id}`, kind: "sale", createdAt: s.createdAt, amount: Number(s.total || 0), saleId: s.id, title: `Compra a crédito · Comprobante #${s.number}`, detail: s.items.map(i => `${i.qty} × ${i.name}${i.variant ? ` ${i.variant}` : ""}`).join(" · ") }));
-  const payments = state.creditMoves.filter(m => m.clientId === id && m.type === "payment").map(m => ({ id: m.id, kind: "payment", createdAt: m.createdAt, amount: -Number(m.amount || 0), title: `Abono · ${m.method || ""}`, detail: m.note || "" }));
+  const purchases = currentSales().filter(s => s.clientId === id && s.method === "Crédito").map(s => ({ id: `s_${s.id}`, kind: "sale", createdAt: s.createdAt, amount: Number(s.total || 0), saleId: s.id, title: `Compra a crédito · Comprobante #${s.number}`, detail: s.items.map(i => `${i.qty} × ${i.name}${i.variant ? ` ${i.variant}` : ""}`).join(" · ") }));
+  const payments = currentCreditMoves().filter(m => m.clientId === id && m.type === "payment").map(m => ({ id: m.id, kind: "payment", createdAt: m.createdAt, amount: -Number(m.amount || 0), title: `Abono · ${m.method || ""}`, detail: m.note || "" }));
   return [...purchases, ...payments].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 function renderClientDetail() {
   const c = state.clients.find(x => x.id === activeClientId);
   if (!c) { screen = "clients"; return renderClients(); }
   const movements = clientMovements(c.id);
-  const totalCredit = state.sales.filter(s => s.clientId === c.id && s.method === "Crédito").reduce((a, b) => a + Number(b.total || 0), 0);
+  const totalCredit = currentSales().filter(s => s.clientId === c.id && s.method === "Crédito").reduce((a, b) => a + Number(b.total || 0), 0);
   const history = movements.length ? movements.map(m => `<div class="row-card ${m.kind === "sale" ? "clickable" : ""}" ${m.kind === "sale" ? `onclick="openSale('${m.saleId}')"` : ""}><div class="movement"><div><strong>${esc(m.title)}</strong><div class="movement-meta">${dateTime(m.createdAt)}</div>${m.detail ? `<div class="movement-meta">${esc(m.detail)}</div>` : ""}</div><strong class="amount ${m.amount >= 0 ? "positive" : "negative"}">${m.amount >= 0 ? "+" : "−"}${money(Math.abs(m.amount))}</strong></div>${m.kind === "sale" ? `<div class="muted" style="margin-top:8px">Toca para ver el comprobante</div>` : ""}</div>`).join("") : `<div class="empty">Este cliente todavía no tiene movimientos de crédito.</div>`;
-  $("#app").innerHTML = shell(`<button class="back-link" onclick="go('clients')">‹ Clientes</button><section class="screen-title"><h2>${esc(c.name)}</h2><p>${esc(c.phone || "Sin teléfono")}</p></section><div class="panel"><div class="client-summary"><div><span class="muted">Saldo pendiente</span><div class="balance-big">${money(c.balance || 0)}</div></div><div style="text-align:right"><span class="muted">Comprado a crédito</span><div style="font-size:21px;font-weight:850;margin-top:5px">${money(totalCredit)}</div></div></div>${Number(c.balance || 0) > 0 ? `<button class="btn primary full" style="margin-top:16px" onclick="abono('${c.id}')">Registrar abono</button>` : ""}</div><section class="screen-title" style="margin-top:24px"><h2 style="font-size:26px">Movimientos</h2><p>Compras a crédito y abonos.</p></section><div class="list">${history}</div>`, "more");
+  $("#app").innerHTML = shell(`<button class="back-link" onclick="go('clients')">‹ Clientes</button><section class="screen-title"><h2>${esc(c.name)}</h2><p>${esc(c.phone || "Sin teléfono")}</p></section><div class="panel"><div class="client-summary"><div><span class="muted">Saldo pendiente</span><div class="balance-big">${money(clientModuleBalance(c.id))}</div></div><div style="text-align:right"><span class="muted">Comprado a crédito</span><div style="font-size:21px;font-weight:850;margin-top:5px">${money(totalCredit)}</div></div></div>${clientModuleBalance(c.id) > 0 ? `<button class="btn primary full" style="margin-top:16px" onclick="abono('${c.id}')">Registrar abono</button>` : ""}</div><section class="screen-title" style="margin-top:24px"><h2 style="font-size:26px">Movimientos</h2><p>Compras a crédito y abonos.</p></section><div class="list">${history}</div>`, "more");
 }
-window.abono = id => { const c = state.clients.find(x => x.id === id); if (!c) return; modal(`<h3>Registrar abono</h3><p>${esc(c.name)} · Saldo ${money(c.balance)}</p><div class="field"><label>Monto</label><input id="payAmount" type="number" inputmode="decimal"></div><div class="field"><label>Método</label><select id="payMethod"><option>Efectivo</option><option>SINPE</option><option>Tarjeta/Otro</option></select></div><div class="field"><label>Nota opcional</label><input id="payNote" placeholder="Ej. abono semanal"></div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveAbono('${id}')">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
+window.abono = id => { const c = state.clients.find(x => x.id === id); if (!c) return; const balance=clientModuleBalance(id); modal(`<h3>Registrar abono</h3><p>${esc(c.name)} · Saldo ${money(balance)}</p><div class="field"><label>Monto</label><input id="payAmount" type="number" inputmode="decimal"></div><div class="field"><label>Método</label><select id="payMethod"><option>Efectivo</option><option>SINPE</option><option>Tarjeta/Otro</option></select></div><div class="field"><label>Nota opcional</label><input id="payNote" placeholder="Ej. abono semanal"></div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveAbono('${id}')">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
 window.saveAbono = async id => {
   const c = state.clients.find(x => x.id === id), amount = Number($("#payAmount").value || 0), method = $("#payMethod").value, note = $("#payNote").value.trim();
   if (!c || amount <= 0) return toast("Escribe un monto válido.");
-  if (amount > Number(c.balance || 0)) return toast("El abono no puede superar el saldo pendiente.");
-  c.balance = Math.max(0, Number(c.balance || 0) - amount); await put("clients", c);
-  const move = { id: uid("credit"), type: "payment", clientId: id, amount, method, note, createdAt: new Date().toISOString(), shiftId: currentShift()?.id || null };
+  const balance = clientModuleBalance(id);
+  if (amount > balance) return toast("El abono no puede superar el saldo pendiente.");
+  const move = { id: uid("credit"), type: "payment", clientId: id, amount, method, note, createdAt: new Date().toISOString(), shiftId: currentShift()?.id || null, businessType: type() };
   await put("creditMoves", move); state.creditMoves.push(move);
   if (isFood() && currentShift() && method === "Efectivo") { const m = { id: uid("move"), type: "creditPayment", clientId: id, amount, method, createdAt: move.createdAt, shiftId: currentShift().id }; await put("cashMoves", m); state.cashMoves.push(m); }
   closeModal(); activeClientId = id; screen = "clientDetail"; renderClientDetail(); toast("Abono registrado.");
@@ -1199,7 +1220,7 @@ function showOrderCategoryStep() {
 
   const categoryHtml = categories.length
     ? categories.map(category => {
-        const count = state.products.filter(
+        const count = currentProducts().filter(
           product => (product.category?.trim() || "Otros") === category
         ).length;
 
@@ -1255,7 +1276,7 @@ function showOrderProductsStep() {
 
   if (!orderDraft.category) return showOrderCategoryStep();
 
-  const products = state.products.filter(
+  const products = currentProducts().filter(
     product => (product.category?.trim() || "Otros") === orderDraft.category
   );
 
@@ -1306,7 +1327,7 @@ function showOrderProductsStep() {
 window.addOrderProduct = id => {
   if (!orderDraft) return;
 
-  const product = state.products.find(item => item.id === id);
+  const product = currentProducts().find(item => item.id === id);
   if (!product) return;
 
   const cartId = `${product.id}_normal`;
@@ -1556,7 +1577,8 @@ window.printDayReport=id=>{const sh=state.cashSessions.find(x=>x.id===id);if(!sh
 ========================= */
 function renderCatalog() {
   const label = isFood() ? "Menú QR" : "Catálogo QR";
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>${label}</h2><p>Vista previa de lo que verá el cliente.</p></section><div class="panel">${state.products.length ? state.products.map(p => `<div class="catalog-card"><div><strong>${esc(p.name)}</strong><div class="muted">${esc(p.category || "")}</div></div><strong>${money(p.price)}</strong></div>`).join("") : `<div class="empty">Todavía no hay contenido.</div>`}</div><div class="panel" style="margin-top:14px"><strong>QR público</strong><p class="muted">La vista ya está preparada. Para que un cliente escanee desde otro teléfono y el pedido llegue automáticamente a Mi Punto CR, falta conectar la nube.</p></div>`, "more");
+  const catalogItems = currentProducts();
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>${label}</h2><p>Vista previa de lo que verá el cliente.</p></section><div class="panel">${catalogItems.length ? catalogItems.map(p => `<div class="catalog-card"><div><strong>${esc(p.name)}</strong><div class="muted">${esc(p.category || "")}</div></div><strong>${money(p.price)}</strong></div>`).join("") : `<div class="empty">Todavía no hay contenido.</div>`}</div><div class="panel" style="margin-top:14px"><strong>QR público</strong><p class="muted">El QR será únicamente para consultar este ${isFood() ? "menú" : "catálogo"}. No genera pedidos ni solicitudes dentro del POS.</p></div>`, "more");
 }
 
 /* =========================
@@ -1567,7 +1589,7 @@ function renderSettings() {
   const s = state.settings;
   $("#app").innerHTML = shell(`<section class="screen-title"><h2>Configuración</h2><p>Datos del negocio y protección del propietario.</p></section><div class="panel"><div class="form-grid"><div class="field"><label>Tipo de negocio</label><select id="sType"><option value="food" ${type() === "food" ? "selected" : ""}>Comida / Soda / Repostería</option><option value="products" ${type() === "products" ? "selected" : ""}>Venta de artículos</option><option value="services" ${type() === "services" ? "selected" : ""}>Servicios</option></select></div>${isFood() ? `<div class="field"><label>Cantidad de mesas</label><input id="sTableCount" type="number" min="0" max="100" value="${Number(s.tableCount || 0)}"></div>` : ""}<div class="field"><label>Nombre del negocio</label><input id="sName" value="${esc(s.businessName)}"></div><div class="field"><label>Propietario</label><input value="${esc(s.ownerName || "")}" disabled></div><div class="field"><label>Correo activado</label><input value="${esc(s.email || "")}" disabled></div><div class="field"><label>Teléfono</label><input id="sPhone" value="${esc(s.phone || "")}"></div><div class="field"><label>WhatsApp</label><input id="sWa" value="${esc(s.whatsapp)}"></div><div class="field"><label>Número SINPE</label><input id="sSinpe" value="${esc(s.sinpe)}"></div><div class="field"><label>Impuesto</label><select id="sTax"><option value="included" ${s.taxMode === "included" ? "selected" : ""}>Incluido</option><option value="added" ${s.taxMode === "added" ? "selected" : ""}>Se suma al cobrar</option><option value="exempt" ${s.taxMode === "exempt" ? "selected" : ""}>Exento</option></select></div><div class="field"><label>Porcentaje</label><input id="sRate" type="number" value="${Number(s.taxRate || 13)}"></div><div class="field"><label>Código del negocio</label><input value="${esc(s.businessId || "")}" disabled></div></div><button class="btn primary full" style="margin-top:14px" onclick="saveSettings()">Guardar cambios</button></div><div class="panel" style="margin-top:14px"><strong>Activación</strong><p class="muted">Estado: ${s.activated ? "Activado" : "Pendiente"}. El código de activación es de un solo uso.</p><button class="btn ghost" onclick="logoutOwner()">Cerrar sesión</button></div>`, "more");
 }
-window.saveSettings = async () => { state.settings = { ...state.settings, businessType: $("#sType").value, businessName: $("#sName").value.trim() || "Mi Punto CR", phone: $("#sPhone").value.trim(), whatsapp: $("#sWa").value.trim(), sinpe: $("#sSinpe").value.trim(), taxMode: $("#sTax").value, taxRate: Number($("#sRate").value || 0), tableCount: isFood() ? Number($("#sTableCount")?.value || 0) : Number(state.settings.tableCount || 0) }; await put("settings", state.settings); quickCategory = ""; screen = "home"; render(); toast("Configuración guardada."); };
+window.saveSettings = async () => { const previousType=type(); const nextType=$("#sType").value; state.settings = { ...state.settings, businessType: nextType, businessName: $("#sName").value.trim() || "Mi Punto CR", phone: $("#sPhone").value.trim(), whatsapp: $("#sWa").value.trim(), sinpe: $("#sSinpe").value.trim(), taxMode: $("#sTax").value, taxRate: Number($("#sRate").value || 0), tableCount: previousType === "food" ? Number($("#sTableCount")?.value || state.settings.tableCount || 0) : Number(state.settings.tableCount || 0) }; await put("settings", state.settings); quickCategory = ""; cart=[]; resetSaleMeta(); screen = "home"; render(); toast(previousType===nextType?"Configuración guardada.":"Módulo cambiado. Inventario y ventas independientes."); };
 
 function renderMore() {
   let cards = "";
