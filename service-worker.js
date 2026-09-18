@@ -1,4 +1,4 @@
-const CACHE = 'mipuntocr-v7-13-1-cerrar-sesion-movil';
+const CACHE = 'mipuntocr-v7-14-recuperacion-clave';
 
 const CORE = [
   './',
