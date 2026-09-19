@@ -15,10 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    defaults:
-      run:
-        working-directory: PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE
-
     steps:
       - name: Descargar proyecto
         uses: actions/checkout@v4
