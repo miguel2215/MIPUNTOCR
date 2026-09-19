@@ -1,0 +1,13 @@
+{
+  "name": "punto-ya-cr-bot-qa",
+  "version": "7.30.0",
+  "private": true,
+  "scripts": {
+    "test:qa": "playwright test",
+    "test:qa:headed": "playwright test --headed",
+    "test:qa:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}
