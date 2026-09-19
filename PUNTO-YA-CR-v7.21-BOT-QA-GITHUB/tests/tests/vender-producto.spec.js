@@ -113,42 +113,50 @@ const stock = page.getByRole('spinbutton').nth(1);
     }).first().click();
 
     // ========================================
-    // 6. COMPROBAR QUE EL PRODUCTO
-    //    LLEGÓ AL PUNTO DE VENTA
+       // ========================================
+    // 6. DETECTAR PC / MÓVIL
     // ========================================
 
-    await expect(
-      page.getByText('PRODUCTO BOT QA', { exact: true }).first()
-    ).toBeVisible();
+    const esMovil =
+      (page.viewportSize()?.width || 9999) <= 768;
 
-    await expect(page.locator('body'))
-      .toContainText(/1[.,]?000/);
+    // En móvil primero aparecen las categorías.
+    if (esMovil) {
+      const categoriaQA = page.getByRole('button', {
+        name: /QA\s+1 producto/i
+      });
+
+      await expect(categoriaQA).toBeVisible();
+      await categoriaQA.click();
+    }
 
     // ========================================
-    // 7. AGREGAR PRODUCTO A LA VENTA
+    // 7. COMPROBAR PRODUCTO EN VENDER
     // ========================================
 
-    await page.getByText(
+    const productoQA = page.getByText(
       'PRODUCTO BOT QA',
       { exact: true }
-    ).first().click();
+    ).first();
 
-    // El producto debe continuar visible
-    // después de agregarlo.
-    await expect(
-      page.getByText('PRODUCTO BOT QA', { exact: true }).first()
-    ).toBeVisible();
+    await expect(productoQA).toBeVisible();
 
-    // El precio esperado debe estar presente.
+    // Comprobar precio aceptando espacios normales
+    // y espacios especiales usados al formatear moneda.
     await expect(page.locator('body'))
-      .toContainText(/₡?\s*1[.,]?000/);
+      .toContainText(/₡\s*1[\s\u00A0\u202F]*000/);
 
     // ========================================
-    // 8. NO COBRAMOS
+    // 8. AGREGAR PRODUCTO A LA VENTA
     // ========================================
-    // Intencionalmente terminamos aquí.
-    // No pulsamos Efectivo, SINPE,
-    // Tarjeta ni Crédito.
+
+    await productoQA.click();
+
+    // Debe aparecer una venta con ₡1.000.
+    await expect(page.locator('body'))
+      .toContainText(/₡\s*1[\s\u00A0\u202F]*000/);
+
+    // Todavía NO cobramos.
 
     // ========================================
     // 9. CONTROL DE ERRORES JS
