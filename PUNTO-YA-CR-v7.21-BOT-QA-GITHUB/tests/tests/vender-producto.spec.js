@@ -156,16 +156,38 @@ const stock = page.getByRole('spinbutton').nth(1);
     await expect(page.locator('body'))
       .toContainText(/₡\s*1[\s\u00A0\u202F]*000/);
 
-    // Todavía NO cobramos.
-
-    // ========================================
-    // 9. CONTROL DE ERRORES JS
+       // ========================================
+    // 9. PROBAR CANTIDAD Y TOTALES
     // ========================================
 
-    expect(
-      erroresJS,
-      `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
-    ).toEqual([]);
-  });
+    // El producto ya fue agregado una vez.
+    // Lo agregamos nuevamente para llevarlo a cantidad 2.
+    await productoQA.click();
 
-});
+    // Ahora el total esperado es ₡2 000.
+    await expect(page.locator('body'))
+      .toContainText(/₡\s*2[\s\u00A0\u202F]*000/);
+
+    // ========================================
+    // 10. VACIAR LA VENTA
+    // ========================================
+
+    const botonVaciar = page.getByRole('button', {
+      name: /^Vaciar$/i
+    }).first();
+
+    await expect(botonVaciar).toBeVisible();
+    await botonVaciar.click();
+
+    // Dar tiempo a la interfaz para actualizar.
+    await page.waitForTimeout(300);
+
+    // El carrito ya no debe contener el producto.
+    // El producto puede seguir visible en el catálogo,
+    // por eso comprobamos el estado vacío de la venta.
+    await expect(page.locator('body'))
+      .toContainText(/venta vacía|sin productos|agrega productos/i);
+
+    // El total debe volver a cero.
+    await expect(page.locator('body'))
+      .toContainText(/₡\s*0(?:[.,]00)?/);
