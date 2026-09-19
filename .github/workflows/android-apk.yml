@@ -40,18 +40,47 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Verificar Android SDK
+      - name: Configurar Android SDK
         shell: bash
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          sdkmanager --version
-          adb --version
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+
+          echo "Android SDK: $SDK_ROOT"
+
+          SDKMANAGER=""
+
+          for CANDIDATE in \
+            "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "$SDK_ROOT/cmdline-tools/bin/sdkmanager" \
+            "$SDK_ROOT/tools/bin/sdkmanager"
+          do
+            if [ -x "$CANDIDATE" ]; then
+              SDKMANAGER="$CANDIDATE"
+              break
+            fi
+          done
+
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$SDK_ROOT" -type f -name sdkmanager -perm -111 2>/dev/null | head -1 || true)
+          fi
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "ERROR: No se encontró sdkmanager."
+            find "$SDK_ROOT" -maxdepth 5 -name sdkmanager -print || true
+            exit 1
+          fi
+
+          echo "sdkmanager encontrado en: $SDKMANAGER"
+
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+          "$SDKMANAGER" --version
 
       - name: Aceptar licencias Android
         shell: bash
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
 
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
@@ -76,8 +105,18 @@ jobs:
         shell: bash
         run: |
           COMPILE_SDK=$(grep -E 'compileSdkVersion\s*=' android/variables.gradle | grep -oE '[0-9]+' | head -1)
-          echo "compileSdk detectado: ${COMPILE_SDK}"
-          sdkmanager "platform-tools" "platforms;android-${COMPILE_SDK}"
+
+          echo "compileSdk detectado: $COMPILE_SDK"
+
+          if [ -z "$COMPILE_SDK" ]; then
+            echo "ERROR: No se pudo detectar compileSdkVersion."
+            cat android/variables.gradle
+            exit 1
+          fi
+
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-${COMPILE_SDK}"
 
       - name: Dar permiso a Gradle
         run: chmod +x android/gradlew
