@@ -61,9 +61,9 @@ test.describe('PUNTO YA CR - Producto → Vender', () => {
     // ========================================
 
     await expect(
-      page.getByText('Nuevo producto', { exact: true })
-    ).toBeVisible();
-
+  page.getByRole('heading', { name: 'Nuevo producto' })
+).toBeVisible();
+    
     // Usamos los labels reales del formulario
     const nombre = page.getByLabel('Nombre', { exact: true });
     const precio = page.getByLabel('Precio', { exact: true });
