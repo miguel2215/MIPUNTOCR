@@ -32,7 +32,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
       - name: Preparar Java
         uses: actions/setup-java@v4
@@ -44,7 +43,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Instalar dependencias
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Preparar archivos web para Android
         run: npm run mobile:prepare-web
