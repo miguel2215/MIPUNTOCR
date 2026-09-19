@@ -28,7 +28,7 @@ async function entrarComoNegocioQA(page) {
 
 test.describe('PUNTO YA CR - Vender', () => {
 
-  test('abre Vender y muestra correctamente el punto de venta', async ({ page }) => {
+  test('abre Vender y muestra correctamente los controles', async ({ page }, testInfo) => {
 
     const erroresJS = [];
 
@@ -41,65 +41,109 @@ test.describe('PUNTO YA CR - Vender', () => {
     // Abrir Vender
     await page.getByText('Vender', { exact: true }).first().click();
 
-    // Título REAL observado por el BOT
-    await expect(
-      page.getByText('Punto de venta', { exact: true })
-    ).toBeVisible();
+    const esMovil = testInfo.project.name
+      .toLowerCase()
+      .includes('mobile');
 
-    // Buscador real
-    await expect(
-      page.getByPlaceholder('Buscar en productos...')
-    ).toBeVisible();
+    if (esMovil) {
 
-    // Panel de venta
-    await expect(
-      page.getByText('Venta actual', { exact: true })
-    ).toBeVisible();
+      // =========================
+      // INTERFAZ MÓVIL
+      // =========================
 
-    // Cliente
-    await expect(
-      page.getByRole('button', { name: /^Cliente$/i })
-    ).toBeVisible();
+      await expect(
+        page.getByText('Nueva venta', { exact: true })
+      ).toBeVisible();
 
-    // Métodos de pago
-    await expect(
-      page.getByRole('button', { name: /^Efectivo$/i })
-    ).toBeVisible();
+      await expect(
+        page.getByPlaceholder('Buscar categoría...')
+      ).toBeVisible();
 
-    await expect(
-      page.getByRole('button', { name: /^SINPE$/i })
-    ).toBeVisible();
+      await expect(page.locator('body'))
+        .toContainText('Primero agrega productos');
 
-    await expect(
-      page.getByRole('button', { name: /Tarjeta/i })
-    ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: /Cliente opcional/i })
+      ).toBeVisible();
 
-    await expect(
-      page.getByRole('button', { name: /^Crédito$/i })
-    ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: /^Efectivo$/i })
+      ).toBeVisible();
 
-    // Tipos de pedido visibles en la pantalla real
-    await expect(
-      page.getByText('Mostrador', { exact: true })
-    ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: /^SINPE$/i })
+      ).toBeVisible();
 
-    await expect(
-      page.getByText('Para llevar', { exact: true })
-    ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: /Tarjeta \/ Otro/i })
+      ).toBeVisible();
 
-    await expect(
-      page.getByText('Express', { exact: true })
-    ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: /^Crédito$/i })
+      ).toBeVisible();
 
-    await expect(
-      page.getByText('Mesa', { exact: true })
-    ).toBeVisible();
+    } else {
 
-    // Un negocio QA nuevo todavía no tiene productos
-    await expect(page.locator('body'))
-      .toContainText('No hay productos en esta categoría.');
+      // =========================
+      // INTERFAZ PC
+      // =========================
 
-    // Comprobar que no ocurrieron errores JavaScript
+      await expect(
+        page.getByText('Punto de venta', { exact: true })
+      ).toBeVisible();
+
+      await expect(
+        page.getByPlaceholder('Buscar en productos...')
+      ).toBeVisible();
+
+      await expect(
+        page.getByText('Venta actual', { exact: true })
+      ).toBeVisible();
+
+      await expect(
+        page.getByRole('button', { name: /^Cliente$/i })
+      ).toBeVisible();
+
+      await expect(
+        page.getByRole('button', { name: /^Efectivo$/i })
+      ).toBeVisible();
+
+      await expect(
+        page.getByRole('button', { name: /^SINPE$/i })
+      ).toBeVisible();
+
+      await expect(
+        page.getByRole('button', { name: /Tarjeta/i })
+      ).toBeVisible();
+
+      await expect(
+        page.getByRole('button', { name: /^Crédito$/i })
+      ).toBeVisible();
+
+      await expect(
+        page.getByText('Mostrador', { exact: true })
+      ).toBeVisible();
+
+      await expect(
+        page.getByText('Para llevar', { exact: true })
+      ).toBeVisible();
+
+      await expect(
+        page.getByText('Express', { exact: true })
+      ).toBeVisible();
+
+      await expect(
+        page.getByText('Mesa', { exact: true })
+      ).toBeVisible();
+
+      await expect(page.locator('body'))
+        .toContainText('No hay productos en esta categoría.');
+    }
+
+    // =========================
+    // CONTROL GENERAL
+    // =========================
+
     expect(
       erroresJS,
       `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
