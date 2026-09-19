@@ -191,3 +191,7 @@ const stock = page.getByRole('spinbutton').nth(1);
     // El total debe volver a cero.
     await expect(page.locator('body'))
       .toContainText(/₡\s*0(?:[.,]00)?/);
+
+  });
+
+});
