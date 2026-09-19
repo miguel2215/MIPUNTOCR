@@ -1,4 +1,3 @@
-
 const { test, expect } = require('@playwright/test');
 
 async function entrarComoNegocioQA(page) {
@@ -30,204 +29,299 @@ async function entrarComoNegocioQA(page) {
   ).toBeVisible();
 }
 
+
+// ======================================================
+// PUNTO YA CR - PEDIDOS
+// ======================================================
+
 test.describe('PUNTO YA CR - Pedidos', () => {
 
-  test('abre Pedidos correctamente en PC y móvil', async ({ page }) => {
 
-    const erroresJS = [];
-    const respuestasFallidas = [];
+  // ====================================================
+  // PRUEBA 1
+  // ABRIR PEDIDOS
+  // ====================================================
 
-    page.on('pageerror', error => {
-      erroresJS.push(error.message);
-    });
+  test(
+    'abre Pedidos correctamente en PC y móvil',
+    async ({ page }) => {
 
-    page.on('response', response => {
-      if (response.status() >= 400) {
-        respuestasFallidas.push(
-          `${response.status()} ${response.url()}`
+      const erroresJS = [];
+      const respuestasFallidas = [];
+
+      // --------------------------------------
+      // DETECTAR ERRORES JAVASCRIPT
+      // --------------------------------------
+
+      page.on('pageerror', error => {
+        erroresJS.push(error.message);
+      });
+
+      // --------------------------------------
+      // DETECTAR RESPUESTAS HTTP FALLIDAS
+      // --------------------------------------
+
+      page.on('response', response => {
+        if (response.status() >= 400) {
+          respuestasFallidas.push(
+            `${response.status()} ${response.url()}`
+          );
+        }
+      });
+
+      // --------------------------------------
+      // ENTRAR AL NEGOCIO QA
+      // --------------------------------------
+
+      await entrarComoNegocioQA(page);
+
+      // --------------------------------------
+      // ABRIR PEDIDOS
+      // --------------------------------------
+
+      const accesoPedidos = page.getByText(
+        'Pedidos',
+        { exact: true }
+      ).first();
+
+      await expect(accesoPedidos)
+        .toBeVisible();
+
+      await accesoPedidos.click();
+
+      // --------------------------------------
+      // COMPROBAR QUE PEDIDOS ABRIÓ
+      // --------------------------------------
+
+      await expect(page.locator('body'))
+        .toContainText(/Pedidos/i);
+
+      // --------------------------------------
+      // ESTADOS ACTUALES
+      // --------------------------------------
+
+      await expect(page.locator('body'))
+        .toContainText(/Recibido/i);
+
+      await expect(page.locator('body'))
+        .toContainText(/Listo/i);
+
+      await expect(page.locator('body'))
+        .toContainText(/Entregado/i);
+
+      // --------------------------------------
+      // ESTADOS QUE NO DEBEN REGRESAR
+      // --------------------------------------
+
+      await expect(page.locator('body'))
+        .not.toContainText(/En preparación/i);
+
+      await expect(page.locator('body'))
+        .not.toContainText(/En camino/i);
+
+      // --------------------------------------
+      // COMPROBAR ERRORES JAVASCRIPT
+      // --------------------------------------
+
+      expect(
+        erroresJS,
+        `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
+      ).toEqual([]);
+
+      // --------------------------------------
+      // COMPROBAR ERRORES DE RED
+      // --------------------------------------
+
+      const fallosImportantes =
+        respuestasFallidas.filter(
+          fallo =>
+            !fallo.includes('favicon') &&
+            !fallo.includes('supabase')
         );
-      }
-    });
 
-    await entrarComoNegocioQA(page);
+      expect(
+        fallosImportantes,
+        `Solicitudes fallidas:\n${fallosImportantes.join('\n')}`
+      ).toEqual([]);
+    }
+  );
 
-    // ==============================
-    // ABRIR PEDIDOS
-    // ==============================
 
-    const accesoPedidos = page.getByText(
-      'Pedidos',
-      { exact: true }
-    ).first();
+  // ====================================================
+  // PRUEBA 2
+  // INICIAR PEDIDO WHATSAPP
+  // ====================================================
 
-    await expect(accesoPedidos).toBeVisible();
-    await accesoPedidos.click();
+  test(
+    'inicia un Pedido WhatsApp y llega al siguiente paso',
+    async ({ page }) => {
 
-    // ==============================
-    // COMPROBAR QUE PEDIDOS ABRIÓ
-    // ==============================
+      const erroresJS = [];
 
-    await expect(page.locator('body'))
-      .toContainText(/Pedidos/i);
+      // --------------------------------------
+      // DETECTAR ERRORES JAVASCRIPT
+      // --------------------------------------
 
-    // ==============================
-    // ESTADOS QUE YA EXISTEN
-    // ==============================
+      page.on('pageerror', error => {
+        erroresJS.push(error.message);
+      });
 
-    await expect(page.locator('body'))
-      .toContainText(/Recibido/i);
+      // --------------------------------------
+      // ENTRAR AL NEGOCIO QA
+      // --------------------------------------
 
-    await expect(page.locator('body'))
-      .toContainText(/Listo/i);
+      await entrarComoNegocioQA(page);
 
-    await expect(page.locator('body'))
-      .toContainText(/Entregado/i);
+      // --------------------------------------
+      // ABRIR PEDIDOS
+      // --------------------------------------
 
-    // No queremos que regresen estados eliminados.
-    await expect(page.locator('body'))
-      .not.toContainText(/En preparación/i);
+      const accesoPedidos = page.getByText(
+        'Pedidos',
+        { exact: true }
+      ).first();
 
-    await expect(page.locator('body'))
-      .not.toContainText(/En camino/i);
+      await expect(accesoPedidos)
+        .toBeVisible();
 
-    // ==============================
-    // CONTROL JAVASCRIPT
-    // ==============================
+      await accesoPedidos.click();
 
-    expect(
-      erroresJS,
-      `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
-    ).toEqual([]);
-    
-    });
+      await expect(page.locator('body'))
+        .toContainText(/Pedidos/i);
 
-    // ==============================
-    // CONTROL DE RED
-    // ==============================
+      // --------------------------------------
+      // ABRIR PEDIDO WHATSAPP
+      // --------------------------------------
 
-    const fallosImportantes = respuestasFallidas.filter(
-      fallo =>
-        !fallo.includes('favicon') &&
-        !fallo.includes('supabase')
-    );
+      const botonWhatsApp = page.getByRole(
+        'button',
+        {
+          name: /Pedido WhatsApp/i
+        }
+      ).first();
 
-    expect(
-      fallosImportantes,
-      `Solicitudes fallidas:\n${fallosImportantes.join('\n')}`
-    ).toEqual([]);
-      test('inicia un Pedido WhatsApp y llega al siguiente paso', async ({ page }) => {
+      await expect(botonWhatsApp)
+        .toBeVisible();
 
-    const erroresJS = [];
+      await botonWhatsApp.click();
 
-    page.on('pageerror', error => {
-      erroresJS.push(error.message);
-    });
+      // --------------------------------------
+      // COMPROBAR VENTANA
+      // --------------------------------------
 
-    await entrarComoNegocioQA(page);
+      await expect(
+        page.getByRole('heading', {
+          name: 'Pedido WhatsApp'
+        })
+      ).toBeVisible();
 
-    // ========================================
-    // 1. ABRIR PEDIDOS
-    // ========================================
+      await expect(page.locator('body'))
+        .toContainText(
+          'Registra el cliente y el tipo de entrega.'
+        );
 
-    await page.getByText('Pedidos', {
-      exact: true
-    }).first().click();
+      // --------------------------------------
+      // DATOS DEL CLIENTE QA
+      // --------------------------------------
 
-    await expect(page.locator('body'))
-      .toContainText(/Pedidos/i);
+      const nombre =
+        page.getByPlaceholder('Ej. Juan');
 
-    // ========================================
-    // 2. ABRIR PEDIDO WHATSAPP
-    // ========================================
+      const telefono =
+        page.getByPlaceholder('8888-8888');
 
-    const botonWhatsApp = page.getByRole('button', {
-      name: /Pedido WhatsApp/i
-    }).first();
+      await expect(nombre)
+        .toBeVisible();
 
-    await expect(botonWhatsApp).toBeVisible();
-    await botonWhatsApp.click();
+      await expect(telefono)
+        .toBeVisible();
 
-    // ========================================
-    // 3. COMPROBAR VENTANA
-    // ========================================
+      await nombre.fill(
+        'CLIENTE BOT QA'
+      );
 
-    await expect(
-      page.getByRole('heading', {
-        name: 'Pedido WhatsApp'
-      })
-    ).toBeVisible();
+      await telefono.fill(
+        '8000-0000'
+      );
 
-    await expect(page.locator('body'))
-      .toContainText('Registra el cliente y el tipo de entrega.');
+      // --------------------------------------
+      // TIPO DE ENTREGA
+      // --------------------------------------
 
-    // ========================================
-    // 4. COMPLETAR DATOS QA
-    // ========================================
+      const tipo =
+        page.locator('select:visible').first();
 
-    const nombre = page.getByPlaceholder('Ej. Juan');
-    const telefono = page.getByPlaceholder('8888-8888');
+      await expect(tipo)
+        .toBeVisible();
 
-    await expect(nombre).toBeVisible();
-    await expect(telefono).toBeVisible();
+      // Elegimos por el texto real mostrado.
+      // No dependemos del value interno.
+      await tipo.selectOption({
+        label: 'Recoger'
+      });
 
-    await nombre.fill('CLIENTE BOT QA');
-    await telefono.fill('8000-0000');
+      // --------------------------------------
+      // CONTINUAR
+      // --------------------------------------
 
-    // ========================================
-    // 5. TIPO DE ENTREGA
-    // ========================================
+      const continuar =
+        page.getByRole('button', {
+          name: /^Continuar$/i
+        });
 
-    const tipo = page.locator('select:visible').first();
+      await expect(continuar)
+        .toBeVisible();
 
-    await expect(tipo).toBeVisible();
+      await continuar.click();
 
-    // No inventamos el value interno.
-    // Elegimos por el texto que realmente existe.
-    await tipo.selectOption({
-      label: 'Recoger'
-    });
+      // --------------------------------------
+      // COMPROBAR QUE AVANZÓ
+      // --------------------------------------
 
-    // ========================================
-    // 6. CONTINUAR
-    // ========================================
+      await expect(
+        page.getByPlaceholder('Ej. Juan')
+      ).not.toBeVisible();
 
-    await page.getByRole('button', {
-      name: /^Continuar$/i
-    }).click();
+      // --------------------------------------
+      // DESCUBRIR SEGUNDO PASO
+      // --------------------------------------
 
-    // ========================================
-    // 7. DESCUBRIR SIGUIENTE PASO
-    // ========================================
+      // Todavía no asumimos qué contiene.
+      // Solo comprobamos que existe una
+      // interfaz con la que el usuario
+      // puede continuar trabajando.
 
-    // El primer formulario debe haber avanzado.
-    await expect(
-      page.getByPlaceholder('Ej. Juan')
-    ).not.toBeVisible();
+      const controlesSiguientePaso =
+        page.locator(
+          'button:visible, ' +
+          'input:visible, ' +
+          'select:visible, ' +
+          'textarea:visible'
+        );
 
-    // Debe existir contenido interactivo en el
-    // siguiente paso, pero todavía NO asumimos
-    // qué botones o campos contiene.
-    const controlesSiguientePaso = page.locator(
-      'button:visible, input:visible, select:visible, textarea:visible'
-    );
+      const cantidadControles =
+        await controlesSiguientePaso.count();
 
-    expect(
-      await controlesSiguientePaso.count()
-    ).toBeGreaterThan(0);
+      expect(
+        cantidadControles
+      ).toBeGreaterThan(0);
 
-    // ========================================
-    // 8. NO FINALIZAR PEDIDO
-    // ========================================
+      // --------------------------------------
+      // IMPORTANTE
+      // --------------------------------------
+      // La prueba termina aquí.
+      //
+      // NO confirmamos el pedido.
+      // NO enviamos WhatsApp.
+      // NO generamos PDF.
+      // NO cambiamos estados.
+      // --------------------------------------
 
-    // Intencionalmente terminamos aquí.
-    // No guardamos, enviamos ni confirmamos
-    // ningún pedido.
-
-    expect(
-      erroresJS,
-      `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
-    ).toEqual([]);
-
-  });
+      expect(
+        erroresJS,
+        `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
+      ).toEqual([]);
+    }
+  );
 
 });
