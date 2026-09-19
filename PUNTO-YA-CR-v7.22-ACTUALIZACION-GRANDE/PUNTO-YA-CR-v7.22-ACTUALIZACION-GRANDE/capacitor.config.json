@@ -1,0 +1,11 @@
+{
+  "appId": "com.puntoyacr.app",
+  "appName": "PUNTO YA CR",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
