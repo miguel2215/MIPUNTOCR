@@ -220,9 +220,13 @@ const stock = page.getByRole('spinbutton').nth(1);
     //
     // En móvil aceptamos también los mensajes
     // equivalentes de carrito vacío.
-    await expect(page.locator('body')).toContainText(
-      /Selecciona un producto|venta vacía|sin productos|agrega productos/i
-    );
+   if (esMovil) {
+  await expect(page.locator('body'))
+    .toContainText(/Selecciona una categoría para comenzar/i);
+} else {
+  await expect(page.locator('body'))
+    .toContainText(/Selecciona un producto/i);
+}
 
     // ========================================
     // 13. COMPROBAR TOTAL ₡0
