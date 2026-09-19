@@ -15,6 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    defaults:
+      run:
+        working-directory: PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE
+
     steps:
       - name: Descargar proyecto
         uses: actions/checkout@v4
@@ -38,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: reporte-bot-qa
-          path: playwright-report/
+          path: PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/playwright-report/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -47,6 +51,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: evidencias-bot-qa
-          path: test-results/
+          path: PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/test-results/
           if-no-files-found: ignore
           retention-days: 7
