@@ -113,6 +113,119 @@ test.describe('PUNTO YA CR - Pedidos', () => {
       fallosImportantes,
       `Solicitudes fallidas:\n${fallosImportantes.join('\n')}`
     ).toEqual([]);
+      test('inicia un Pedido WhatsApp y llega al siguiente paso', async ({ page }) => {
+
+    const erroresJS = [];
+
+    page.on('pageerror', error => {
+      erroresJS.push(error.message);
+    });
+
+    await entrarComoNegocioQA(page);
+
+    // ========================================
+    // 1. ABRIR PEDIDOS
+    // ========================================
+
+    await page.getByText('Pedidos', {
+      exact: true
+    }).first().click();
+
+    await expect(page.locator('body'))
+      .toContainText(/Pedidos/i);
+
+    // ========================================
+    // 2. ABRIR PEDIDO WHATSAPP
+    // ========================================
+
+    const botonWhatsApp = page.getByRole('button', {
+      name: /Pedido WhatsApp/i
+    }).first();
+
+    await expect(botonWhatsApp).toBeVisible();
+    await botonWhatsApp.click();
+
+    // ========================================
+    // 3. COMPROBAR VENTANA
+    // ========================================
+
+    await expect(
+      page.getByRole('heading', {
+        name: 'Pedido WhatsApp'
+      })
+    ).toBeVisible();
+
+    await expect(page.locator('body'))
+      .toContainText('Registra el cliente y el tipo de entrega.');
+
+    // ========================================
+    // 4. COMPLETAR DATOS QA
+    // ========================================
+
+    const nombre = page.getByPlaceholder('Ej. Juan');
+    const telefono = page.getByPlaceholder('8888-8888');
+
+    await expect(nombre).toBeVisible();
+    await expect(telefono).toBeVisible();
+
+    await nombre.fill('CLIENTE BOT QA');
+    await telefono.fill('8000-0000');
+
+    // ========================================
+    // 5. TIPO DE ENTREGA
+    // ========================================
+
+    const tipo = page.locator('select:visible').first();
+
+    await expect(tipo).toBeVisible();
+
+    // No inventamos el value interno.
+    // Elegimos por el texto que realmente existe.
+    await tipo.selectOption({
+      label: 'Recoger'
+    });
+
+    // ========================================
+    // 6. CONTINUAR
+    // ========================================
+
+    await page.getByRole('button', {
+      name: /^Continuar$/i
+    }).click();
+
+    // ========================================
+    // 7. DESCUBRIR SIGUIENTE PASO
+    // ========================================
+
+    // El primer formulario debe haber avanzado.
+    await expect(
+      page.getByPlaceholder('Ej. Juan')
+    ).not.toBeVisible();
+
+    // Debe existir contenido interactivo en el
+    // siguiente paso, pero todavía NO asumimos
+    // qué botones o campos contiene.
+    const controlesSiguientePaso = page.locator(
+      'button:visible, input:visible, select:visible, textarea:visible'
+    );
+
+    expect(
+      await controlesSiguientePaso.count()
+    ).toBeGreaterThan(0);
+
+    // ========================================
+    // 8. NO FINALIZAR PEDIDO
+    // ========================================
+
+    // Intencionalmente terminamos aquí.
+    // No guardamos, enviamos ni confirmamos
+    // ningún pedido.
+
+    expect(
+      erroresJS,
+      `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
+    ).toEqual([]);
+  });
   });
 
 });
