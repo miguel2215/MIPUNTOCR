@@ -1,0 +1,83 @@
+name: Android APK - PUNTO YA CR
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'service-worker.js'
+      - 'logo-*.png'
+      - 'icon-*.png'
+      - 'apple-touch-icon.png'
+      - 'favicon-32.png'
+      - 'splash-*.png'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'scripts/**'
+      - 'assets/**'
+      - '.github/workflows/android-apk.yml'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Preparar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Preparar archivos web para Android
+        run: npm run mobile:prepare-web
+
+      - name: Crear proyecto Android con Capacitor
+        shell: bash
+        run: |
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+
+      - name: Generar iconos y splash Android
+        run: npx @capacitor/assets generate --android
+
+      - name: Aplicar configuración Android
+        run: npm run mobile:patch-android
+
+      - name: Instalar plataforma Android requerida
+        shell: bash
+        run: |
+          COMPILE_SDK=$(grep -E 'compileSdkVersion\s*=' android/variables.gradle | grep -oE '[0-9]+' | head -1)
+          echo "compileSdk detectado: ${COMPILE_SDK}"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-${COMPILE_SDK}"
+
+      - name: Compilar APK de prueba
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PUNTO-YA-CR-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
