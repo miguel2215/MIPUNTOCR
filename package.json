@@ -1,0 +1,25 @@
+{
+  "name": "punto-ya-cr-bot-qa",
+  "version": "7.34.0",
+  "private": true,
+  "scripts": {
+    "test:qa": "playwright test",
+    "test:qa:pc": "playwright test --project=PC-Chromium",
+    "test:qa:mobile": "playwright test --project=Movil-Chromium",
+    "test:qa:retail": "playwright test tests/retail.spec.js",
+    "test:qa:critical": "playwright test tests/smoke.spec.js tests/vender.spec.js tests/retail.spec.js tests/pedidos.spec.js tests/legal-pro.spec.js tests/catalogo.spec.js",
+    "test:qa:headed": "playwright test --headed",
+    "test:qa:report": "playwright show-report",
+    "mobile:prepare-web": "node scripts/prepare-mobile.mjs",
+    "mobile:patch-android": "node scripts/patch-android.mjs",
+    "mobile:sync": "npm run mobile:prepare-web && npx cap sync android",
+    "mobile:open": "npx cap open android"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@capacitor/android": "8.5.2",
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.2",
+    "@capacitor/core": "8.5.2"
+  }
+}
