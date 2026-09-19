@@ -1,0 +1,23 @@
+PUNTO YA CR v7.22 - ACTUALIZACION GRANDE
+
+Incluido en esta versión:
+- Vender adaptado por tipo de negocio.
+- Retail: interfaz más simple, búsqueda directa de artículos y botón Escanear.
+- Escáner por cámara cuando el navegador soporta BarcodeDetector; entrada manual como respaldo.
+- Código de barras/SKU por producto y acceso a crear producto si el código no existe.
+- Costo de compra, stock mínimo y aviso de stock bajo.
+- Margen visible en gestión de productos.
+- Servicios: flujo simple por servicio con referencia, monto y comisión.
+- Servicios configurables por categorías (Agua, Luz, Recargas, Remesas, SINPE, Otros, etc.).
+- Gastos y utilidad estimada de 30 días.
+- Impuestos ocultos y forzados a exento/0 por ahora.
+- Se conserva la lógica existente de ventas, caja, clientes, crédito, pedidos, mesas, catálogo, offline y nube.
+- BOT QA existente conservado; se corrigió la carpeta duplicada tests/tests del ZIP base.
+
+Pendiente de validación sobre la marcha:
+- Integraciones reales con proveedores de servicios (AyA/ICE/SINPE/remesas) requieren APIs/acuerdos externos.
+- Devoluciones/reembolsos avanzados.
+- Importación/exportación CSV/Excel.
+- Cocina/KDS, combos y modificadores avanzados.
+- APK y pruebas Android.
+- Ampliar BOT QA para cubrir los nuevos flujos.
