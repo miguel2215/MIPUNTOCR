@@ -6,33 +6,30 @@ async function entrarComoNegocioQA(page) {
   await expect(page.locator('body'))
     .toContainText('Tu negocio, más simple');
 
-  const sinCuenta = page.getByRole('button', {
+  await page.getByRole('button', {
     name: /empezar sin cuenta/i
-  });
+  }).click();
 
-  await expect(sinCuenta).toBeVisible();
-  await sinCuenta.click();
-
-  // Formulario real de PUNTO YA CR
-  await expect(page.getByText('Empezar sin cuenta', { exact: true }))
-    .toBeVisible();
+  await expect(
+    page.getByText('Empezar sin cuenta', { exact: true })
+  ).toBeVisible();
 
   await page.locator('#guestBusiness').fill('BOT QA');
-
-  // Usamos Venta de artículos para esta prueba.
   await page.locator('#guestType').selectOption('products');
 
   await page.getByRole('button', {
     name: /^Empezar$/i
   }).click();
 
-  await expect(page.getByText('Inicio', { exact: true }).first())
-    .toBeVisible();
+  await expect(
+    page.getByText('Inicio', { exact: true }).first()
+  ).toBeVisible();
 }
 
 test.describe('PUNTO YA CR - Vender', () => {
 
-  test('abre Vender y muestra los controles principales', async ({ page }) => {
+  test('abre Vender y muestra correctamente el punto de venta', async ({ page }) => {
+
     const erroresJS = [];
 
     page.on('pageerror', error => {
@@ -44,40 +41,65 @@ test.describe('PUNTO YA CR - Vender', () => {
     // Abrir Vender
     await page.getByText('Vender', { exact: true }).first().click();
 
-    // Elementos que realmente existen en la venta actual
-    await expect(page.getByText('Nueva venta', { exact: true }))
-      .toBeVisible();
-
+    // Título REAL observado por el BOT
     await expect(
-      page.getByPlaceholder('Buscar categoría...')
+      page.getByText('Punto de venta', { exact: true })
     ).toBeVisible();
 
-    await expect(page.getByText('Venta actual', { exact: true }))
-      .toBeVisible();
+    // Buscador real
+    await expect(
+      page.getByPlaceholder('Buscar en productos...')
+    ).toBeVisible();
 
-    await expect(page.getByRole('button', { name: 'Vaciar' }))
-      .toBeVisible();
+    // Panel de venta
+    await expect(
+      page.getByText('Venta actual', { exact: true })
+    ).toBeVisible();
 
-    await expect(page.getByRole('button', { name: /Cliente opcional/i }))
-      .toBeVisible();
+    // Cliente
+    await expect(
+      page.getByRole('button', { name: /^Cliente$/i })
+    ).toBeVisible();
 
-    // Métodos de pago existentes
-    await expect(page.getByRole('button', { name: 'Efectivo' }))
-      .toBeVisible();
+    // Métodos de pago
+    await expect(
+      page.getByRole('button', { name: /^Efectivo$/i })
+    ).toBeVisible();
 
-    await expect(page.getByRole('button', { name: 'SINPE' }))
-      .toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^SINPE$/i })
+    ).toBeVisible();
 
-    await expect(page.getByRole('button', { name: /Tarjeta/i }))
-      .toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /Tarjeta/i })
+    ).toBeVisible();
 
-    await expect(page.getByRole('button', { name: 'Crédito' }))
-      .toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Crédito$/i })
+    ).toBeVisible();
 
-    // Un negocio QA nuevo todavía no tiene productos.
+    // Tipos de pedido visibles en la pantalla real
+    await expect(
+      page.getByText('Mostrador', { exact: true })
+    ).toBeVisible();
+
+    await expect(
+      page.getByText('Para llevar', { exact: true })
+    ).toBeVisible();
+
+    await expect(
+      page.getByText('Express', { exact: true })
+    ).toBeVisible();
+
+    await expect(
+      page.getByText('Mesa', { exact: true })
+    ).toBeVisible();
+
+    // Un negocio QA nuevo todavía no tiene productos
     await expect(page.locator('body'))
-      .toContainText('Primero agrega productos');
+      .toContainText('No hay productos en esta categoría.');
 
+    // Comprobar que no ocurrieron errores JavaScript
     expect(
       erroresJS,
       `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
