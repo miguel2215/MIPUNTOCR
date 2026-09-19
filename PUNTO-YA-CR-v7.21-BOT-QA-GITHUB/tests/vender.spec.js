@@ -41,9 +41,12 @@ test.describe('PUNTO YA CR - Vender', () => {
     // Abrir Vender
     await page.getByText('Vender', { exact: true }).first().click();
 
-    const esMovil = testInfo.project.name
-      .toLowerCase()
-      .includes('mobile');
+   const nombreProyecto = testInfo.project.name.toLowerCase();
+
+const esMovil =
+  nombreProyecto.includes('mobile') ||
+  nombreProyecto.includes('movil') ||
+  nombreProyecto.includes('móvil');
 
     if (esMovil) {
 
