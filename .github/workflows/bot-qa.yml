@@ -20,12 +20,10 @@ jobs:
       - name: Descargar proyecto
         uses: actions/checkout@v4
 
-      - name: Preparar Node.js
+           - name: Preparar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: PUNTO-YA-CR-v7.21-BOT-QA-GITHUB/package-lock.json
+          node-version: 24
 
       - name: Instalar dependencias
         run: npm install
