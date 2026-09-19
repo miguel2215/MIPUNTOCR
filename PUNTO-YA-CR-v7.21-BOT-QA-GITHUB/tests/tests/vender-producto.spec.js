@@ -65,10 +65,15 @@ test.describe('PUNTO YA CR - Producto → Vender', () => {
 ).toBeVisible();
     
     // Usamos los labels reales del formulario
-    const nombre = page.getByLabel('Nombre', { exact: true });
-    const precio = page.getByLabel('Precio', { exact: true });
-    const categoria = page.getByLabel('Categoría', { exact: true });
-    const stock = page.getByLabel('Stock', { exact: true });
+   const nombre = page.getByRole('textbox').filter({
+  hasNot: page.locator('[placeholder]')
+}).first();
+
+const precio = page.getByRole('spinbutton').nth(0);
+
+const categoria = page.getByPlaceholder('Ej. Bebidas');
+
+const stock = page.getByRole('spinbutton').nth(1);
 
     await expect(nombre).toBeVisible();
     await expect(precio).toBeVisible();
