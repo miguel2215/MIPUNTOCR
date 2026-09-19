@@ -21,6 +21,7 @@ on:
 
 jobs:
   build-apk:
+    name: build-apk
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -34,13 +35,23 @@ jobs:
           node-version: '22'
 
       - name: Preparar Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Preparar Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Verificar Android SDK
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          sdkmanager --version
+          adb --version
+
+      - name: Aceptar licencias Android
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
 
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
@@ -66,8 +77,10 @@ jobs:
         run: |
           COMPILE_SDK=$(grep -E 'compileSdkVersion\s*=' android/variables.gradle | grep -oE '[0-9]+' | head -1)
           echo "compileSdk detectado: ${COMPILE_SDK}"
-          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-${COMPILE_SDK}"
+
+      - name: Dar permiso a Gradle
+        run: chmod +x android/gradlew
 
       - name: Compilar APK de prueba
         working-directory: android
