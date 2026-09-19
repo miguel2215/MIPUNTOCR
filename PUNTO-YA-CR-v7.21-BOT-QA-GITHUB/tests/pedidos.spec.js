@@ -193,17 +193,18 @@ test.describe('PUNTO YA CR - Pedidos', () => {
       // ABRIR PEDIDO WHATSAPP
       // --------------------------------------
 
-      const botonWhatsApp = page.getByRole(
-        'button',
-        {
-          name: /Pedido WhatsApp/i
-        }
-      ).first();
+const botonWhatsApp = page.getByRole(
+  'button',
+  {
+    name: 'Nuevo pedido WhatsApp',
+    exact: true
+  }
+);
 
-      await expect(botonWhatsApp)
-        .toBeVisible();
+await expect(botonWhatsApp)
+  .toBeVisible();
 
-      await botonWhatsApp.click();
+await botonWhatsApp.click();
 
       // --------------------------------------
       // COMPROBAR VENTANA
