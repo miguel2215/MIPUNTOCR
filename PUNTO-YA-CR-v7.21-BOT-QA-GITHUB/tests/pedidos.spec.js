@@ -98,6 +98,8 @@ test.describe('PUNTO YA CR - Pedidos', () => {
       erroresJS,
       `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
     ).toEqual([]);
+    
+    });
 
     // ==============================
     // CONTROL DE RED
