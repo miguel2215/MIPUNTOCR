@@ -156,20 +156,51 @@ const stock = page.getByRole('spinbutton').nth(1);
     await expect(page.locator('body'))
       .toContainText(/₡\s*1[\s\u00A0\u202F]*000/);
 
-       // ========================================
+         // ========================================
     // 9. PROBAR CANTIDAD Y TOTALES
     // ========================================
 
-    // El producto ya fue agregado una vez.
-    // Lo agregamos nuevamente para llevarlo a cantidad 2.
-    await productoQA.click();
+    if (esMovil) {
 
-    // Ahora el total esperado es ₡2 000.
+      // En móvil, después de agregar el producto,
+      // la cantidad se controla con los botones - / +.
+      const botonMas = page.getByRole('button', {
+        name: '+',
+        exact: true
+      }).first();
+
+      await expect(botonMas).toBeVisible();
+
+      // Cantidad 1 -> 2
+      await botonMas.click();
+
+    } else {
+
+      // En PC podemos volver a pulsar el producto
+      // para aumentar la cantidad.
+      await productoQA.click();
+    }
+
+    // ========================================
+    // 10. COMPROBAR CANTIDAD 2
+    // ========================================
+
+    // Debe existir cantidad 2 en la venta.
+    await expect(page.locator('body'))
+      .toContainText(/\b2\b/);
+
+    // SIN IMPUESTO:
+    // 2 x ₡1 000 = ₡2 000
     await expect(page.locator('body'))
       .toContainText(/₡\s*2[\s\u00A0\u202F]*000/);
 
+    // No debe aparecer el total anterior
+    // con 13% agregado: ₡2 260.
+    await expect(page.locator('body'))
+      .not.toContainText(/₡\s*2[\s\u00A0\u202F]*260/);
+
     // ========================================
-    // 10. VACIAR LA VENTA
+    // 11. VACIAR LA VENTA
     // ========================================
 
     const botonVaciar = page.getByRole('button', {
@@ -177,20 +208,36 @@ const stock = page.getByRole('spinbutton').nth(1);
     }).first();
 
     await expect(botonVaciar).toBeVisible();
+
     await botonVaciar.click();
 
-    // Dar tiempo a la interfaz para actualizar.
-    await page.waitForTimeout(300);
+    // ========================================
+    // 12. COMPROBAR VENTA VACÍA
+    // ========================================
 
-    // El carrito ya no debe contener el producto.
-    // El producto puede seguir visible en el catálogo,
-    // por eso comprobamos el estado vacío de la venta.
-    await expect(page.locator('body'))
-      .toContainText(/venta vacía|sin productos|agrega productos/i);
+    // PC actualmente muestra:
+    // "Selecciona un producto."
+    //
+    // En móvil aceptamos también los mensajes
+    // equivalentes de carrito vacío.
+    await expect(page.locator('body')).toContainText(
+      /Selecciona un producto|venta vacía|sin productos|agrega productos/i
+    );
 
-    // El total debe volver a cero.
+    // ========================================
+    // 13. COMPROBAR TOTAL ₡0
+    // ========================================
+
     await expect(page.locator('body'))
       .toContainText(/₡\s*0(?:[.,]00)?/);
+    // ========================================
+    // CONTROL DE ERRORES JAVASCRIPT
+    // ========================================
+
+    expect(
+      erroresJS,
+      `Errores JavaScript encontrados:\n${erroresJS.join('\n')}`
+    ).toEqual([]);
 
   });
 
