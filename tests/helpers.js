@@ -114,7 +114,8 @@ async function crearProductoRetail(page, {
     await page.locator('#newRetailCategoryName').fill(categoria);
     await page.getByRole('button', { name: /^Continuar$/i }).click();
   } else if (await elegirCategoria.isVisible().catch(() => false)) {
-    const opcion = page.getByRole('button', { name: new RegExp(`^${categoria}\b`, 'i') }).first();
+    const safeCategoria = String(categoria).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const opcion = page.locator('#modalRoot .type-choice').filter({ hasText: new RegExp(`^\\s*${safeCategoria}\\b`, 'i') }).first();
     if (await opcion.isVisible().catch(() => false)) {
       await opcion.click();
     } else {
