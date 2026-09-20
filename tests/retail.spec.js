@@ -100,6 +100,11 @@ test.describe('PUNTO YA CR - Retail, inventario y escáner', () => {
     await expect(page.getByRole('button', { name: /Crear artículo con este código/i })).toBeVisible();
 
     await page.getByRole('button', { name: /Crear artículo con este código/i }).click();
+    // v7.36 pide categoría antes de abrir el formulario del producto.
+    const picker = page.getByRole('heading', { name: '¿En qué categoría?' });
+    if (await picker.isVisible().catch(() => false)) {
+      await page.getByRole('button', { name: /^QA\b/i }).first().click();
+    }
     await expect(page.locator('#pBarcode')).toHaveValue('0001112223334');
     await page.getByRole('button', { name: /^Cancelar$/i }).click();
 

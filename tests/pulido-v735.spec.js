@@ -73,7 +73,13 @@ test.describe('PUNTO YA CR - cierre v7.35', () => {
     if (await categoria.isVisible().catch(() => false)) await categoria.click();
     await page.locator('button').filter({ hasText: 'ARTICULO FACTURA QA' }).first().click();
 
-    await page.getByRole('button', { name: /^Efectivo$/i }).click();
+    const abrirCobroEfectivo = async () => {
+      const cobrar = page.getByRole('button', { name: /^Cobrar$/i });
+      if (await cobrar.isVisible().catch(() => false)) await cobrar.click();
+      await page.getByRole('button', { name: /^Efectivo$/i }).click();
+    };
+
+    await abrirCobroEfectivo();
     await expect(page.locator('.checkout-document')).toHaveCount(0);
     await page.getByRole('button', { name: /^Cancelar$/i }).click();
 
@@ -84,7 +90,7 @@ test.describe('PUNTO YA CR - cierre v7.35', () => {
       state.settings.fiscalUsesEInvoice = true;
       await put('settings', state.settings);
     });
-    await page.getByRole('button', { name: /^Efectivo$/i }).click();
+    await abrirCobroEfectivo();
     await expect(page.getByText('Factura electrónica', { exact: true })).toBeVisible();
     await page.getByText('Factura electrónica', { exact: true }).click();
     await expect(page.locator('#invoiceCustomerName')).toBeVisible();

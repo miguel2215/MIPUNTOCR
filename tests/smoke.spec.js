@@ -12,7 +12,7 @@ test.describe('PUNTO YA CR - Smoke seguro', () => {
       await expect(page.locator('body')).toContainText('Plan Gratis');
     } else {
       await expect(page.locator('body')).toContainText('Accesos rápidos para trabajar');
-      await expect(page.locator('body')).toContainText('Artículos, variantes y stock');
+      await expect(page.locator('body')).toContainText('Categorías, variantes e inventario');
     }
 
     esperarSinErrores(control);
