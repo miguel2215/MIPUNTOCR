@@ -99,7 +99,7 @@ test.describe('PUNTO YA CR - cierre v7.35', () => {
     await expect(page.locator('#invoiceCustomerName')).toBeVisible();
     await expect(page.locator('#invoiceCustomerId')).toBeVisible();
     await expect(page.locator('#invoiceCustomerEmail')).toBeVisible();
-    await expect(page.locator('body')).toContainText(/no es una factura electrónica oficial|emisión oficial a Hacienda/i);
+    await expect(page.locator('body')).toContainText(/todavía no emite ni transmite una factura oficial a Hacienda|factura oficial a Hacienda/i);
     esperarSinErrores(control);
   });
 });
