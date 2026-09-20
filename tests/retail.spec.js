@@ -103,7 +103,13 @@ test.describe('PUNTO YA CR - Retail, inventario y escáner', () => {
     // v7.36 pide categoría antes de abrir el formulario del producto.
     const picker = page.getByRole('heading', { name: '¿En qué categoría?' });
     if (await picker.isVisible().catch(() => false)) {
-      await page.locator('#modalRoot .type-choice').filter({ hasText: /^QA\b/i }).first().click();
+      // En este escenario el negocio QA solo tiene una categoría.
+      // Elegimos la opción real dentro del modal para no confundirla con
+      // botones de categoría que puedan existir detrás del modal en Vender.
+      const opcionCategoria = page.locator('#modalRoot button[onclick*="openProductFormForCategory"]').first();
+      await expect(opcionCategoria).toBeVisible();
+      await opcionCategoria.click();
+      await expect(page.locator('#pCategory')).toHaveValue('QA');
     }
     await expect(page.locator('#pBarcode')).toHaveValue('0001112223334');
     await page.getByRole('button', { name: /^Cancelar$/i }).click();
