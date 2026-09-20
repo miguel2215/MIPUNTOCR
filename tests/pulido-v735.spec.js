@@ -61,7 +61,7 @@ test.describe('PUNTO YA CR - cierre v7.35', () => {
     esperarSinErrores(control);
   });
 
-  test('Factura electrónica aparece al cobrar solo con PRO y configuración fiscal activa', async ({ page }) => {
+  test('Factura electrónica es visible en Gratis y se habilita con PRO y configuración fiscal activa', async ({ page }) => {
     const control = capturarErrores(page);
     await entrarComoNegocioQA(page, { nombre: 'BOT QA FACTURA', tipo: 'products', factura: 'yes' });
     await crearProductoRetail(page, {
@@ -80,7 +80,10 @@ test.describe('PUNTO YA CR - cierre v7.35', () => {
     };
 
     await abrirCobroEfectivo();
-    await expect(page.locator('.checkout-document')).toHaveCount(0);
+    await expect(page.locator('.checkout-document')).toBeVisible();
+    await expect(page.locator('.checkout-document')).toContainText(/Factura electrónica · PRO/i);
+    await expect(page.locator('input[name="checkoutDocument"][value="electronic_invoice"]')).toBeDisabled();
+    await expect(page.locator('.checkout-document')).toContainText(/disponible con PUNTO YA CR Pro/i);
     await page.getByRole('button', { name: /^Cancelar$/i }).click();
 
     await page.evaluate(async () => {
