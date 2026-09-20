@@ -8,8 +8,9 @@ test.describe('PUNTO YA CR - Pedidos', () => {
     await abrirModulo(page, 'Pedidos');
 
     await expect(page.locator('body')).toContainText(/Recibido/i);
-    await expect(page.locator('body')).toContainText(/Listo/i);
+    await expect(page.locator('body')).toContainText(/Recibido → Entregado/i);
     await expect(page.locator('body')).toContainText(/Entregado/i);
+    await expect(page.locator('body')).not.toContainText(/Recibido → Listo/i);
     await expect(page.locator('body')).not.toContainText(/En preparación/i);
     await expect(page.locator('body')).not.toContainText(/En camino/i);
 

@@ -103,14 +103,9 @@ test.describe('PUNTO YA CR - Retail, inventario y escáner', () => {
     await expect(page.locator('#pBarcode')).toHaveValue('0001112223334');
     await page.getByRole('button', { name: /^Cancelar$/i }).click();
 
-    await abrirModulo(page, 'Productos');
-    await page.getByRole('button', { name: /nuevo producto/i }).click();
-    await page.locator('#pName').fill('DUPLICADO QA');
-    await page.locator('#pPrice').fill('1200');
-    await page.locator('#pCategory').fill('QA');
-    await page.locator('#pStock').fill('1');
-    await page.locator('#pCost').fill('500');
-    await page.locator('#pBarcode').fill('9990001112223');
+    await crearProductoRetail(page, {
+      nombre: 'DUPLICADO QA', precio: 1200, costo: 500, stock: 1, categoria: 'QA', codigo: '9990001112223'
+    });
     await page.getByRole('button', { name: /^Guardar$/i }).click();
 
     await expect(page.locator('body')).toContainText(/Ese código ya pertenece a PRIMERO QA/i);

@@ -9,6 +9,7 @@ const MODULE_TARGETS = {
   'Caja': 'cash',
   'Mis ventas': 'sales',
   'Catálogo QR': 'catalog',
+  'Catálogo virtual': 'catalog',
   'Configuración': 'settings'
 };
 
@@ -106,11 +107,27 @@ async function crearProductoRetail(page, {
 } = {}) {
   await abrirModulo(page, 'Productos');
   await page.getByRole('button', { name: /nuevo producto/i }).click();
-  await expect(page.getByRole('heading', { name: 'Nuevo producto' })).toBeVisible();
 
+  const nuevaCategoria = page.getByRole('heading', { name: 'Nueva categoría' });
+  const elegirCategoria = page.getByRole('heading', { name: '¿En qué categoría?' });
+  if (await nuevaCategoria.isVisible().catch(() => false)) {
+    await page.locator('#newRetailCategoryName').fill(categoria);
+    await page.getByRole('button', { name: /^Continuar$/i }).click();
+  } else if (await elegirCategoria.isVisible().catch(() => false)) {
+    const opcion = page.getByRole('button', { name: new RegExp(`^${categoria}\b`, 'i') }).first();
+    if (await opcion.isVisible().catch(() => false)) {
+      await opcion.click();
+    } else {
+      await page.getByRole('button', { name: /Crear nueva categoría/i }).click();
+      await page.locator('#newRetailCategoryName').fill(categoria);
+      await page.getByRole('button', { name: /^Continuar$/i }).click();
+    }
+  }
+
+  await expect(page.getByRole('heading', { name: 'Nuevo producto' })).toBeVisible();
+  await expect(page.locator('#pCategory')).toHaveValue(categoria);
   await page.locator('#pName').fill(nombre);
   await page.locator('#pPrice').fill(String(precio));
-  await page.locator('#pCategory').fill(categoria);
   await page.locator('#pStock').fill(String(stock));
   await page.locator('#pCost').fill(String(costo));
   await page.locator('#pBarcode').fill(codigo);
