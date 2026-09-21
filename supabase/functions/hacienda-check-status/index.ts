@@ -1,4 +1,4 @@
-import { corsHeaders, decryptSecrets, haciendaToken, json, requireOwner } from '../_shared/fiscal.ts';
+import { corsHeaders, decryptSecrets, haciendaToken, json, requireOwner } from '../shared/fiscal.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
