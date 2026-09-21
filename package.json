@@ -1,6 +1,6 @@
 {
   "name": "punto-ya-cr-bot-qa",
-  "version": "7.41.0",
+  "version": "7.42.0",
   "private": true,
   "scripts": {
     "test:qa": "playwright test",
