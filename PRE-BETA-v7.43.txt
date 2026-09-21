@@ -1,0 +1,54 @@
+PUNTO YA CR v7.43 PRE-BETA CIERRE
+
+BASE RESPETADA
+- Parte de v7.41 PRE-BETA y acumula v7.42/v7.42.1.
+- No reemplaza módulos operativos que ya funcionan.
+- Beta limitada a Restaurante y Retail. Servicios permanece oculto.
+- PUNTO YA CR = operar el negocio fácilmente.
+- Panel del Emprendedor = administrar, entender y hacer crecer el negocio.
+
+CIERRE DEL PANEL / CONFIGURACIÓN
+- Panel del Emprendedor simplificado para móvil y PC.
+- Configuración por tarjetas: Datos del negocio, Logo, Tipo de negocio, Impresión, PRO, Cuenta/acceso y Factura electrónica.
+- Cambio Restaurante <-> Retail durante PRE-BETA, solo Dueño, sin borrar datos del otro modo.
+- PRO visible en Configuración: Obtener PRO / pagar + activar con código si ya tiene uno.
+- Activación por código usa la RPC existente redeem_pro_promo_code.
+- Estado FREE/PRO se consulta desde Supabase con get_my_business_plan.
+- Logo simplificado y conectado con documentos/catálogo.
+- Impresión automática guiada: buscar impresora, inferir formato cuando sea posible y calibrar con una prueba sin pedir al comerciante saber 58/80 mm.
+
+FACTURA ELECTRÓNICA COSTA RICA 4.4
+- Ya no se considera bloqueada por acceso OVI/Tico Factura: el producto queda preparado para conectar las credenciales de PRUEBAS de cada emisor.
+- Se separan estrictamente dos casos: PUNTO YA CR factura sus cobros PRO con sus propios datos; cada negocio cliente factura con sus propios datos/credenciales/llave.
+- Panel fiscal con razón social, identificación, actividad económica, correo, sucursal y punto de venta.
+- Backend fiscal incluido como Edge Functions para guardar usuario/contraseña/PIN/.p12 cifrados, consultar estado y probar OAuth de sandbox.
+- Producción bloqueada en código durante PRE-BETA.
+- Se incluye gateway para enviar a Hacienda un XML YA FIRMADO y consultar el estado por clave.
+- El firmador XAdES-EPES + validación XSD 4.4 sigue siendo un bloqueo técnico hasta probarlo con llave de pruebas y obtener un comprobante aceptado por Hacienda.
+- Se incluyen SUPABASE-HACIENDA-v7.43.sql y HACIENDA-4.4-v7.43.md.
+
+SEGURIDAD
+- Secretos fiscales no se guardan en localStorage, IndexedDB, panel.html ni APK.
+- fiscal_secret_envelopes queda sin privilegios para anon/authenticated; acceso solo por service_role/Edge Functions.
+- SUPABASE-SECURITY-AUDIT.sql ampliado para fiscal, RLS, grants y SECURITY DEFINER.
+- Producción fiscal no se habilita sin QA.
+
+QA / HARDWARE
+- Matriz de cierre: Restaurante FREE / Restaurante PRO / Retail FREE / Retail PRO.
+- Revisar persistencia, offline, restricciones, clientes/crédito, proveedores/compras, pedidos, caja y stock.
+- Pruebas físicas pendientes: Google Login APK, impresora térmica, lector USB/Bluetooth/cámara.
+- QA-v7.43.md contiene la lista de cierre.
+- scripts/prebeta-v743-scan.mjs valida estructura crítica sin tocar datos.
+
+VERSIONADO
+- package: 7.43.0
+- Android: versionCode 743 / versionName 7.43.0
+- Service Worker: punto-ya-cr-v7-43
+
+NO ENTRA ANTES DE BETA
+- Multisucursal funcional avanzada.
+- Multi-bodega.
+- Fidelización.
+- API pública.
+- Conciliación bancaria.
+- Contabilidad completa.

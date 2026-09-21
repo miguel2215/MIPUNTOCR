@@ -1,6 +1,6 @@
 {
   "name": "punto-ya-cr-bot-qa",
-  "version": "7.42.0",
+  "version": "7.43.0",
   "private": true,
   "scripts": {
     "test:qa": "playwright test",
@@ -13,7 +13,8 @@
     "mobile:prepare-web": "node scripts/prepare-mobile.mjs",
     "mobile:patch-android": "node scripts/patch-android.mjs",
     "mobile:sync": "npm run mobile:prepare-web && npx cap sync android",
-    "mobile:open": "npx cap open android"
+    "mobile:open": "npx cap open android",
+    "test:prebeta-static": "node scripts/prebeta-v743-scan.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
