@@ -6736,7 +6736,7 @@ function termsHtml() { return `<div class="legal-copy"><p><strong>Versión:</str
 window.showPrivacyPolicy=()=>modal(`<h3>Política de privacidad</h3>${privacyHtml()}<div class="toolbar"><button class="btn primary" onclick="window.open('${publicLegalUrl("privacy")}','_blank','noopener,noreferrer')">Abrir versión pública</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
 window.showTerms=()=>modal(`<h3>Términos y condiciones</h3>${termsHtml()}<div class="toolbar"><button class="btn primary" onclick="window.open('${publicLegalUrl("terms")}','_blank','noopener,noreferrer')">Abrir versión pública</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
 function renderPublicLegal(kind){ const isTerms=kind==="terms"; document.body.innerHTML=`<main class="legal-public"><article>${brandHorizontal("brand-logo-horizontal compact")}<h1>${isTerms?"Términos y condiciones":"Política de privacidad"}</h1>${isTerms?termsHtml():privacyHtml()}</article></main>`; }
-function exportLocalData(){ const cleanSettings={...state.settings}; delete cleanSettings.ownerPin; delete cleanSettings.ownerPinHash; delete cleanSettings.ownerPinSalt; const payload={app:"PUNTO YA CR",version:"7.39",exportedAt:new Date().toISOString(),settings:cleanSettings,products:state.products,clients:state.clients,sales:state.sales,orders:state.orders,cashMoves:state.cashMoves,cashSessions:state.cashSessions,creditMoves:state.creditMoves,tableAccounts:state.tableAccounts,expenses:state.expenses}; const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`PUNTO-YA-CR-mis-datos-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast("Datos exportados."); }
+function exportLocalData(){ const cleanSettings={...state.settings}; delete cleanSettings.ownerPin; delete cleanSettings.ownerPinHash; delete cleanSettings.ownerPinSalt; const payload={app:"PUNTO YA CR",version:"7.40",exportedAt:new Date().toISOString(),settings:cleanSettings,products:state.products,clients:state.clients,sales:state.sales,orders:state.orders,cashMoves:state.cashMoves,cashSessions:state.cashSessions,creditMoves:state.creditMoves,tableAccounts:state.tableAccounts,expenses:state.expenses}; const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`PUNTO-YA-CR-mis-datos-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast("Datos exportados."); }
 window.exportLocalData=exportLocalData;
 async function cloudRecordDeletionRequest(){ if(!mpCloud||!mpCloudUser||!mpCloudBusiness?.id) throw new Error("No se encontró una cuenta activa."); const now=new Date().toISOString(); const {error}=await mpCloud.from("audit_log").insert({business_id:mpCloudBusiness.id,user_id:mpCloudUser.id,action:"account_deletion_request",entity_type:"account",entity_id:mpCloudUser.id,old_data:null,new_data:{requested_at:now,email:mpCloudUser.email||state.settings.email||""}}); if(error) throw error; state.settings.deletionRequestedAt=now; await put("settings",state.settings); return now; }
 window.requestAccountDeletion=()=>{ const guest=state.settings.guestMode||!state.settings.cloudLinked; modal(`<h3>${guest?"Eliminar datos de este dispositivo":"Solicitar eliminación de cuenta"}</h3><div class="danger-zone"><p>${guest?"Se borrarán los datos locales de este negocio en este dispositivo.":"Se registrará una solicitud de eliminación para la cuenta y los datos asociados. La información local de este dispositivo también se borrará al confirmar."}</p><p><strong>Esta acción no se puede deshacer localmente.</strong></p></div><div class="field" style="margin-top:14px"><label>Escribe ELIMINAR para confirmar</label><input id="deleteAccountConfirm" autocomplete="off"></div><div class="toolbar"><button class="btn danger" onclick="confirmAccountDeletion()">Confirmar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
@@ -7040,7 +7040,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 /* =========================
-   v7.39 · RETAIL + PANEL DEL EMPRENDEDOR
+   v7.40 · APP OPERATIVA + PANEL DEL EMPRENDEDOR
    - Compras / reposición y proveedores
    - Movimientos y alertas de inventario
    - Crédito con recordatorio WhatsApp + PDF
@@ -7206,6 +7206,138 @@ window.sharePaymentReceiptPdf=async(clientId,moveId)=>{const c=state.clients.fin
 const v738SaveAbono=window.saveAbono;
 window.saveAbono=async id=>{const before=new Set(currentCreditMoves().map(m=>m.id));await v738SaveAbono(id);if(!isProducts())return;const move=currentCreditMoves().filter(m=>m.clientId===id&&!before.has(m.id)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))[0];const c=state.clients.find(x=>x.id===id);if(!move||!c)return;modal(`<h3>Abono registrado</h3><p><strong>${esc(c.name)}</strong></p><div class="ticket-line"><span>Abono</span><strong>${money(move.amount)}</strong></div><div class="ticket-line"><span>Saldo restante</span><strong>${money(clientModuleBalance(id))}</strong></div><div class="toolbar"><button class="btn primary" onclick="sendPaymentReceiptWhatsApp('${id}','${move.id}')">Enviar por WhatsApp</button><button class="btn ghost" onclick="sharePaymentReceiptPdf('${id}','${move.id}')">Comprobante PDF</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);};
 
+
+
+/* =========================
+   v7.40 · APP OPERATIVA + PANEL GLOBAL
+   La app queda para operar. Administración, análisis y configuración avanzada
+   viven en el Panel del Emprendedor tanto para Restaurante como para Retail.
+========================= */
+const V740_PANEL_TARGETS = new Set(['expenses','growth','fiscal','users']);
+
+const v739CanAccessScreenFinal = canAccessScreen;
+canAccessScreen = function(target){
+  if (V740_PANEL_TARGETS.has(target)) return false;
+  return v739CanAccessScreenFinal(target);
+};
+
+const v739GoFinal = window.go;
+window.go = target => {
+  if (V740_PANEL_TARGETS.has(target)) {
+    toast('Esta función ahora se administra desde el Panel del Emprendedor.');
+    return openEntrepreneurPanel();
+  }
+  return v739GoFinal(target);
+};
+
+/* Pro se contrata/administra desde el Panel; la app solo muestra el estado/beneficio cuando corresponde. */
+window.openProPlans = () => {
+  toast('PUNTO YA CR Pro se administra desde el Panel del Emprendedor.');
+  return openEntrepreneurPanel();
+};
+
+const v739RenderFinal = render;
+render = function(){
+  if (V740_PANEL_TARGETS.has(screen)) screen = 'home';
+  return v739RenderFinal();
+};
+
+const v739DesktopNavItemsFinal = desktopNavItems;
+desktopNavItems = function(){
+  let items = v739DesktopNavItemsFinal().filter(([target]) => !V740_PANEL_TARGETS.has(target));
+  if (role === 'owner' && !items.some(([target]) => target === 'panel')) {
+    const idx = items.findIndex(([target]) => target === 'settings');
+    const panelItem = ['panel','Panel del Emprendedor'];
+    if (idx >= 0) items.splice(idx,0,panelItem); else items.push(panelItem);
+  }
+  return items;
+};
+
+function v740OperationalHome(){
+  const today = new Date().toDateString();
+  const todaySales = isFood() ? activeShiftSales() : activeCurrentSales().filter(s => new Date(s.createdAt).toDateString() === today);
+  const todayRefunds = currentBusinessRefunds().filter(r => new Date(r.createdAt).toDateString() === today).reduce((sum,r)=>sum+Number(r.total||0),0);
+  const sold = Math.max(0,todaySales.reduce((a,b)=>a+Number(b.total||0),0)-todayRefunds);
+  const credit = state.clients.reduce((a,b)=>a+clientModuleBalance(b.id),0);
+  const shiftOpen = !!currentShift();
+
+  if (isDesktopPOS()) {
+    const primaryTitle = isFood() ? (shiftOpen ? 'Nueva venta' : 'Abrir caja') : (isServices() ? 'Nuevo servicio' : 'Nueva venta');
+    const primarySub = isFood() ? (shiftOpen ? 'Selecciona productos y cobra' : 'Abre la caja para comenzar a vender') : (isServices() ? 'Selecciona un servicio y cobra' : 'Selecciona artículos y cobra');
+    const primaryAction = isFood() && !shiftOpen ? 'openCash()' : "go('sale')";
+    const primaryAllowed = hasPermission('sell') && (!isFood() || shiftOpen || hasPermission('cash'));
+    const tools=[];
+    if (isFood()) tools.push(['orders','Pedidos','Pedidos activos'],['tables','Mesas','Cuentas abiertas del salón'],['products','Productos','Comidas, bebidas y stock'],['clients','Clientes / Crédito','Saldos y abonos'],['cash','Caja',shiftOpen?'Turno abierto':'Abrir turno'],['sales','Mis ventas','Comprobantes e historial'],['catalog','Menú QR','Vista del menú']);
+    if (isServices()) tools.push(['products','Servicios','Precios y categorías'],['clients','Clientes','Contactos y crédito'],['sales','Mis ventas','Comprobantes e historial'],['catalog','Catálogo QR','Vista de servicios']);
+    if (role==='owner') tools.push(['panel','Panel del Emprendedor','Administración, reportes, Pro y configuración avanzada'],['settings','Configuración','Preferencias operativas de esta app']);
+    const toolsHtml=tools.filter(([target])=>canAccessScreen(target)).map(([target,title,sub])=>`<button class="desktop-tool" onclick="go('${target}')"><strong>${title}</strong><span>${sub}</span></button>`).join('');
+    const status = isFood() ? `Caja ${shiftOpen?'abierta':'cerrada'}` : 'Cobro directo';
+    const html=`<section class="desktop-home"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px"><div><h2>Inicio</h2><div class="desktop-home-sub">Accesos rápidos para trabajar.</div></div><span class="desktop-cash-state ${isFood()&&shiftOpen?'open':''}">${status}</span></div><div class="desktop-kpis"><button class="desktop-kpi actionable" onclick="go('sales')"><span>Ventas hoy</span><strong>${money(sold)}</strong></button><button class="desktop-kpi actionable" onclick="go('clients')"><span>Por cobrar</span><strong>${money(credit)}</strong></button><div class="desktop-kpi"><span>${isFood()?'Caja':'Operación'}</span><strong style="font-size:18px;margin-top:11px">${isFood()?(shiftOpen?'Abierta':'Cerrada'):'Lista'}</strong></div></div><button class="desktop-primary-action" ${primaryAllowed?`onclick="${primaryAction}"`:`disabled style="opacity:.55"`}><span><strong>${primaryAllowed?primaryTitle:'Sin permiso para vender'}</strong><small>${primaryAllowed?primarySub:'El dueño puede cambiar tus permisos'}</small></span><b>›</b></button><div class="desktop-tools">${toolsHtml}</div></section>`;
+    $('#app').innerHTML=shell(html,'home');
+    return;
+  }
+
+  let cards='';
+  if (isFood()) cards=`${canAccessScreen('sale')?card('sale','Nueva venta',shiftOpen?'Vende y cobra rápido':'Abre caja para poder vender',true,!shiftOpen):''}${canAccessScreen('orders')?card('orders','Pedidos','Recibidos, listos y entregados'):''}${canAccessScreen('tables')?card('tables','Mesas','Cuentas abiertas del salón'):''}${canAccessScreen('products')?card('products','Productos','Comidas, bebidas y stock'):''}${canAccessScreen('clients')?card('clients','Clientes / Crédito','Compras, saldos y abonos'):''}${canAccessScreen('cash')?card('cash',shiftOpen?'Caja abierta':'Abrir caja',shiftOpen?'Ventas y cierre':'Fondo inicial y apertura'):''}${canAccessScreen('catalog')?card('catalog','Menú QR','Vista del menú'):''}${canAccessScreen('sales')?card('sales','Mis ventas','Comprobantes e historial'):''}`;
+  else cards=`${canAccessScreen('sale')?card('sale','Nuevo servicio','Selecciona el servicio y cobra',true):''}${canAccessScreen('products')?card('products','Servicios','Precios y categorías'):''}${canAccessScreen('clients')?card('clients','Clientes','Contactos, compras y crédito'):''}${canAccessScreen('catalog')?card('catalog','Catálogo QR','Vista de servicios'):''}${canAccessScreen('sales')?card('sales','Mis ventas','Comprobantes e historial'):''}`;
+  if(role==='owner') cards += card('panel','Panel del Emprendedor','Administra, analiza y configura tu negocio') + card('settings','Configuración','Preferencias básicas de la app');
+  $('#app').innerHTML=shell(`<section class="screen-title"><h2>¿Qué necesitas hacer?</h2><p>La app queda enfocada en trabajar. Administración, reportes y Pro están en el Panel del Emprendedor.</p></section><div class="kpi-grid"><button class="kpi" style="text-align:left" onclick="go('sales')"><span class="muted">Ventas hoy</span><strong>${money(sold)}</strong></button><button class="kpi" style="text-align:left" onclick="go('clients')"><span class="muted">Por cobrar</span><strong>${money(credit)}</strong></button></div><div class="home-grid" style="margin-top:14px">${cards}</div>`,'home');
+}
+
+const v739RenderHomeFinal = renderHome;
+renderHome = function(){
+  if (isProducts()) return v739RenderHomeFinal();
+  return v740OperationalHome();
+};
+
+const v739RenderMoreFinal = renderMore;
+renderMore = function(){
+  let cards='';
+  if(role==='owner'){
+    cards += card('panel','Panel del Emprendedor','Administración, reportes, Pro y configuración avanzada');
+    cards += card('settings','Configuración de la app','Datos básicos y preferencias operativas');
+  }
+  cards += card('legal','Legal y privacidad','Privacidad, términos y tus datos');
+  const desktop=isDesktopPOS();
+  const roleText=state.settings.guestMode?'Sin cuenta':(role==='owner'?'Dueño':role==='admin'?'Administrador':'Empleado');
+  const identity=role==='employee'?`${esc(state.settings.memberDisplayName||'Empleado')}${state.settings.employeeCode?` · CR${esc(state.settings.employeeCode)}`:''}`:(state.settings.email?` · ${esc(state.settings.email)}`:'');
+  const accountPanel=`<div class="panel" style="margin-top:14px"><strong>Acceso</strong><p class="muted">${roleText}${identity}</p><div class="toolbar">${desktop&&state.settings.pinEnabled&&hasLocalPin()?`<button class="btn ghost" onclick="lockApp()">Bloquear</button>`:''}${state.settings.guestMode?`<button class="btn primary" onclick="openCloudLink()">Crear cuenta</button>`:''}<button class="btn danger" onclick="logoutOwner()">Salir</button></div></div>`;
+  $('#app').innerHTML=shell(`<section class="screen-title"><h2>Más</h2><p>Las funciones administrativas y avanzadas están en el Panel del Emprendedor.</p></section><div class="home-grid">${cards}</div>${accountPanel}`,'more');
+};
+
+function v740BasicSettingsFields(s){
+  const common=`<div class="field"><label>Nombre del negocio</label><input id="v740Name" value="${esc(s.businessName||'PUNTO YA CR')}"></div><div class="field"><label>Teléfono</label><input id="v740Phone" value="${esc(s.phone||'')}"></div><div class="field"><label>WhatsApp</label><input id="v740Wa" value="${esc(s.whatsapp||'')}"></div><div class="field"><label>Número SINPE</label><input id="v740Sinpe" value="${esc(s.sinpe||'')}"></div>`;
+  const food=isFood()?`<div class="field"><label>Cantidad de mesas</label><input id="v740Tables" type="number" min="0" max="100" value="${Number(s.tableCount||0)}"><small class="muted">También puedes cambiarla desde Mesas.</small></div><div class="field"><label>Express predeterminado</label><input id="v740Express" type="number" min="0" inputmode="decimal" value="${Number(s.expressFee||0)}"></div>`:'';
+  const retail=isProducts()?`<div class="field"><label>Control de caja en Retail</label><select id="v740Cash"><option value="no" ${!retailCashEnabled()?'selected':''}>No usarlo</option><option value="yes" ${retailCashEnabled()?'selected':''}>Usarlo</option></select><small class="muted">Retail puede vender aunque este control esté apagado.</small></div><div class="field"><label>Express / entrega predeterminada</label><input id="v740Express" type="number" min="0" inputmode="decimal" value="${Number(s.expressFee||0)}"></div>`:'';
+  return common+food+retail;
+}
+
+renderSettings = function(){
+  if(role!=='owner'){screen='home';return renderHome();}
+  settingsFormDirty=false;const s=state.settings;
+  const security=s.pinEnabled&&hasLocalPin()?'PIN activo':'PIN no configurado';
+  $('#app').innerHTML=shell(`<section class="screen-title"><h2>Configuración</h2><p>Solo preferencias necesarias para trabajar desde esta app.</p></section>${panelShortcutHtml()}<div class="panel" style="margin-top:14px"><strong>Datos básicos</strong><div class="form-grid" style="margin-top:12px">${v740BasicSettingsFields(s)}</div><button class="btn primary full" style="margin-top:14px" onclick="saveV740BasicSettings()">Guardar cambios</button></div><div class="panel" style="margin-top:14px"><strong>Seguridad</strong><p class="muted">${security}</p><div class="toolbar"><button class="btn ghost" onclick="openPinSettings()">${s.pinEnabled&&hasLocalPin()?'Cambiar PIN':'Configurar PIN'}</button><button class="btn danger" onclick="logoutOwner()">Cerrar sesión</button></div></div><div class="retail-settings-note" style="margin-top:14px">Reportes, gastos y utilidad, crecimiento inteligente, empleados, suscripción Pro y configuración fiscal pasan al <strong>Panel del Emprendedor</strong>. La opción de factura electrónica sigue apareciendo durante el cobro cuando corresponda.</div><div class="toolbar" style="margin-top:14px"><button class="btn ghost" onclick="go('legal')">Legal y privacidad</button></div>`,'more');
+};
+
+window.saveV740BasicSettings=async()=>{
+  const previousTables=Number(state.settings.tableCount||0);
+  state.settings={...state.settings,
+    businessName:$('#v740Name')?.value.trim()||'PUNTO YA CR',
+    phone:$('#v740Phone')?.value.trim()||'',
+    whatsapp:$('#v740Wa')?.value.trim()||'',
+    sinpe:$('#v740Sinpe')?.value.trim()||'',
+    expressFee:Math.max(0,Number($('#v740Express')?.value||state.settings.expressFee||0)),
+    tableCount:isFood()?Math.max(0,Math.min(100,Math.floor(Number($('#v740Tables')?.value||0)))):Number(state.settings.tableCount||0),
+    retailCashEnabled:isProducts()?$('#v740Cash')?.value==='yes':state.settings.retailCashEnabled
+  };
+  if(isFood()&&state.tableAccounts.some(a=>Number(a.tableNumber)>Number(state.settings.tableCount||0))){
+    state.settings.tableCount=previousTables;
+    return toast('Hay una cuenta activa en una mesa mayor a ese número.');
+  }
+  await put('settings',state.settings);
+  if(state.settings.cloudLinked&&navigator.onLine){try{await cloudSaveBusinessSettings();}catch(e){console.error(e);toast('Se guardó localmente, pero la nube no respondió.');}}
+  settingsFormDirty=false;screen='home';renderHome();toast('Configuración guardada.');
+};
 
 (async () => {
   injectStyles();
