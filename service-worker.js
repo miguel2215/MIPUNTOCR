@@ -1,8 +1,9 @@
-const CACHE = 'punto-ya-cr-v7-40';
+const CACHE = 'punto-ya-cr-v7-41';
 
 const CORE = [
   './',
   './index.html',
+  './panel.html',
   './manifest.webmanifest',
   './logo-horizontal.png',
   './logo-vertical.png',

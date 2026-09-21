@@ -1,0 +1,21 @@
+PUNTO YA CR v7.41 PRE-BETA
+
+INCLUIDO AHORA
+- panel.html funcional con misma sesión Supabase, dashboard, ventas, inventario, clientes, dinero, metas, semana, oportunidades, Haz crecer, Pregúntale a PUNTO YA, equipo, PRO y configuración.
+- Logo del negocio configurable desde el Panel y usado en comprobantes/PDF/estado de cuenta/abonos/pedidos a proveedor/catálogo.
+- Impresión térmica configurable 58 mm / 80 mm.
+- Retail: pedido a proveedor por WhatsApp o PDF.
+- Enviar/guardar pedido NO cambia stock.
+- Recepción total o parcial; solo lo recibido aumenta stock.
+- Recepción a crédito crea cuenta por pagar.
+- Alertas de stock pueden iniciar un pedido sugerido.
+- Catálogo público deja de solicitar settings completos y pide solo datos públicos mínimos.
+- v7.41.0 / Android versionCode 741 / caché v7.41.
+
+AÚN EXTERNO / PENDIENTE DE VERIFICAR
+- Hacienda 4.4 real: firma XML, credenciales, envío y respuesta oficial.
+- Google Login dentro del APK físico.
+- Cobro real automático de PRO.
+- Impresora y lector de código de barras físicos.
+- RLS de Supabase: ejecutar SUPABASE-SECURITY-AUDIT.sql y hacer prueba Negocio A vs Negocio B.
+- BOT QA completo debe ejecutarse en GitHub después de subir esta actualización.
