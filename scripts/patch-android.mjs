@@ -24,8 +24,8 @@ if (!manifest.includes('android:scheme="com.puntoyacr.app"')) {
 await writeFile(manifestPath, manifest, 'utf8');
 
 let gradle = await readFile(gradlePath, 'utf8');
-gradle = gradle.replace(/versionCode\s+\d+/, 'versionCode 742');
-gradle = gradle.replace(/versionName\s+["'][^"']+["']/, 'versionName "7.42.0"');
+gradle = gradle.replace(/versionCode\s+\d+/, 'versionCode 743');
+gradle = gradle.replace(/versionName\s+["'][^"']+["']/, 'versionName "7.43.0"');
 await writeFile(gradlePath, gradle, 'utf8');
 
-console.log('Android preparado: cámara + OAuth deep link + versionCode 742 + versionName 7.42.0');
+console.log('Android preparado: cámara + OAuth deep link + versionCode 743 + versionName 7.43.0');
