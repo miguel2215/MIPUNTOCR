@@ -21,31 +21,25 @@ test.describe('PUNTO YA CR - cierre v7.35', () => {
     esperarSinErrores(control);
   });
 
-  test('Más se simplifica solo en móvil y conserva accesos completos en PC', async ({ page }, testInfo) => {
+  test('Más deja la administración avanzada en el Panel del Emprendedor', async ({ page }) => {
     const control = capturarErrores(page);
     await entrarComoNegocioQA(page, { nombre: 'BOT QA MAS', tipo: 'products' });
     await page.evaluate(() => window.go('more'));
     const grid = page.locator('.home-grid').first();
-    await expect(grid).toContainText(/Gastos y utilidad/i);
+    await expect(grid).toContainText(/Panel del Emprendedor/i);
     await expect(grid).toContainText(/Configuración/i);
     await expect(grid).toContainText(/Legal y privacidad/i);
+    await expect(grid).not.toContainText(/Gastos y utilidad/i);
+    await expect(grid).not.toContainText(/Crecimiento inteligente/i);
+    await expect(grid).not.toContainText(/Facturación electrónica/i);
 
     const titulo = text => grid.locator('.big-card strong').filter({ hasText: new RegExp(`^${text}$`, 'i') });
-    if (testInfo.project.name === 'Movil-Chromium') {
-      await expect(titulo('Productos')).toHaveCount(0);
-      await expect(titulo('Clientes / Crédito')).toHaveCount(0);
-      await expect(titulo('Caja')).toHaveCount(0);
-      await expect(titulo('Mis ventas')).toHaveCount(0);
-      await expect(titulo('Catálogo virtual')).toHaveCount(0);
-      await expect(titulo('Pedidos')).toHaveCount(0);
-    } else {
-      await expect(titulo('Productos')).toBeVisible();
-      await expect(titulo('Clientes / Crédito')).toBeVisible();
-      await expect(titulo('Caja')).toBeVisible();
-      await expect(titulo('Mis ventas')).toBeVisible();
-      await expect(titulo('Catálogo virtual')).toBeVisible();
-      await expect(titulo('Pedidos')).toBeVisible();
-    }
+    await expect(titulo('Productos')).toHaveCount(0);
+    await expect(titulo('Clientes / Crédito')).toHaveCount(0);
+    await expect(titulo('Caja')).toHaveCount(0);
+    await expect(titulo('Mis ventas')).toHaveCount(0);
+    await expect(titulo('Catálogo virtual')).toHaveCount(0);
+    await expect(titulo('Pedidos')).toHaveCount(0);
     esperarSinErrores(control);
   });
 
