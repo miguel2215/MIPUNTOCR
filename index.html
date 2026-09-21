@@ -6929,16 +6929,14 @@ document.addEventListener("visibilitychange", () => {
 
 const accessMode = publicParams.get("access");
 
-if (!state.settings.onboardingComplete) {
+if (accessMode === "login") {
+  authStep = "ownerLoginMethods";
+  state.settings.onboardingComplete = false;
+}
 
-  if (accessMode === "login") {
-    authStep = "ownerLoginMethods";
-  }
-
-  if (accessMode === "create") {
-    authStep = "ownerCreateMethods";
-  }
-
+if (accessMode === "create") {
+  authStep = "ownerCreateMethods";
+  state.settings.onboardingComplete = false;
 }
 
 locked = !!state.settings.pinEnabled;
