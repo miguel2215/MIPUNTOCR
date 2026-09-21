@@ -9,7 +9,7 @@ INCLUIDO EN v7.42
 - Panel del Emprendedor simplificado para móvil y PC.
 - Encabezado más compacto y navegación móvil con accesos principales + Más.
 - Configuración organizada por tarjetas: Datos del negocio, Logo e imagen, Tipo de negocio, Impresión, PRO, Cuenta y acceso y Factura electrónica.
-- Cambio Restaurante <-> Retail disponible durante PRE-BETA para el Dueño.
+- En Configuración aparece de forma visible “Cambiar tipo de negocio” para alternar Restaurante <-> Retail durante PRE-BETA (solo Dueño).
 - El cambio de tipo NO borra datos del otro modo.
 - Panel usa el tipo activo para separar visualmente ventas e inventario de Restaurante/Retail.
 - PUNTO YA CR PRO desde el Panel con dos caminos: Obtener PRO y Activar código PRO.
