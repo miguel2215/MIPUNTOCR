@@ -6921,10 +6921,30 @@ document.addEventListener("visibilitychange", () => {
   if (publicParams.get("terms") === "1") { renderPublicLegal("terms"); return; }
   if (publicParams.get("delete-account") === "1") { await renderPublicDeletionRequest(); return; }
   if (publicParams.get("catalog") === "1") { initCloudClient(); await renderPublicCatalog(); return; }
-  await initCloudAuth();
-  locked = !!state.settings.pinEnabled;
-  lastActivityAt = Date.now();
-  render();
+ await initCloudAuth();
+
+/* =========================================================
+   ACCESO DESDE LA WEB / PANEL DEL EMPRENDEDOR
+   ========================================================= */
+
+const accessMode = publicParams.get("access");
+
+if (!state.settings.onboardingComplete) {
+
+  if (accessMode === "login") {
+    authStep = "ownerLoginMethods";
+  }
+
+  if (accessMode === "create") {
+    authStep = "ownerCreateMethods";
+  }
+
+}
+
+locked = !!state.settings.pinEnabled;
+lastActivityAt = Date.now();
+
+render();
   // Hotfix de repintado: se mantiene, pero nunca debe borrar un formulario de onboarding ya editado.
   requestAnimationFrame(() => { if (!document.querySelector("#modalRoot") && !onboardingFormDirty) render(); });
   setTimeout(() => {
