@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { entrarComoNegocioQA, capturarErrores, esperarSinErrores, crearProductoRetail } = require('./helpers');
 
-test.describe('PUNTO YA CR - PRE-BETA v7.42', () => {
+test.describe('PUNTO YA CR - PRE-BETA v7.43', () => {
   test('el Panel del Emprendedor existe como página real', async ({ page }) => {
     await page.goto('/panel.html');
     await expect(page.locator('body')).toContainText(/Panel del Emprendedor/i);
@@ -10,7 +10,7 @@ test.describe('PUNTO YA CR - PRE-BETA v7.42', () => {
 
   test('Retail permite crear pedido a proveedor sin cambiar stock', async ({ page }) => {
     const control = capturarErrores(page);
-    await entrarComoNegocioQA(page, { nombre: 'BOT QA PREBETA 742', tipo: 'products' });
+    await entrarComoNegocioQA(page, { nombre: 'BOT QA PREBETA 743', tipo: 'products' });
     await crearProductoRetail(page, {
       nombre: 'PRODUCTO PEDIDO PROVEEDOR QA', precio: 5000, costo: 2500, stock: 2, categoria: 'QA', codigo: '7420000000742'
     });
@@ -42,7 +42,7 @@ test.describe('PUNTO YA CR - PRE-BETA v7.42', () => {
 
   test('configuración operativa oculta 58/80 y ofrece impresión automática', async ({ page }) => {
     const control = capturarErrores(page);
-    await entrarComoNegocioQA(page, { nombre: 'BOT QA TERMICA 742', tipo: 'products' });
+    await entrarComoNegocioQA(page, { nombre: 'BOT QA TERMICA 743', tipo: 'products' });
     await page.evaluate(() => window.go('settings'));
     await expect(page.locator('#v741PrinterWidth')).toHaveCount(0);
     await expect(page.getByText(/Configuración automática/i)).toBeVisible();
