@@ -50,20 +50,42 @@ test.describe('PUNTO YA CR - Facturación rápida v7.44', () => {
     await expect(product).toBeVisible();
     await product.click();
 
-    await page.getByRole('button', { name: /^Cobrar$/i }).click();
-    await page.getByRole('button', { name: /^Tarjeta \/ Otro$/i }).click();
+    // En móvil Retail existe el paso “Cobrar”.
+    // En PC los medios de pago están visibles directamente en el panel derecho.
+    const cobrar = page.getByRole('button', { name: /^Cobrar$/i });
+    if (await cobrar.count()) {
+      const firstCobrar = cobrar.first();
+      if (await firstCobrar.isVisible()) await firstCobrar.click();
+    }
+
+    // PC muestra “Tarjeta”; móvil muestra “Tarjeta / Otro”.
+    const cardButtons = page.getByRole('button', { name: /^Tarjeta(?: \/ Otro)?$/i });
+    let cardClicked = false;
+    for (let i = 0; i < await cardButtons.count(); i++) {
+      const candidate = cardButtons.nth(i);
+      if (await candidate.isVisible()) {
+        await candidate.click();
+        cardClicked = true;
+        break;
+      }
+    }
+    expect(cardClicked).toBeTruthy();
 
     const electronic = page.locator('input[name="checkoutDocument"][value="electronic_invoice"]');
     await expect(electronic).toBeEnabled();
     await electronic.check();
+    await expect(electronic).toBeChecked();
 
-    await expect(page.getByLabel('Cédula / identificación del cliente')).toBeVisible();
+    // Estos campos tienen IDs propios; el <label> visual no usa atributo "for".
+    await expect(page.locator('#invoiceCheckoutFields')).toBeVisible();
+    await expect(page.locator('#invoiceCustomerId')).toBeVisible();
     await expect(page.getByRole('button', { name: /^Buscar$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Ingresar datos manualmente/i })).toBeVisible();
 
-    await page.getByLabel('Cédula / identificación del cliente').fill('112345678');
+    await page.locator('#invoiceCustomerId').fill('112345678');
     await page.getByRole('button', { name: /Ingresar datos manualmente/i }).click();
-    await page.getByLabel('Nombre / razón social').fill('CLIENTE FACTURA QA');
+    await expect(page.locator('#invoiceCustomerDetails')).toBeVisible();
+    await page.locator('#invoiceCustomerName').fill('CLIENTE FACTURA QA');
     await page.locator('#invoiceManualIdType select').selectOption('01');
 
     const popupPromise = page.waitForEvent('popup');
