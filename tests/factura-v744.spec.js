@@ -8,8 +8,9 @@ test.describe('PUNTO YA CR - Facturación rápida v7.44', () => {
     await abrirModulo(page, 'Configuración');
 
     await expect(page.locator('select#sType')).toHaveCount(0);
-    await expect(page.locator('input#sType[type="hidden"]')).toHaveValue('products');
-    await expect(page.locator('body')).toContainText(/Se definió al crear el negocio/i);
+    await expect(page.locator('body')).not.toContainText(/Modo interno de pruebas/i);
+    const tipoActual = await page.evaluate(() => state.settings.businessType);
+    expect(tipoActual).toBe('products');
     esperarSinErrores(control);
   });
 
@@ -36,7 +37,10 @@ test.describe('PUNTO YA CR - Facturación rápida v7.44', () => {
       window.go('sale');
     });
 
-    const product = page.locator('button.retail-product').filter({ hasText: 'PRODUCTO FACTURA QA' }).first();
+    const categoria = page.getByRole('button', { name: 'QA', exact: true }).first();
+    await expect(categoria).toBeVisible();
+    await categoria.click();
+    const product = page.locator('button.category-product').filter({ hasText: 'PRODUCTO FACTURA QA' }).first();
     await expect(product).toBeVisible();
     await product.click();
 
@@ -85,14 +89,23 @@ test.describe('PUNTO YA CR - Facturación rápida v7.44', () => {
     expect(result.added.total).toBeCloseTo(1130, 6);
   });
 
-  test('la factura térmica usa la misma plantilla y respeta 58/80 mm', async ({ request }) => {
+  test('la factura térmica usa la misma plantilla y respeta 58/80 mm', async ({ page, request }) => {
     const response = await request.get('/index.html');
     expect(response.ok()).toBeTruthy();
     const source = await response.text();
     expect(source).toMatch(/function printUnifiedElectronicInvoice\(sale\)/);
-    expect(source).toMatch(/unifiedInvoiceHtml\(sale\)/);
-    expect(source).toMatch(/printerWidth\|\|\"80\"/);
-    expect(source).toMatch(/mm===58\?58:80/);
+    expect(source).toMatch(/unifiedInvoiceHtml\(sale/);
+
+    await entrarComoNegocioQA(page, { nombre: 'BOT QA TERMICA 744', tipo: 'products' });
+    const widths = await page.evaluate(() => {
+      state.settings.printerWidth = '58';
+      const w58 = { page: thermalWidth(), body: thermalBodyWidth() };
+      state.settings.printerWidth = '80';
+      const w80 = { page: thermalWidth(), body: thermalBodyWidth() };
+      return { w58, w80 };
+    });
+    expect(widths.w58).toEqual({ page: 58, body: 50 });
+    expect(widths.w80).toEqual({ page: 80, body: 72 });
   });
 
   test('el Panel describe Google Play -> correo -> código web, sin checkout web ficticio', async ({ request }) => {

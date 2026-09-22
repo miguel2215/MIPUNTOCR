@@ -97,10 +97,14 @@ test.describe('PUNTO YA CR - cierre actualizado v7.43', () => {
     await abrirCobroEfectivo();
     await expect(page.getByText('Factura electrónica', { exact: true })).toBeVisible();
     await page.getByText('Factura electrónica', { exact: true }).click();
-    await expect(page.locator('#invoiceCustomerName')).toBeVisible();
     await expect(page.locator('#invoiceCustomerId')).toBeVisible();
+    await expect(page.locator('#invoiceCustomerName')).toBeHidden();
+    await expect(page.locator('#invoiceCustomerEmail')).toBeHidden();
+    await expect(page.getByRole('button', { name: /Ingresar datos manualmente/i })).toBeVisible();
+    await page.getByRole('button', { name: /Ingresar datos manualmente/i }).click();
+    await expect(page.locator('#invoiceCustomerName')).toBeVisible();
     await expect(page.locator('#invoiceCustomerEmail')).toBeVisible();
-    await expect(page.locator('body')).toContainText(/todavía no emite ni transmite una factura oficial a Hacienda|factura oficial a Hacienda/i);
+    await expect(page.locator('body')).toContainText(/XML 4\.4|firmado, enviado y aceptado por Hacienda/i);
     esperarSinErrores(control);
   });
 });
