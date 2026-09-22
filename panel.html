@@ -175,9 +175,92 @@ async function loadV743FiscalSecureStatus(){
   }
   return v743FiscalSecureStatus;
 }
+
+/* v7.44 · autocompletar datos fiscales del EMISOR consultando Hacienda */
+let v744FiscalLookupActivities=[];
+function cleanFiscalIdentificationV744(value){return String(value||'').replace(/\D+/g,'')}
+function fiscalIdTypeCodeV744(value){
+  const raw=String(value||'').trim();
+  if(['01','02','03','04'].includes(raw))return raw;
+  const t=raw.toLowerCase();
+  if(t.includes('fís')||t.includes('fisica')||t.includes('física'))return'01';
+  if(t.includes('jur'))return'02';
+  if(t.includes('dimex'))return'03';
+  if(t.includes('nite'))return'04';
+  return $('#fiscalIdTypeP')?.value||'01';
+}
+function normalizeFiscalActivitiesV744(value){
+  if(!Array.isArray(value))return[];
+  return value.map(a=>({
+    code:String(a?.code??a?.codigo??a?.codigoActividad??'').trim(),
+    description:String(a?.description??a?.descripcion??a?.nombre??'').trim()
+  })).filter(a=>a.code||a.description);
+}
+function fiscalBusinessActivityOptionsV744(rows,selected=''){
+  const list=Array.isArray(rows)?rows:[];
+  if(!list.length)return'<option value="">Busca la identificación para cargar actividades</option>';
+  return `<option value="">Selecciona la actividad</option>${list.map(a=>`<option value="${esc(a.code)}" ${String(a.code)===String(selected)?'selected':''}>${esc(a.code?`${a.code} · ${a.description}`:a.description)}</option>`).join('')}`;
+}
+function setFiscalLookupStatusV744(message,kind=''){
+  const box=$('#fiscalLookupStatusP');
+  if(!box)return;
+  box.className=`status ${kind}`.trim();
+  box.textContent=message||'';
+  box.style.display=message?'block':'none';
+}
+function selectFiscalBusinessActivityV744(code){
+  const row=v744FiscalLookupActivities.find(a=>String(a.code)===String(code));
+  if(!row)return;
+  if($('#fiscalActivityCodeP'))$('#fiscalActivityCodeP').value=row.code||'';
+  if($('#fiscalActivityNameP'))$('#fiscalActivityNameP').value=row.description||'';
+}
+window.selectFiscalBusinessActivityV744=selectFiscalBusinessActivityV744;
+async function lookupFiscalBusinessV744(){
+  const input=$('#fiscalIdP');
+  const id=cleanFiscalIdentificationV744(input?.value||'');
+  if(input)input.value=id;
+  if(id.length<9||id.length>12){
+    setFiscalLookupStatusV744('Escribe una identificación de 9 a 12 dígitos.','error');
+    return;
+  }
+  if(!business?.id){
+    setFiscalLookupStatusV744('No se encontró el negocio vinculado a la sesión.','error');
+    return;
+  }
+  setFiscalLookupStatusV744('Consultando Hacienda…');
+  try{
+    const {data,error}=await sb.functions.invoke('hacienda-taxpayer-lookup',{body:{business_id:business.id,identificacion:id}});
+    if(error)throw error;
+    if(data?.error)throw new Error(data.error);
+    const name=String(data?.name||data?.nombre||'').trim();
+    if(!name)throw new Error('Hacienda no devolvió el nombre fiscal.');
+    const idType=fiscalIdTypeCodeV744(data?.idType||data?.tipoIdentificacion||'');
+    const activities=normalizeFiscalActivitiesV744(data?.activities||data?.actividades||[]);
+    v744FiscalLookupActivities=activities;
+    if($('#fiscalLegalNameP'))$('#fiscalLegalNameP').value=name;
+    if($('#fiscalIdTypeP'))$('#fiscalIdTypeP').value=idType;
+    const select=$('#fiscalActivitySelectP');
+    const current=$('#fiscalActivityCodeP')?.value||'';
+    if(select)select.innerHTML=fiscalBusinessActivityOptionsV744(activities,current);
+    if(activities.length===1){
+      if(select)select.value=activities[0].code;
+      selectFiscalBusinessActivityV744(activities[0].code);
+      setFiscalLookupStatusV744(`✓ ${name} · actividad económica cargada automáticamente.`,'ok');
+    }else if(activities.length>1){
+      setFiscalLookupStatusV744(`✓ ${name} · Hacienda reportó ${activities.length} actividades. Selecciona la que corresponde al negocio.`,'ok');
+    }else{
+      setFiscalLookupStatusV744(`✓ ${name} encontrado. Hacienda no devolvió actividades; puedes ingresarla manualmente.`,'ok');
+    }
+  }catch(e){
+    console.error(e);
+    setFiscalLookupStatusV744(e?.message||'No se pudo consultar Hacienda. Puedes completar los datos manualmente.','error');
+  }
+}
+window.lookupFiscalBusinessV744=lookupFiscalBusinessV744;
 function fiscalSettingsV743(){
   const s=settings(),owner=isOwnerPanel(),percent=fiscalProfileCompletionV743(),conn=fiscalStatusTextV743();
   const connected=v743FiscalSecureStatus.connected;
+  const activityRows=v744FiscalLookupActivities.length?v744FiscalLookupActivities:(s.fiscalEconomicActivityCode?[{code:s.fiscalEconomicActivityCode,description:s.fiscalEconomicActivityName||''}]:[]);
   return shell(`${settingsHeader('Factura electrónica','Costa Rica 4.4 · datos fiscales y conexión segura por negocio.')}
   <div class="grid3">
     ${kpi('Datos fiscales',percent+'%',percent===100?'Perfil completo':'Completa los datos')}
@@ -188,10 +271,12 @@ function fiscalSettingsV743(){
     <div class="fiscal-grid2">
       <div class="field"><label>Razón social / nombre fiscal</label><input id="fiscalLegalNameP" value="${esc(s.fiscalLegalName||business?.name||'')}"></div>
       <div class="field"><label>Tipo de identificación</label><select id="fiscalIdTypeP"><option value="01" ${s.fiscalIdType==='01'?'selected':''}>Cédula física</option><option value="02" ${s.fiscalIdType==='02'?'selected':''}>Cédula jurídica</option><option value="03" ${s.fiscalIdType==='03'?'selected':''}>DIMEX</option><option value="04" ${s.fiscalIdType==='04'?'selected':''}>NITE</option></select></div>
-      <div class="field"><label>Número de identificación</label><input id="fiscalIdP" inputmode="numeric" value="${esc(s.fiscalId||'')}"></div>
+      <div class="field"><label>Número de identificación</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input id="fiscalIdP" inputmode="numeric" value="${esc(s.fiscalId||'')}" placeholder="Escribe la identificación" onkeydown="if(event.key==='Enter'){event.preventDefault();lookupFiscalBusinessV744()}"><button class="btn primary" id="lookupFiscalBusinessP" type="button" ${owner?'':'disabled'}>Buscar</button></div><small class="muted">Busca en Hacienda y completa automáticamente el nombre fiscal, tipo y actividades registradas.</small></div>
       <div class="field"><label>Correo para comprobantes</label><input id="fiscalEmailP" type="email" value="${esc(s.fiscalEmail||user?.email||'')}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Actividad económica registrada</label><select id="fiscalActivitySelectP" onchange="selectFiscalBusinessActivityV744(this.value)">${fiscalBusinessActivityOptionsV744(activityRows,s.fiscalEconomicActivityCode||'')}</select><small class="muted">Si Hacienda devuelve varias actividades, selecciona la que corresponde a este negocio.</small></div>
       <div class="field"><label>Código de actividad económica</label><input id="fiscalActivityCodeP" inputmode="numeric" value="${esc(s.fiscalEconomicActivityCode||'')}"></div>
       <div class="field"><label>Descripción de actividad</label><input id="fiscalActivityNameP" value="${esc(s.fiscalEconomicActivityName||'')}"></div>
+      <div id="fiscalLookupStatusP" class="status hidden" style="grid-column:1/-1"></div>
       <div class="field"><label>Sucursal</label><input id="fiscalBranchP" maxlength="3" inputmode="numeric" value="${esc(s.fiscalBranchCode||'001')}"><small class="muted">Casa matriz normalmente inicia en 001.</small></div>
       <div class="field"><label>Punto de venta / caja</label><input id="fiscalTerminalP" maxlength="5" inputmode="numeric" value="${esc(s.fiscalTerminalCode||'00001')}"><small class="muted">Con una sola terminal normalmente inicia en 00001.</small></div>
       <div class="field"><label>Cómo registras los precios</label><select id="fiscalPricesIncludeTaxP"><option value="included" ${s.fiscalPricesIncludeTax!==false?'selected':''}>Precio final · IVA incluido</option><option value="added" ${s.fiscalPricesIncludeTax===false?'selected':''}>Precio antes de IVA · sumar al cobrar</option></select><small class="muted">PUNTO YA CR usa esta regla tanto en la venta como en la representación de la factura.</small></div>
@@ -247,7 +332,7 @@ function bind(){
   $('#findPrinter')?.addEventListener('click',findPrinterV742);$('#printTest')?.addEventListener('click',printPrinterTestV742);$('#printerOk')?.addEventListener('click',()=>printerCalibrationV742(true));$('#printerNo')?.addEventListener('click',()=>printerCalibrationV742(false));
   $('#activateProCode')?.addEventListener('click',()=>redeemProCodeV742('full'));
   $('#activateProCodeQuick')?.addEventListener('click',()=>redeemProCodeV742('quick'));
-  $('#saveFiscalProfile')?.addEventListener('click',saveFiscalProfileV743);$('#saveHaciendaCredentials')?.addEventListener('click',saveHaciendaCredentialsV743);$('#testHacienda')?.addEventListener('click',testHaciendaConnectionV743);$('#refreshHaciendaStatus')?.addEventListener('click',refreshHaciendaStatusV743);
+  $('#lookupFiscalBusinessP')?.addEventListener('click',lookupFiscalBusinessV744);$('#saveFiscalProfile')?.addEventListener('click',saveFiscalProfileV743);$('#saveHaciendaCredentials')?.addEventListener('click',saveHaciendaCredentialsV743);$('#testHacienda')?.addEventListener('click',testHaciendaConnectionV743);$('#refreshHaciendaStatus')?.addEventListener('click',refreshHaciendaStatusV743);
   $('#saveGoal')?.addEventListener('click',saveGoal);document.querySelectorAll('[data-ask]').forEach(b=>b.addEventListener('click',()=>{const box=$('#askAnswer');if(box)box.textContent=askPointYaAnswer(b.dataset.ask)}));
 }
 async function init(){const {data:{session}}=await sb.auth.getSession();if(!session){return showAuth()}user=session.user;let m=null;const mr=await sb.from('business_members').select('*').eq('user_id',user.id).eq('active',true).order('created_at',{ascending:true}).limit(1);if(!mr.error)m=mr.data?.[0]||null;let b=null;if(m){const br=await sb.from('businesses').select('*').eq('id',m.business_id).maybeSingle();if(!br.error)b=br.data}else{const br=await sb.from('businesses').select('*').eq('owner_user_id',user.id).order('created_at',{ascending:true}).limit(1);if(!br.error)b=br.data?.[0]||null}if(!b)return showMessage('No encontramos un negocio vinculado a esta cuenta.','Abre PUNTO YA CR y termina la configuración del negocio.');membership=m||{role:'owner'};if(!['owner','admin'].includes(membership.role||'owner'))return showMessage('Acceso restringido','El Panel del Emprendedor está reservado para el Dueño o administración autorizada.');business=b;await Promise.all([loadAll(),loadV742PlanStatus(),loadV743FiscalSecureStatus()]);render()}
