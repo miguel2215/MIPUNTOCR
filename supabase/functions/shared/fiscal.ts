@@ -175,6 +175,55 @@ export async function requireOwner(
 
 
 /* =========================================================
+   VALIDAR MIEMBRO ACTIVO DEL NEGOCIO
+
+   Usado por consultas operativas no sensibles, por ejemplo
+   buscar los datos públicos de un receptor para facturación.
+   Dueño, administrador o empleado activo pueden consultar.
+   ========================================================= */
+
+export async function requireBusinessMember(
+  req: Request,
+  businessId: string,
+) {
+  if (!businessId) throw new Error('Negocio no especificado.');
+
+  const client = userClient(req);
+  const { data: authData, error: authError } = await client.auth.getUser();
+  if (authError || !authData.user) throw new Error('Sesión no válida.');
+
+  const uid = authData.user.id;
+  const service = serviceClient();
+  const { data: business, error: businessError } = await service
+    .from('businesses')
+    .select('id, owner_user_id')
+    .eq('id', businessId)
+    .maybeSingle();
+
+  if (businessError) throw new Error('No fue posible consultar el negocio.');
+  if (!business) throw new Error('Negocio no encontrado.');
+  if (business.owner_user_id === uid) return { user: authData.user, service, role: 'owner' };
+
+  const { data: member, error: memberError } = await service
+    .from('business_members')
+    .select('role, active')
+    .eq('business_id', businessId)
+    .eq('user_id', uid)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (memberError) throw new Error('No fue posible comprobar los permisos del negocio.');
+  if (!member) throw new Error('No tienes acceso a este negocio.');
+
+  return {
+    user: authData.user,
+    service,
+    role: String(member.role || 'employee').toLowerCase(),
+  };
+}
+
+
+/* =========================================================
    BASE64
    ========================================================= */
 
