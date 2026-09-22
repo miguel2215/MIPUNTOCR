@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { entrarComoNegocioQA, capturarErrores, esperarSinErrores, abrirModulo } = require('./helpers');
 
-test.describe('PUNTO YA CR - Google y factura v7.37', () => {
+test.describe('PUNTO YA CR - Google y factura · actualizado v7.43', () => {
   test('Retail muestra Factura electrónica PRO desde Vender aun en Gratis', async ({ page }) => {
     const control = capturarErrores(page);
     await entrarComoNegocioQA(page, { nombre: 'BOT QA FACTURA VISIBLE', tipo: 'products' });
@@ -22,13 +22,18 @@ test.describe('PUNTO YA CR - Google y factura v7.37', () => {
     esperarSinErrores(control);
   });
 
-  test('Facturación electrónica aparece como acceso directo en PC para el dueño', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== 'PC-Chromium', 'Acceso lateral solo se valida en PC');
+  test('en PC la configuración fiscal se administra desde el Panel y no duplica accesos', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'PC-Chromium', 'La navegación lateral se valida solo en PC');
     const control = capturarErrores(page);
     await entrarComoNegocioQA(page, { nombre: 'BOT QA FISCAL NAV', tipo: 'products' });
-    await expect(page.locator('.desktop-nav')).toContainText(/Factura electrónica · PRO/i);
-    await page.getByRole('button', { name: /Factura electrónica · PRO/i }).click();
-    await expect(page.locator('body')).toContainText(/Función PRO/i);
+
+    await expect(page.locator('.desktop-nav')).toContainText(/Panel del Emprendedor/i);
+    await expect(page.locator('.desktop-nav')).not.toContainText(/Factura electrónica · PRO/i);
+
+    await abrirModulo(page, 'Configuración');
+    await expect(page.locator('body')).toContainText(/configuración fiscal pasan al Panel del Emprendedor/i);
+    await expect(page.locator('body')).toContainText(/factura electrónica sigue apareciendo durante el cobro/i);
+
     esperarSinErrores(control);
   });
 });

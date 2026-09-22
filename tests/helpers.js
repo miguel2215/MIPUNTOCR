@@ -5,12 +5,15 @@ const MODULE_TARGETS = {
   'Vender': 'sale',
   'Pedidos': 'orders',
   'Productos': 'products',
+  'Compras / Reposición': 'purchases',
   'Clientes / Crédito': 'clients',
   'Caja': 'cash',
   'Mis ventas': 'sales',
   'Catálogo QR': 'catalog',
   'Catálogo virtual': 'catalog',
-  'Configuración': 'settings'
+  'Configuración': 'settings',
+  'Legal y privacidad': 'legal',
+  'Panel del Emprendedor': 'panel'
 };
 
 async function entrarComoNegocioQA(page, {
@@ -28,7 +31,7 @@ async function entrarComoNegocioQA(page, {
 
   await expect(page.getByText('Empezar sin cuenta', { exact: true })).toBeVisible();
 
-  // Dejamos que termine cualquier repintado inicial antes de escribir.
+  // Dejamos terminar cualquier repintado inicial antes de escribir.
   await page.waitForTimeout(320);
   await page.locator('#guestBusiness').fill(nombre);
   await page.locator('#guestType').selectOption(tipo);
@@ -44,7 +47,7 @@ async function entrarComoNegocioQA(page, {
   await expect(page.getByText('Inicio', { exact: true }).first()).toBeVisible();
   await expect(page.locator('body')).toContainText(nombre);
   if (tipo === 'products') {
-    await expect(page.locator('body')).toContainText(/Artículos, variantes y stock|Selecciona artículos y cobra/i);
+    await expect(page.locator('body')).toContainText(/Categorías, variantes e inventario|Selecciona artículos y cobra/i);
   }
 }
 
@@ -71,6 +74,22 @@ function esperarSinErrores({ erroresJS, respuestasFallidas = [] }) {
   expect(respuestasFallidas, `Solicitudes fallidas:\n${respuestasFallidas.join('\n')}`).toEqual([]);
 }
 
+async function buscarAccesoVisible(page, target, nombre) {
+  let acceso = page.locator(`button[onclick="go('${target}')"]:visible`).first();
+  if (await acceso.isVisible().catch(() => false)) return acceso;
+
+  // Respaldo semántico para cambios visuales que conserven el mismo nombre del módulo.
+  const nombres = {
+    cash: /^(Caja|Abrir caja|Caja abierta)$/i,
+    catalog: /^(Catálogo QR|Catálogo virtual|Menú QR)$/i,
+    settings: /^(Configuración|Configuración de la app)$/i,
+    purchases: /^Compras \/ Reposición$/i
+  };
+  const patron = nombres[target] || new RegExp(`^${String(nombre).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+  acceso = page.getByRole('button', { name: patron }).first();
+  return acceso;
+}
+
 async function abrirModulo(page, nombre) {
   const target = MODULE_TARGETS[nombre];
   if (!target) {
@@ -80,20 +99,33 @@ async function abrirModulo(page, nombre) {
     return;
   }
 
-  const selector = `button[onclick="go('${target}')"]:visible`;
-  let acceso = page.locator(selector).first();
+  let acceso = await buscarAccesoVisible(page, target, nombre);
 
   if (!(await acceso.isVisible().catch(() => false))) {
     const inicio = page.locator(`button[onclick="go('home')"]:visible`).first();
     if (await inicio.isVisible().catch(() => false)) {
       await inicio.click();
-      await page.waitForTimeout(80);
+      await page.waitForTimeout(100);
     }
-    acceso = page.locator(selector).first();
+    acceso = await buscarAccesoVisible(page, target, nombre);
   }
 
   await expect(acceso, `No se encontró acceso visible a ${nombre}`).toBeVisible();
   await acceso.click();
+}
+
+async function activarCajaRetail(page) {
+  await abrirModulo(page, 'Configuración');
+
+  const control = page.locator('#v740Cash');
+  await expect(control, 'No aparece el control de caja opcional para Retail').toBeVisible();
+  await control.selectOption('yes');
+
+  await page.getByRole('button', { name: /^Guardar cambios$/i }).first().click();
+  await page.waitForTimeout(120);
+
+  const accesoCaja = page.locator(`button[onclick="go('cash')"]:visible`).first();
+  await expect(accesoCaja, 'Caja debe aparecer después de activar el control de caja Retail').toBeVisible();
 }
 
 async function crearProductoRetail(page, {
@@ -144,5 +176,6 @@ module.exports = {
   capturarErrores,
   esperarSinErrores,
   abrirModulo,
+  activarCajaRetail,
   crearProductoRetail
 };

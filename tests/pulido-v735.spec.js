@@ -7,7 +7,7 @@ const {
   crearProductoRetail
 } = require('./helpers');
 
-test.describe('PUNTO YA CR - cierre v7.35', () => {
+test.describe('PUNTO YA CR - cierre actualizado v7.43', () => {
   test('Apple queda oculto en los métodos de acceso', async ({ page }) => {
     const control = capturarErrores(page);
     await page.goto('/');
@@ -25,33 +25,43 @@ test.describe('PUNTO YA CR - cierre v7.35', () => {
     const control = capturarErrores(page);
     await entrarComoNegocioQA(page, { nombre: 'BOT QA MAS', tipo: 'products' });
     await page.evaluate(() => window.go('more'));
-    const grid = page.locator('.home-grid').first();
-    await expect(grid).toContainText(/Panel del Emprendedor/i);
-    await expect(grid).toContainText(/Configuración/i);
-    await expect(grid).toContainText(/Legal y privacidad/i);
-    await expect(grid).not.toContainText(/Gastos y utilidad/i);
-    await expect(grid).not.toContainText(/Crecimiento inteligente/i);
-    await expect(grid).not.toContainText(/Facturación electrónica/i);
 
-    const titulo = text => grid.locator('.big-card strong').filter({ hasText: new RegExp(`^${text}$`, 'i') });
-    await expect(titulo('Productos')).toHaveCount(0);
-    await expect(titulo('Clientes / Crédito')).toHaveCount(0);
-    await expect(titulo('Caja')).toHaveCount(0);
-    await expect(titulo('Mis ventas')).toHaveCount(0);
-    await expect(titulo('Catálogo virtual')).toHaveCount(0);
-    await expect(titulo('Pedidos')).toHaveCount(0);
+    const body = page.locator('body');
+    await expect(body).toContainText(/Panel del Emprendedor/i);
+    await expect(body).toContainText(/Configuración de la app/i);
+    await expect(body).toContainText(/Legal y privacidad/i);
+
+    await expect(page.locator(`button[onclick="go('expenses')"]:visible`)).toHaveCount(0);
+    await expect(page.locator(`button[onclick="go('growth')"]:visible`)).toHaveCount(0);
+    await expect(page.locator(`button[onclick="go('fiscal')"]:visible`)).toHaveCount(0);
+    await expect(page.locator(`button[onclick="go('users')"]:visible`)).toHaveCount(0);
+
     esperarSinErrores(control);
   });
 
-  test('PRO muestra los precios acordados sin simular un cobro real', async ({ page }) => {
+  test('PRO conserva pago + código en el Panel y una sesión invitada no se simula', async ({ page, request }) => {
     const control = capturarErrores(page);
     await entrarComoNegocioQA(page, { nombre: 'BOT QA PRO PRECIO', tipo: 'products' });
+
     await page.evaluate(() => window.openProPlans());
-    await expect(page.locator('body')).toContainText(/₡4\.990\s*\/\s*mes/i);
-    await expect(page.locator('body')).toContainText(/₡49\.900\s*\/\s*año/i);
-    await page.getByRole('button', { name: /₡4\.990 \/ mes/i }).click();
-    await expect(page.locator('body')).toContainText(/Activa tu cuenta para usar PRO/i);
-    await expect(page.locator('body')).toContainText(/asocia a la cuenta del negocio/i);
+    await expect(page).toHaveURL(/panel\.html/);
+    await expect(page.locator('body')).toContainText(/Panel del Emprendedor/i);
+    await expect(page.locator('body')).toContainText(/Usa la misma cuenta de PUNTO YA CR/i);
+    await expect(page.locator('body')).toContainText(/Continuar con Google/i);
+
+    // El CI local no posee una cuenta real de Supabase. Verificamos también el contrato
+    // actual del Panel directamente en el archivo servido: pago mensual/anual + código PRO.
+    const response = await request.get('/panel.html');
+    expect(response.ok()).toBeTruthy();
+    const source = await response.text();
+    expect(source).toContain('₡4.990');
+    expect(source).toContain('₡49.900');
+    expect(source).toContain('data-pro-buy="monthly"');
+    expect(source).toContain('data-pro-buy="annual"');
+    expect(source).toMatch(/Código PRO|Código de activación/i);
+    expect(source).toMatch(/Activar código/i);
+    expect(source).toMatch(/no realizan cargos|no realiza ningún cargo/i);
+
     esperarSinErrores(control);
   });
 

@@ -1,16 +1,22 @@
 const { test, expect } = require('@playwright/test');
 const { entrarComoNegocioQA, capturarErrores, esperarSinErrores, abrirModulo } = require('./helpers');
 
-test.describe('PUNTO YA CR - Gratis, PRO, legal y privacidad', () => {
-  test('el plan Gratis muestra Pro como mejora y mantiene la nube operativa bloqueada', async ({ page }) => {
+test.describe('PUNTO YA CR - Gratis, PRO, legal y privacidad · v7.43', () => {
+  test('el plan Gratis mantiene la operación local y deja la sincronización completa para PRO', async ({ page }) => {
     const control = capturarErrores(page);
     await entrarComoNegocioQA(page, { nombre: 'BOT QA FREE', tipo: 'products' });
 
-    await expect(page.locator('body')).toContainText(/Haz crecer tu negocio con Pro/i);
+    await expect(page.locator('body')).toContainText(/Panel del Emprendedor/i);
+
+    await page.evaluate(() => window.openCloudLink());
+    await expect(page.getByRole('heading', { name: 'Crear o conectar cuenta' })).toBeVisible();
+    await expect(page.locator('body')).toContainText(/En Gratis podrás publicar tu catálogo; Pro activa respaldo y sincronización completa/i);
+    await page.getByRole('button', { name: /^Cancelar$/i }).click();
 
     await abrirModulo(page, 'Configuración');
-    await expect(page.locator('body')).toContainText(/Plan Gratis|Modo sin cuenta/i);
-    await expect(page.locator('body')).toContainText(/Nube|sincronización|respaldo/i);
+    await expect(page.locator('body')).toContainText(/Panel del Emprendedor/i);
+    await expect(page.locator('body')).toContainText(/suscripción Pro/i);
+    await expect(page.locator('body')).toContainText(/configuración fiscal/i);
 
     esperarSinErrores(control);
   });
@@ -20,12 +26,9 @@ test.describe('PUNTO YA CR - Gratis, PRO, legal y privacidad', () => {
     await entrarComoNegocioQA(page, { nombre: 'BOT QA LEGAL', tipo: 'products' });
     await abrirModulo(page, 'Configuración');
 
-    await page.getByRole('button', { name: /^Abrir$/i }).filter({ has: page.locator('xpath=..') }).first().isVisible().catch(() => false);
-
-    // Abrir el bloque Legal desde el botón de la tarjeta correspondiente.
-    const legalPanel = page.locator('.panel').filter({ hasText: 'Legal y privacidad' });
-    await expect(legalPanel).toBeVisible();
-    await legalPanel.getByRole('button', { name: 'Abrir', exact: true }).click();
+    const legalButton = page.getByRole('button', { name: 'Legal y privacidad', exact: true });
+    await expect(legalButton).toBeVisible();
+    await legalButton.click();
 
     await expect(page.getByRole('heading', { name: 'Legal y privacidad' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Política de privacidad/i })).toBeVisible();
@@ -40,22 +43,24 @@ test.describe('PUNTO YA CR - Gratis, PRO, legal y privacidad', () => {
 
     await page.getByRole('button', { name: /Eliminar datos locales|Solicitar eliminación de cuenta/i }).click();
     await expect(page.locator('body')).toContainText(/Escribe ELIMINAR para confirmar/i);
-    // No confirmamos: el bot jamás debe borrar el negocio de prueba durante esta validación.
+    // El bot nunca confirma: no debe borrar el negocio de prueba.
     await page.getByRole('button', { name: /^Cancelar$/i }).click();
 
     esperarSinErrores(control);
   });
 
-  test('Crecimiento y Facturación electrónica están identificados como funciones PRO', async ({ page }) => {
+  test('Crecimiento y Facturación electrónica siguen identificados como funciones avanzadas / PRO', async ({ page }) => {
     const control = capturarErrores(page);
     await entrarComoNegocioQA(page, { nombre: 'BOT QA PRO', tipo: 'products', factura: 'yes' });
 
-    // En un negocio Gratis, Configuración debe explicar claramente qué aporta Pro.
     await abrirModulo(page, 'Configuración');
-    await expect(page.locator('body')).toContainText(/PUNTO YA CR Pro/i);
-    await expect(page.locator('body')).toContainText(/Crecimiento inteligente/i);
-    await expect(page.locator('body')).toContainText(/Facturación electrónica/i);
-    await expect(page.locator('body')).toContainText(/Nube y seguridad/i);
+    await expect(page.locator('body')).toContainText(/crecimiento inteligente/i);
+    await expect(page.locator('body')).toContainText(/suscripción Pro/i);
+    await expect(page.locator('body')).toContainText(/configuración fiscal/i);
+    await expect(page.locator('body')).toContainText(/factura electrónica/i);
+
+    await abrirModulo(page, 'Vender');
+    await expect(page.locator('body')).toContainText(/Factura electrónica · PRO/i);
 
     esperarSinErrores(control);
   });
