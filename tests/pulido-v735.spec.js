@@ -39,28 +39,25 @@ test.describe('PUNTO YA CR - cierre actualizado v7.43', () => {
     esperarSinErrores(control);
   });
 
-  test('PRO conserva pago + código en el Panel y una sesión invitada no se simula', async ({ page, request }) => {
+  test('PRO usa Google Play para comprar y el código se activa en la web', async ({ page, request }) => {
     const control = capturarErrores(page);
-    await entrarComoNegocioQA(page, { nombre: 'BOT QA PRO PRECIO', tipo: 'products' });
+    await entrarComoNegocioQA(page, { nombre: 'BOT QA PRO PLAY', tipo: 'products' });
 
     await page.evaluate(() => window.openProPlans());
-    await expect(page).toHaveURL(/panel\.html/);
-    await expect(page.locator('body')).toContainText(/Panel del Emprendedor/i);
-    await expect(page.locator('body')).toContainText(/Usa la misma cuenta de PUNTO YA CR/i);
-    await expect(page.locator('body')).toContainText(/Continuar con Google/i);
+    await expect(page.locator('body')).toContainText(/Compra PRO en Google Play/i);
+    await expect(page.locator('body')).toContainText(/Recibe tu código por correo/i);
+    await expect(page.getByRole('button', { name: /Comprar PRO con Google Play/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Ya tengo mi código/i })).toBeVisible();
 
-    // El CI local no posee una cuenta real de Supabase. Verificamos también el contrato
-    // actual del Panel directamente en el archivo servido: pago mensual/anual + código PRO.
     const response = await request.get('/panel.html');
     expect(response.ok()).toBeTruthy();
     const source = await response.text();
-    expect(source).toContain('₡4.990');
-    expect(source).toContain('₡49.900');
-    expect(source).toContain('data-pro-buy="monthly"');
-    expect(source).toContain('data-pro-buy="annual"');
+    expect(source).toMatch(/Google Play/i);
+    expect(source).toMatch(/recibirás por correo/i);
     expect(source).toMatch(/Código PRO|Código de activación/i);
-    expect(source).toMatch(/Activar código/i);
-    expect(source).toMatch(/no realizan cargos|no realiza ningún cargo/i);
+    expect(source).toMatch(/Activar PRO/i);
+    expect(source).not.toContain('₡4.990');
+    expect(source).not.toContain('₡49.900');
 
     esperarSinErrores(control);
   });
