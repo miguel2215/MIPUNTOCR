@@ -1132,10 +1132,47 @@ button {
 @media(min-width:700px){.growth-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.fiscal-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .retail-sale-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}.retail-sale-tools .btn{padding:10px 12px;font-size:12px}.discount-note{display:inline-block;margin-top:4px;font-size:11px;font-weight:800;color:#8a5a00}.held-sale-card{border:1px solid var(--line);border-radius:18px;padding:13px;margin-top:9px}.held-sale-card .row-head strong{font-size:15px}.return-history{margin-top:10px;border:1px solid #e7dfbd;background:#fffbed;border-radius:14px;padding:11px}.price-lookup-list{display:grid;gap:8px;max-height:48vh;overflow:auto}.price-lookup-item{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);background:#fff;border-radius:15px;padding:12px;text-align:left}.exchange-note{background:#eef8f5;border:1px solid #bfddd5;border-radius:14px;padding:11px;margin:10px 0;font-size:13px}.return-qty-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.return-qty-row input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px}@media(max-width:520px){.return-qty-row{grid-template-columns:minmax(0,1fr) 78px}.retail-sale-tools .btn{flex:1 1 calc(50% - 8px)}}
+
+/* v7.44 · Splash de inicio PUNTO YA CR */
+#pycStartupSplash{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#f7faf8;opacity:1;visibility:visible;transition:opacity .2s ease,visibility .2s ease;overflow:hidden}
+#pycStartupSplash.is-hiding{opacity:0;visibility:hidden;pointer-events:none}
+#pycStartupSplash .pyc-splash-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:28px;text-align:center;transform:translateY(-1vh)}
+#pycStartupSplash .pyc-splash-logo{width:min(250px,68vw);height:auto;display:block;filter:drop-shadow(0 8px 22px rgba(6,95,94,.08))}
+#pycStartupSplash .pyc-splash-tagline{font:700 13px/1.3 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.02em;color:#536b79}
+#pycStartupSplash .pyc-splash-progress{width:78px;height:3px;border-radius:999px;background:#dfe9e6;overflow:hidden;margin-top:2px}
+#pycStartupSplash .pyc-splash-progress::after{content:"";display:block;width:44%;height:100%;border-radius:inherit;background:#0b8f78;animation:pycSplashMove .75s ease-in-out infinite alternate}
+@keyframes pycSplashMove{from{transform:translateX(-15%)}to{transform:translateX(145%)}}
+@media (prefers-reduced-motion:reduce){#pycStartupSplash{transition:none}#pycStartupSplash .pyc-splash-progress::after{animation:none;width:100%}}
 </style>
 </head>
 <body>
+<div id="pycStartupSplash" role="status" aria-label="Abriendo PUNTO YA CR">
+  <div class="pyc-splash-inner">
+    <img class="pyc-splash-logo" src="./logo-horizontal.png" alt="PUNTO YA CR">
+    <div class="pyc-splash-tagline">Tu negocio, más simple.</div>
+    <div class="pyc-splash-progress" aria-hidden="true"></div>
+  </div>
+</div>
 <div id="app"></div>
+<script>
+(() => {
+  const started = performance.now();
+  let finished = false;
+  window.finishPycStartupSplash = function(){
+    if (finished) return;
+    finished = true;
+    const splash = document.getElementById('pycStartupSplash');
+    if (!splash) return;
+    const minVisibleMs = 320;
+    const wait = Math.max(0, minVisibleMs - (performance.now() - started));
+    setTimeout(() => {
+      splash.classList.add('is-hiding');
+      setTimeout(() => splash.remove(), 240);
+    }, wait);
+  };
+  setTimeout(() => window.finishPycStartupSplash?.(), 4500);
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ===== core.js ===== */
@@ -7557,14 +7594,15 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   db = await openDB();
   await load();
   const publicParams = new URLSearchParams(location.search);
-  if (publicParams.get("privacy") === "1") { renderPublicLegal("privacy"); return; }
-  if (publicParams.get("terms") === "1") { renderPublicLegal("terms"); return; }
-  if (publicParams.get("delete-account") === "1") { await renderPublicDeletionRequest(); return; }
-  if (publicParams.get("catalog") === "1") { initCloudClient(); await renderPublicCatalog(); return; }
+  if (publicParams.get("privacy") === "1") { renderPublicLegal("privacy"); window.finishPycStartupSplash?.(); return; }
+  if (publicParams.get("terms") === "1") { renderPublicLegal("terms"); window.finishPycStartupSplash?.(); return; }
+  if (publicParams.get("delete-account") === "1") { await renderPublicDeletionRequest(); window.finishPycStartupSplash?.(); return; }
+  if (publicParams.get("catalog") === "1") { initCloudClient(); await renderPublicCatalog(); window.finishPycStartupSplash?.(); return; }
   await initCloudAuth();
   locked = !!state.settings.pinEnabled;
   lastActivityAt = Date.now();
   render();
+  window.finishPycStartupSplash?.();
   // Hotfix de repintado: se mantiene, pero nunca debe borrar un formulario de onboarding ya editado.
   requestAnimationFrame(() => { if (!document.querySelector("#modalRoot") && !onboardingFormDirty) render(); });
   setTimeout(() => {
@@ -7577,6 +7615,7 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   console.error(err);
   injectStyles();
   document.querySelector("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<h2>No se pudo iniciar</h2><p>Ocurrió un error al abrir los datos locales.</p><pre style="white-space:pre-wrap;font-size:12px">${esc(err?.message || err)}</pre></div></section>`;
+  window.finishPycStartupSplash?.();
 });
 
 </script>
