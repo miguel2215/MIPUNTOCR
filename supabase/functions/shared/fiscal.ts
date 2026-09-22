@@ -104,16 +104,23 @@ export async function requireOwner(
 
   const service = serviceClient();
 
+  /*
+   * La autorización se valida con el cliente autenticado del usuario.
+   * Esto respeta las mismas políticas RLS con las que App/Panel ya
+   * pueden abrir el negocio y evita depender de service_role para
+   * comprobar membresía.
+   */
   const {
     data: business,
     error: businessError,
-  } = await service
+  } = await client
     .from('businesses')
     .select('id, owner_user_id')
     .eq('id', businessId)
     .maybeSingle();
 
   if (businessError) {
+    console.error('businesses auth lookup:', businessError);
     throw new Error('No fue posible consultar el negocio.');
   }
 
@@ -139,7 +146,7 @@ export async function requireOwner(
   const {
     data: member,
     error: memberError,
-  } = await service
+  } = await client
     .from('business_members')
     .select('role, active')
     .eq('business_id', businessId)
@@ -194,17 +201,21 @@ export async function requireBusinessMember(
 
   const uid = authData.user.id;
   const service = serviceClient();
-  const { data: business, error: businessError } = await service
+
+  const { data: business, error: businessError } = await client
     .from('businesses')
     .select('id, owner_user_id')
     .eq('id', businessId)
     .maybeSingle();
 
-  if (businessError) throw new Error('No fue posible consultar el negocio.');
+  if (businessError) {
+    console.error('businesses member lookup:', businessError);
+    throw new Error('No fue posible consultar el negocio.');
+  }
   if (!business) throw new Error('Negocio no encontrado.');
   if (business.owner_user_id === uid) return { user: authData.user, service, role: 'owner' };
 
-  const { data: member, error: memberError } = await service
+  const { data: member, error: memberError } = await client
     .from('business_members')
     .select('role, active')
     .eq('business_id', businessId)
