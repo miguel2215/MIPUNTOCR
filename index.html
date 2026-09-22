@@ -1586,6 +1586,11 @@ function injectV7Styles() {
     .brand-icon.small{width:34px;height:34px;border-radius:10px}
     .brand-with-icon{display:flex;align-items:center;gap:11px;min-width:0}
     .brand-with-icon>div{min-width:0}.brand-with-icon h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .business-name-line{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+    .business-name-line h1,.business-name-line strong{min-width:0;margin:0}
+    .pro-brand-badge{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;padding:4px 8px;border-radius:999px;border:1px solid #dfc36f;background:linear-gradient(135deg,#fff9df,#ffe9a8);color:#6f4e08;font-size:10px;line-height:1;font-weight:950;letter-spacing:.08em;box-shadow:0 3px 10px rgba(111,78,8,.10);vertical-align:middle}
+    .pro-brand-badge .pro-star{font-size:10px;line-height:1}
+    .lock-pro-badge{display:flex;justify-content:center;margin-top:-6px;margin-bottom:8px}
     .desktop-logo{display:flex;align-items:center;gap:11px}.desktop-logo>div{min-width:0}
     .onboard-card .brand-logo-horizontal{margin-top:-4px}
     .lock-brand{display:grid;place-items:center;margin-bottom:14px}
@@ -1617,6 +1622,13 @@ function injectV7Styles() {
 }
 
 function badge() { return navigator.onLine ? `<span class="badge online">● En línea</span>` : `<span class="badge offline">● Sin conexión</span>`; }
+function proBrandBadge() {
+  if (!isProPlan()) return "";
+  const expires = state.settings.planExpiresAt ? new Date(state.settings.planExpiresAt) : null;
+  const validDate = expires && !Number.isNaN(expires.getTime());
+  const title = validDate ? `PUNTO YA CR PRO · activo hasta ${expires.toLocaleDateString("es-CR")}` : "PUNTO YA CR PRO · activo";
+  return `<span class="pro-brand-badge" title="${esc(title)}" aria-label="PUNTO YA CR PRO activo"><span class="pro-star">★</span> PRO</span>`;
+}
 function navBtn(target, label, active) { return `<button class="${active === target ? "active" : ""}" onclick="go('${target}')">${label}</button>`; }
 function desktopNavItems() {
   const items = [["home", "Inicio"], ["sale", isServices() ? "Nuevo servicio" : "Vender"]];
@@ -1630,14 +1642,14 @@ function desktopShell(content, active = "home") {
   const current = screen || active;
   const nav = desktopNavItems().map(([target, label]) => `<button class="${current === target ? "active" : ""}" onclick="go('${target}')">${label}</button>`).join("");
   const shift = currentShift();
-  return `<div class="desktop-app"><aside class="desktop-sidebar"><div class="desktop-logo">${brandIcon("brand-icon small")}<div><strong>${esc(state.settings.businessName)}</strong><small>PUNTO YA CR</small></div></div><nav class="desktop-nav">${nav}</nav><div class="desktop-sidebar-foot">${usesOrdersTablesCash() ? (shift ? `Caja abierta · ${dateTime(shift.openedAt)}` : "Caja cerrada") : "Listo para cobrar"}</div></aside><main class="desktop-main"><header class="desktop-topbar"><div class="desktop-topbar-title"><strong>${esc(state.settings.businessName)}</strong><span>${usesOrdersTablesCash() ? (shift ? "Punto de venta · Caja abierta" : "Punto de venta · Caja cerrada") : "Servicios"}</span></div><div class="desktop-top-actions">${securityLockButton()}<button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Pantalla completa</button>${badge()}</div></header><div class="desktop-page">${!navigator.onLine ? `<div class="offline-note">Sin conexión. Las funciones internas siguen guardándose en este dispositivo.</div>` : ""}${content}</div></main></div>`;
+  return `<div class="desktop-app"><aside class="desktop-sidebar"><div class="desktop-logo">${brandIcon("brand-icon small")}<div><div class="business-name-line"><strong>${esc(state.settings.businessName)}</strong>${proBrandBadge()}</div><small>PUNTO YA CR</small></div></div><nav class="desktop-nav">${nav}</nav><div class="desktop-sidebar-foot">${usesOrdersTablesCash() ? (shift ? `Caja abierta · ${dateTime(shift.openedAt)}` : "Caja cerrada") : "Listo para cobrar"}</div></aside><main class="desktop-main"><header class="desktop-topbar"><div class="desktop-topbar-title"><div class="business-name-line"><strong>${esc(state.settings.businessName)}</strong>${proBrandBadge()}</div><span>${usesOrdersTablesCash() ? (shift ? "Punto de venta · Caja abierta" : "Punto de venta · Caja cerrada") : "Servicios"}</span></div><div class="desktop-top-actions">${securityLockButton()}<button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Pantalla completa</button>${badge()}</div></header><div class="desktop-page">${!navigator.onLine ? `<div class="offline-note">Sin conexión. Las funciones internas siguen guardándose en este dispositivo.</div>` : ""}${content}</div></main></div>`;
 }
 function shell(content, active = "home") {
   if (isDesktopPOS()) return desktopShell(content, active);
   const third = usesOrdersTablesCash() ? ["orders", "Pedidos"] : ["sales", "Mis ventas"];
   const shellClass = ` app-compact${active === "home" ? " home-compact" : ""}`;
   return `<main class="shell${shellClass}">
-    <header class="topbar"><div class="brand brand-with-icon">${brandIcon("brand-icon")}<div><h1>${esc(state.settings.businessName)}</h1><p>PUNTO YA CR</p></div></div><div class="status-row">${badge()}${securityLockButton()}</div></header>
+    <header class="topbar"><div class="brand brand-with-icon">${brandIcon("brand-icon")}<div><div class="business-name-line"><h1>${esc(state.settings.businessName)}</h1>${proBrandBadge()}</div><p>PUNTO YA CR</p></div></div><div class="status-row">${badge()}${securityLockButton()}</div></header>
     ${!navigator.onLine ? `<div class="offline-note">Sin conexión. Las funciones internas siguen guardándose en este dispositivo.</div>` : ""}
     ${content}
   </main>
@@ -6627,8 +6639,10 @@ window.syncBusinessNow = async () => {
 
 function renderProSettingsPanel() {
   const pro = isProPlan();
-  const status = pro ? "Pro activo" : "Plan Gratis";
-  const detail = pro ? "Respaldo y sincronización Pro activos para este negocio." : "La operación básica funciona offline. Pro agrega nube, facturación electrónica y herramientas para crecer.";
+  const expires = pro && state.settings.planExpiresAt ? new Date(state.settings.planExpiresAt) : null;
+  const validExpiry = expires && !Number.isNaN(expires.getTime());
+  const status = pro ? `PRO activo${validExpiry ? ` · hasta ${expires.toLocaleDateString("es-CR")}` : ""}` : "Plan Gratis";
+  const detail = pro ? "Tu negocio tiene PUNTO YA CR PRO activo. Respaldo y sincronización Pro están habilitados." : "La operación básica funciona offline. Pro agrega nube, facturación electrónica y herramientas para crecer.";
   return `<div class="panel pro-settings-card" style="margin-top:14px"><div class="row-head"><div><strong>⭐ PUNTO YA CR Pro</strong><p class="muted" style="margin:5px 0 0">${status}</p></div><span class="plan-pill ${pro?"pro":""}">${pro?"PRO":"GRATIS"}</span></div><p class="muted">${detail}</p><div class="plan-feature-grid"><div class="plan-feature pro">☁️ Nube y seguridad<small>Respaldo, recuperación, varios dispositivos y empleados.</small></div><div class="plan-feature pro">🧾 Facturación electrónica<small>Configuración fiscal, CAByS e impuestos. La transmisión oficial se habilitará al conectar Hacienda.</small></div><div class="plan-feature pro">📈 Crecimiento inteligente<small>Análisis, proyecciones y recomendaciones basadas en tus datos reales.</small></div><div class="plan-feature">📱 Operación normal<small>Ventas, inventario, caja, pedidos y trabajo offline.</small></div></div>${pro?"":`<button class="btn primary" style="margin-top:12px" onclick="openProPlans()">Conocer Pro</button>`}</div>`;
 }
 window.openProPlans = () => {
@@ -6962,7 +6976,7 @@ function renderLock() {
   const display = pro
     ? `<div class="employee-code-display"><span>CR</span><strong id="lockPinDisplay">____</strong></div>`
     : `<div class="pin-display" id="lockPinDisplay">____</div>`;
-  $("#app").innerHTML = `<div class="lock-screen"><div class="lock-card pin-pad-card"><div class="lock-brand">${brandVertical("brand-logo-vertical")}</div><p>${pro ? "Ingresa tu código CR." : "Ingresa tu código."}</p>${display}<div class="pin-keypad">${[1,2,3,4,5,6,7,8,9].map(n => `<button onclick="lockPinKey('${n}')">${n}</button>`).join("")}<button class="key-delete" onclick="lockPinBackspace()">⌫</button><button onclick="lockPinKey('0')">0</button><button class="key-clear" onclick="lockPinClear()">×</button></div><div id="lockPinStatus" class="muted" style="text-align:center;margin-top:10px"></div></div></div>`;
+  $("#app").innerHTML = `<div class="lock-screen"><div class="lock-card pin-pad-card"><div class="lock-brand">${brandVertical("brand-logo-vertical")}${pro ? `<div class="lock-pro-badge">${proBrandBadge()}</div>` : ""}</div><p>${pro ? "Ingresa tu código CR." : "Ingresa tu código."}</p>${display}<div class="pin-keypad">${[1,2,3,4,5,6,7,8,9].map(n => `<button onclick="lockPinKey('${n}')">${n}</button>`).join("")}<button class="key-delete" onclick="lockPinBackspace()">⌫</button><button onclick="lockPinKey('0')">0</button><button class="key-clear" onclick="lockPinClear()">×</button></div><div id="lockPinStatus" class="muted" style="text-align:center;margin-top:10px"></div></div></div>`;
 }
 function drawLockPin() {
   const len = 4;
