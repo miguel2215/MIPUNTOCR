@@ -40,7 +40,13 @@ test.describe('PUNTO YA CR - Facturación rápida v7.44', () => {
     const categoria = page.getByRole('button', { name: 'QA', exact: true }).first();
     await expect(categoria).toBeVisible();
     await categoria.click();
-    const product = page.locator('button.category-product').filter({ hasText: 'PRODUCTO FACTURA QA' }).first();
+
+    // Retail usa tarjetas distintas según el tamaño de pantalla:
+    // PC: .desktop-product · móvil: .retail-product
+    const product = page
+      .locator('button.desktop-product, button.retail-product')
+      .filter({ hasText: 'PRODUCTO FACTURA QA' })
+      .first();
     await expect(product).toBeVisible();
     await product.click();
 
