@@ -4694,8 +4694,11 @@ function applyInvoiceCustomerData(data, client = null) {
   if ($("#invoiceCustomerPhone")) $("#invoiceCustomerPhone").value = client?.phone || $("#invoiceCustomerPhone").value || "";
   const select = $("#invoiceCustomerActivity");
   if (select) {
-    const selected = client?.economicActivityCode || saleMeta.invoiceCustomer?.activityCode || "";
+    const selected = client?.economicActivityCode
+      || saleMeta.invoiceCustomer?.activityCode
+      || (activities.length === 1 ? activities[0].code : "");
     select.innerHTML = invoiceActivityOptions(activities, selected);
+    if (selected) select.value = selected;
   }
   showInvoiceDetails(true);
   const localText = client ? " · cliente guardado" : "";
@@ -4707,7 +4710,10 @@ async function lookupInvoiceTaxpayer() {
   if (input) input.value = id;
   if (id.length < 9 || id.length > 12) return setInvoiceLookupStatus("Escribe una identificación de 9 a 12 dígitos.", "error");
   const local = clientByFiscalId(id);
-  if (local && (local.fiscalName || local.identificationType || clientFiscalActivities(local).length)) {
+  // Solo usamos el cliente guardado sin consultar Hacienda cuando sus datos
+  // fiscales están completos, incluyendo al menos una actividad económica.
+  // Si falta la actividad, continuamos con Hacienda para completar el receptor.
+  if (local && local.fiscalName && local.identificationType && clientFiscalActivities(local).length) {
     applyInvoiceCustomerData({ identification:id, name:local.fiscalName || local.name, idType:local.identificationType, activities:clientFiscalActivities(local), source:"saved" }, local);
     return;
   }
