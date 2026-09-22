@@ -88,14 +88,33 @@ test.describe('PUNTO YA CR - Facturación rápida v7.44', () => {
     await page.locator('#invoiceCustomerName').fill('CLIENTE FACTURA QA');
     await page.locator('#invoiceManualIdType select').selectOption('01');
 
-    const popupPromise = page.waitForEvent('popup');
+    // GitHub Actions / Chromium headless puede bloquear la ventana emergente.
+    // Capturamos el HTML que la función real intenta escribir en window.open(),
+    // sin cambiar la lógica de la app ni falsificar la plantilla.
+    await page.evaluate(() => {
+      window.__qaInvoicePreviewHtml = '';
+      window.__qaOriginalOpen = window.open;
+      window.open = () => ({
+        document: {
+          write(html) { window.__qaInvoicePreviewHtml += String(html || ''); },
+          close() {}
+        }
+      });
+    });
+
     await page.getByRole('button', { name: /^Vista previa$/i }).click();
-    const popup = await popupPromise;
-    await popup.waitForLoadState('domcontentloaded');
-    await expect(popup.locator('body')).toContainText(/SOLICITUD DE FACTURA ELECTRÓNICA/i);
-    await expect(popup.locator('body')).toContainText('CLIENTE FACTURA QA');
-    await expect(popup.locator('body')).toContainText(/PRODUCTO FACTURA QA/i);
-    await popup.close();
+
+    const previewHtml = await page.evaluate(() => {
+      const html = window.__qaInvoicePreviewHtml || '';
+      if (window.__qaOriginalOpen) window.open = window.__qaOriginalOpen;
+      delete window.__qaOriginalOpen;
+      return html;
+    });
+
+    expect(previewHtml).toMatch(/VISTA PREVIA/i);
+    expect(previewHtml).toMatch(/FACTURA ELECTRÓNICA/i);
+    expect(previewHtml).toContain('CLIENTE FACTURA QA');
+    expect(previewHtml).toMatch(/PRODUCTO FACTURA QA/i);
 
     esperarSinErrores(control);
   });
