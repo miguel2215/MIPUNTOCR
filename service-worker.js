@@ -1,4 +1,4 @@
-const CACHE = 'punto-ya-cr-v7-43';
+const CACHE = 'punto-ya-cr-v7-44';
 
 const CORE = [
   './',

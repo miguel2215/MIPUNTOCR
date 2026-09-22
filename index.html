@@ -1191,7 +1191,7 @@ let authStep = "welcome";
 let setupDraft = {};
 let onboardingFormDirty = false;
 let settingsFormDirty = false;
-function blankSaleMeta() { return { clientId: "", orderType: "Mostrador", table: "", note: "", tableAccountId: "", expressFee: 0, documentType: "receipt", invoiceCustomer: null, discountType: "", discountValue: 0, exchangeCredit: 0, exchangeSourceSaleId: "", exchangeSourceSaleNumber: "" }; }
+function blankSaleMeta() { return { clientId: "", orderType: "Mostrador", table: "", note: "", tableAccountId: "", expressFee: 0, documentType: "receipt", invoiceCustomer: null, invoiceLookupActivities: [], discountType: "", discountValue: 0, exchangeCredit: 0, exchangeSourceSaleId: "", exchangeSourceSaleNumber: "" }; }
 let saleMeta = blankSaleMeta();
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
@@ -1364,6 +1364,7 @@ const state = {
     fiscalDefaultCondition: "01",
     fiscalDefaultPayment: "01",
     fiscalDefaultTaxRate: 13,
+    fiscalPricesIncludeTax: true,
     fiscalSetupUpdatedAt: ""
   }
 };
@@ -1380,6 +1381,15 @@ const isFood = () => type() === "food";
 const isProducts = () => type() === "products";
 const isServices = () => type() === "services";
 const usesOrdersTablesCash = () => !isServices();
+function internalBusinessTypeSwitchEnabled() {
+  try {
+    const params = new URLSearchParams(location.search);
+    return params.get("pycr_test") === "1" || localStorage.getItem("pycr_internal_test") === "1";
+  } catch { return false; }
+}
+function businessTypeDisplayLabel(value=type()) {
+  return value === "products" ? "Retail" : value === "services" ? "Servicios" : "Restaurante";
+}
 
 const ROLE_PERMISSION_DEFAULTS = {
   admin: { sell: true, orders: true, tables: true, cash: true, products: true, clients: true, sales: true, catalog: true, void_sales: true },
@@ -1491,7 +1501,7 @@ async function resetLocalBusinessCache() {
   cart = [];
   activeClientId = "";
   quickCategory = "";
-  saleMeta = { clientId: "", orderType: "Mostrador", table: "", note: "", tableAccountId: "", expressFee: 0, documentType: "receipt", invoiceCustomer: null };
+  saleMeta = blankSaleMeta();
   locked = false;
 }
 
@@ -2080,7 +2090,7 @@ window.publishCatalogNow = async () => {
 async function cloudUpsertClient(localClient) {
   if (!cloudCatalogConnected() || !navigator.onLine) return null;
   const remoteId = localClient.cloudId || (String(localClient.id || "").match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i) ? localClient.id : cloudUuid());
-  const payload = {
+  const basePayload = {
     id: remoteId,
     business_id: mpCloudBusiness.id,
     name: localClient.name,
@@ -2090,12 +2100,24 @@ async function cloudUpsertClient(localClient) {
     active: localClient.active !== false,
     updated_at: new Date().toISOString()
   };
-  const { data, error } = await mpCloud
-    .from("clients")
-    .upsert(payload, { onConflict: "id" })
-    .select("*")
-    .single();
-  if (error) throw error;
+  const fiscalPayload = {
+    ...basePayload,
+    identification_type: localClient.identificationType || null,
+    identification_number: localClient.identificationNumber || null,
+    fiscal_name: localClient.fiscalName || null,
+    economic_activity_code: localClient.economicActivityCode || null,
+    economic_activity_name: localClient.economicActivityName || null,
+    fiscal_email: localClient.fiscalEmail || localClient.email || null,
+    fiscal_checked_at: localClient.fiscalCheckedAt || null
+  };
+  let result = await mpCloud.from("clients").upsert(fiscalPayload, { onConflict: "id" }).select("*").single();
+  // Compatibilidad: si aún no se ejecutó la migración v7.44, no rompemos la app.
+  if (result.error && /identification_|fiscal_|economic_activity_/i.test(String(result.error.message || result.error.details || ""))) {
+    console.warn("Clientes v7.44: faltan columnas fiscales; usando esquema anterior hasta ejecutar la migración.");
+    result = await mpCloud.from("clients").upsert(basePayload, { onConflict: "id" }).select("*").single();
+  }
+  if (result.error) throw result.error;
+  const data = result.data;
   localClient.cloudId = data.id;
   localClient.cloudPending = false;
   localClient.cloudSyncedAt = new Date().toISOString();
@@ -2157,6 +2179,13 @@ async function cloudMergeRemoteCatalogClients(remote) {
       phone: row.phone || "",
       email: row.email || "",
       notes: row.notes || "",
+      identificationType: row.identification_type || existing?.identificationType || "",
+      identificationNumber: row.identification_number || existing?.identificationNumber || "",
+      fiscalName: row.fiscal_name || existing?.fiscalName || row.name || "",
+      economicActivityCode: row.economic_activity_code || existing?.economicActivityCode || "",
+      economicActivityName: row.economic_activity_name || existing?.economicActivityName || "",
+      fiscalEmail: row.fiscal_email || existing?.fiscalEmail || row.email || "",
+      fiscalCheckedAt: row.fiscal_checked_at || existing?.fiscalCheckedAt || "",
       active: row.active !== false,
       balance: existing?.balance || 0,
       cloudSyncedAt: row.updated_at || new Date().toISOString()
@@ -4294,12 +4323,41 @@ function saleBreakdownFor(items=cart, meta=saleMeta) {
   return {gross,itemDiscount,afterItems,saleDiscount,discountTotal:itemDiscount+saleDiscount,merchandise,express,subtotal:merchandise+express};
 }
 function saleSubtotal() { return saleBreakdownFor().subtotal; }
-function currentSaleTotals(items=cart, meta=saleMeta) {
+function fiscalLineAmounts(item, netAmount, pricesIncludeTax = state.settings.fiscalPricesIncludeTax !== false) {
+  const net=Math.max(0,Number(netAmount||0));
+  const rate=Math.max(0,Number(item?.fiscalTaxRate ?? state.settings.fiscalDefaultTaxRate ?? 0));
+  if (!rate) return { rate:0, base:net, tax:0, total:net };
+  if (pricesIncludeTax) {
+    const base=net/(1+rate/100);
+    return { rate, base, tax:Math.max(0,net-base), total:net };
+  }
+  const tax=net*rate/100;
+  return { rate, base:net, tax, total:net+tax };
+}
+function fiscalSaleTaxTotals(items=cart, meta=saleMeta) {
   const b=saleBreakdownFor(items,meta);
-  const taxTotals=totals(b.subtotal);
+  const afterItems=Math.max(0,Number(b.afterItems||0));
+  const included=state.settings.fiscalPricesIncludeTax !== false;
+  let baseTotal=0,tax=0,finalTotal=0;
+  for (const item of items||[]) {
+    const gross=itemGross(item), itemDisc=itemDiscountAmount(item), afterItem=Math.max(0,gross-itemDisc);
+    const saleDiscShare=afterItems>0?Number(b.saleDiscount||0)*(afterItem/afterItems):0;
+    const net=Math.max(0,afterItem-saleDiscShare);
+    const line=fiscalLineAmounts(item,net,included);
+    baseTotal+=line.base; tax+=line.tax; finalTotal+=line.total;
+  }
+  // Express se conserva sin impuesto hasta que el negocio configure su tratamiento fiscal específico.
+  const express=Math.max(0,Number(b.express||0));
+  baseTotal+=express; finalTotal+=express;
+  return {...b, subtotal:baseTotal, tax, total:finalTotal, fiscalPricesIncludeTax:included};
+}
+function currentSaleTotals(items=cart, meta=saleMeta) {
+  const fiscal=!!(state.settings.fiscalUsesEInvoice && isProPlan());
+  const b=fiscal?fiscalSaleTaxTotals(items,meta):saleBreakdownFor(items,meta);
+  const taxTotals=fiscal?{subtotal:Number(b.subtotal||0),tax:Number(b.tax||0),total:Number(b.total||0)}:totals(b.subtotal);
   const exchangeCredit=Math.max(0,Number(meta?.exchangeCredit||0));
   const exchangeCreditApplied=Math.min(exchangeCredit,Math.max(0,Number(taxTotals.total||0)));
-  return {...taxTotals,...b,beforeExchangeTotal:Number(taxTotals.total||0),exchangeCredit,exchangeCreditApplied,total:Math.max(0,Number(taxTotals.total||0)-exchangeCreditApplied)};
+  return {...b,...taxTotals,beforeExchangeTotal:Number(taxTotals.total||0),exchangeCredit,exchangeCreditApplied,total:Math.max(0,Number(taxTotals.total||0)-exchangeCreditApplied)};
 }
 function saleItemNetTotal(item) { return Math.max(0, Number(item?.netTotal ?? (itemGross(item)-itemDiscountAmount(item)))); }
 function clientName(id) { return state.clients.find(x => x.id === id)?.name || ""; }
@@ -4577,14 +4635,178 @@ function retailDocumentStatusHtml() {
     : (!fiscal ? `<button class="btn ghost" type="button" onclick="go('fiscal')">Configurar</button>` : `<span>Elige recibo o factura al cobrar</span>`);
   return `<div class="sale-document-status"><div><small>Comprobante</small><strong>Recibo normal</strong><span>${label}</span></div>${action}</div>`;
 }
+const FISCAL_ID_LABELS = { "01":"Cédula física", "02":"Cédula jurídica", "03":"DIMEX", "04":"NITE" };
+function normalizeFiscalId(value) { return String(value || "").replace(/\D+/g, ""); }
+function fiscalIdLabel(code) { return FISCAL_ID_LABELS[String(code || "")] || "Identificación"; }
+function clientByFiscalId(value) {
+  const id = normalizeFiscalId(value);
+  if (!id) return null;
+  return state.clients.find(c => normalizeFiscalId(c.identificationNumber || c.fiscalId || "") === id) || null;
+}
+function clientFiscalActivities(client) {
+  if (!client) return [];
+  const rows = Array.isArray(client.fiscalActivities) ? client.fiscalActivities : [];
+  if (rows.length) return rows;
+  if (client.economicActivityCode || client.economicActivityName) return [{ code: client.economicActivityCode || "", description: client.economicActivityName || "" }];
+  return [];
+}
+function normalizeTaxpayerPayload(raw, identification = "") {
+  const src = raw?.result || raw?.data || raw || {};
+  const activitiesRaw = Array.isArray(src.activities) ? src.activities : (Array.isArray(src.actividades) ? src.actividades : []);
+  const activities = activitiesRaw.map(a => ({
+    code: String(a?.code ?? a?.codigo ?? a?.codigoActividad ?? "").trim(),
+    description: String(a?.description ?? a?.descripcion ?? a?.nombre ?? "").trim()
+  })).filter(a => a.code || a.description);
+  return {
+    identification: normalizeFiscalId(src.identification || src.identificacion || identification),
+    name: String(src.name || src.nombre || "").trim(),
+    idType: String(src.idType || src.tipoIdentificacion || "").trim(),
+    regime: src.regime || src.regimen || null,
+    situation: src.situation || src.situacion || null,
+    activities,
+    source: src.source || raw?.source || "hacienda",
+    fetchedAt: src.fetched_at || src.fetchedAt || raw?.fetched_at || new Date().toISOString()
+  };
+}
+function invoiceActivityOptions(activities, selectedCode = "") {
+  const rows = Array.isArray(activities) ? activities : [];
+  if (!rows.length) return `<option value="">Sin actividad disponible / no aplica</option>`;
+  return `<option value="">Selecciona la actividad</option>${rows.map(a => `<option value="${esc(a.code)}" ${String(a.code)===String(selectedCode)?"selected":""}>${esc(a.code ? `${a.code} · ${a.description}` : a.description)}</option>`).join("")}`;
+}
+function setInvoiceLookupStatus(message, kind = "") {
+  const box = $("#invoiceLookupStatus");
+  if (!box) return;
+  box.className = `invoice-lookup-status ${kind}`.trim();
+  box.textContent = message || "";
+  box.style.display = message ? "block" : "none";
+}
+function showInvoiceDetails(show = true) { const box = $("#invoiceCustomerDetails"); if (box) box.style.display = show ? "block" : "none"; }
+function applyInvoiceCustomerData(data, client = null) {
+  const normalized = normalizeTaxpayerPayload(data, $("#invoiceCustomerId")?.value || "");
+  const id = normalized.identification || normalizeFiscalId($("#invoiceCustomerId")?.value || "");
+  const activities = normalized.activities.length ? normalized.activities : clientFiscalActivities(client);
+  saleMeta.invoiceLookupActivities = activities;
+  if ($("#invoiceCustomerId")) $("#invoiceCustomerId").value = id;
+  if ($("#invoiceCustomerName")) $("#invoiceCustomerName").value = normalized.name || client?.fiscalName || client?.name || "";
+  if ($("#invoiceCustomerIdType")) $("#invoiceCustomerIdType").value = normalized.idType || client?.identificationType || "";
+  if ($("#invoiceCustomerIdTypeLabel")) $("#invoiceCustomerIdTypeLabel").textContent = fiscalIdLabel(normalized.idType || client?.identificationType || "");
+  if ($("#invoiceCustomerEmail")) $("#invoiceCustomerEmail").value = client?.fiscalEmail || client?.email || $("#invoiceCustomerEmail").value || "";
+  if ($("#invoiceCustomerPhone")) $("#invoiceCustomerPhone").value = client?.phone || $("#invoiceCustomerPhone").value || "";
+  const select = $("#invoiceCustomerActivity");
+  if (select) {
+    const selected = client?.economicActivityCode || saleMeta.invoiceCustomer?.activityCode || "";
+    select.innerHTML = invoiceActivityOptions(activities, selected);
+  }
+  showInvoiceDetails(true);
+  const localText = client ? " · cliente guardado" : "";
+  setInvoiceLookupStatus(`${normalized.name || client?.name || "Contribuyente encontrado"}${localText}`, "ok");
+}
+async function lookupInvoiceTaxpayer() {
+  const input = $("#invoiceCustomerId");
+  const id = normalizeFiscalId(input?.value || "");
+  if (input) input.value = id;
+  if (id.length < 9 || id.length > 12) return setInvoiceLookupStatus("Escribe una identificación de 9 a 12 dígitos.", "error");
+  const local = clientByFiscalId(id);
+  if (local && (local.fiscalName || local.identificationType || clientFiscalActivities(local).length)) {
+    applyInvoiceCustomerData({ identification:id, name:local.fiscalName || local.name, idType:local.identificationType, activities:clientFiscalActivities(local), source:"saved" }, local);
+    return;
+  }
+  if (!navigator.onLine) {
+    if (local) { applyInvoiceCustomerData({ identification:id, name:local.name, idType:local.identificationType, activities:clientFiscalActivities(local), source:"saved" }, local); return; }
+    setInvoiceLookupStatus("Sin Internet. Puedes ingresar los datos manualmente.", "error");
+    return;
+  }
+  setInvoiceLookupStatus("Consultando Hacienda…");
+  let payload = null;
+  try {
+    if (mpCloud?.functions && state.settings.cloudBusinessId) {
+      const { data, error } = await mpCloud.functions.invoke("hacienda-taxpayer-lookup", { body: { business_id: state.settings.cloudBusinessId, identificacion: id } });
+      if (error) throw error;
+      payload = data;
+    } else {
+      throw new Error("Sesión de nube no disponible");
+    }
+  } catch (edgeError) {
+    console.warn("Consulta Hacienda por Edge Function no disponible; intentando API pública.", edgeError);
+    try {
+      const response = await fetch(`https://api.hacienda.go.cr/fe/ae?identificacion=${encodeURIComponent(id)}`, { cache:"no-store" });
+      if (response.status === 404) throw new Error("Identificación no encontrada");
+      if (response.status === 429) throw new Error("Hacienda limitó temporalmente las consultas");
+      if (!response.ok) throw new Error(`Hacienda respondió ${response.status}`);
+      payload = await response.json();
+    } catch (directError) {
+      console.error(directError);
+      if (local) { applyInvoiceCustomerData({ identification:id, name:local.name, idType:local.identificationType, activities:clientFiscalActivities(local), source:"saved" }, local); return; }
+      setInvoiceLookupStatus("No se pudo consultar Hacienda. Ingresa los datos manualmente.", "error");
+      return;
+    }
+  }
+  const data = normalizeTaxpayerPayload(payload, id);
+  if (!data.name) { setInvoiceLookupStatus("Hacienda no devolvió datos para esta identificación. Puedes ingresarlos manualmente.", "error"); return; }
+  applyInvoiceCustomerData(data, local);
+}
+window.lookupInvoiceTaxpayer = lookupInvoiceTaxpayer;
+window.openInvoiceManualEntry = () => {
+  const id = normalizeFiscalId($("#invoiceCustomerId")?.value || "");
+  if ($("#invoiceCustomerId")) $("#invoiceCustomerId").value = id;
+  showInvoiceDetails(true);
+  const manual = $("#invoiceManualIdType"); if (manual) manual.style.display = "block";
+  setInvoiceLookupStatus("Ingreso manual activado. Completa los datos del receptor.");
+};
+window.setInvoiceManualIdType = value => {
+  if ($("#invoiceCustomerIdType")) $("#invoiceCustomerIdType").value = value;
+  if ($("#invoiceCustomerIdTypeLabel")) $("#invoiceCustomerIdTypeLabel").textContent = fiscalIdLabel(value);
+};
+function invoiceCustomerFromFields() {
+  const id = normalizeFiscalId($("#invoiceCustomerId")?.value || "");
+  const name = $("#invoiceCustomerName")?.value.trim() || "";
+  const idType = $("#invoiceCustomerIdType")?.value || "";
+  const email = $("#invoiceCustomerEmail")?.value.trim().toLowerCase() || "";
+  const phone = $("#invoiceCustomerPhone")?.value.trim() || "";
+  const activityCode = $("#invoiceCustomerActivity")?.value || "";
+  const activities = Array.isArray(saleMeta.invoiceLookupActivities) ? saleMeta.invoiceLookupActivities : [];
+  const activity = activities.find(a => String(a.code) === String(activityCode));
+  const activityName = activity?.description || (activityCode === saleMeta.invoiceCustomer?.activityCode ? saleMeta.invoiceCustomer?.activityName : "") || "";
+  return { name, idType, id, email, phone, activityCode, activityName, activities, lookedUpAt:new Date().toISOString() };
+}
+async function persistInvoiceCustomerClient(invoice) {
+  if (!invoice?.id || !invoice?.name) return null;
+  let client = clientByFiscalId(invoice.id);
+  const created = !client;
+  if (!client) {
+    client = { id:(crypto?.randomUUID?crypto.randomUUID():uid("c")), name:invoice.name, phone:invoice.phone || "", email:invoice.email || "", balance:0, active:true };
+    state.clients.push(client);
+  }
+  client.name = invoice.name || client.name;
+  client.phone = invoice.phone || client.phone || "";
+  client.email = invoice.email || client.email || "";
+  client.identificationType = invoice.idType || client.identificationType || "";
+  client.identificationNumber = normalizeFiscalId(invoice.id);
+  client.fiscalName = invoice.name || client.fiscalName || client.name;
+  client.economicActivityCode = invoice.activityCode || "";
+  client.economicActivityName = invoice.activityName || "";
+  client.fiscalActivities = Array.isArray(invoice.activities) ? invoice.activities : [];
+  client.fiscalEmail = invoice.email || client.fiscalEmail || "";
+  client.fiscalCheckedAt = invoice.lookedUpAt || new Date().toISOString();
+  client.cloudPending = true;
+  await put("clients", client);
+  cloudQueueAuditEvent(client, created ? "create" : "update", "client", null, { name:client.name, identificationNumber:client.identificationNumber });
+  try { await cloudSaveClientFromApp(client); await put("clients", client); } catch (error) { console.error(error); client.cloudPending = true; await put("clients", client); }
+  return client;
+}
 function checkoutDocumentHtml() {
   const pro = isProPlan();
   const enabled = pro && !!state.settings.fiscalUsesEInvoice;
   const selected = enabled && saleMeta.documentType === "electronic_invoice";
   const saved = saleMeta.invoiceCustomer || {};
   const client = saleMeta.clientId ? state.clients.find(c => c.id === saleMeta.clientId) : null;
-  const defaultName = saved.name || client?.name || saleMeta.sourceOrderCustomer || "";
-  return `<div class="checkout-document"><div class="row-head"><strong>Comprobante</strong><span class="pro-mini-pill">PRO</span></div><div class="checkout-document-options"><label class="doc-choice"><input type="radio" name="checkoutDocument" value="receipt" ${selected?"":"checked"} onchange="setCheckoutDocumentType('receipt')"><span>Recibo normal</span></label><label class="doc-choice ${pro?"":"locked"}"><input type="radio" name="checkoutDocument" value="electronic_invoice" ${selected?"checked":""} ${enabled?"":"disabled"} onchange="setCheckoutDocumentType('electronic_invoice')"><span>${pro?"Factura electrónica":"Factura electrónica · PRO 🔒"}</span></label></div>${enabled?`<div id="invoiceCheckoutFields" class="invoice-fields" style="display:${selected?"block":"none"}"><div class="field"><label>Nombre / razón social</label><input id="invoiceCustomerName" value="${esc(defaultName)}" autocomplete="name"></div><div class="field"><label>Tipo de identificación</label><select id="invoiceCustomerIdType"><option value="01" ${saved.idType==="01"||!saved.idType?"selected":""}>Cédula física</option><option value="02" ${saved.idType==="02"?"selected":""}>Cédula jurídica</option><option value="03" ${saved.idType==="03"?"selected":""}>DIMEX</option><option value="04" ${saved.idType==="04"?"selected":""}>NITE</option></select></div><div class="field"><label>Identificación</label><input id="invoiceCustomerId" inputmode="numeric" value="${esc(saved.id||"")}" placeholder="Sin guiones"></div><div class="field"><label>Correo para factura</label><input id="invoiceCustomerEmail" type="email" inputmode="email" value="${esc(saved.email||"")}" placeholder="cliente@correo.com"></div><div class="invoice-pending-note">La solicitud quedará guardada con la venta. Esta versión todavía no emite ni transmite una factura oficial a Hacienda.</div></div>`:(pro?`<div class="invoice-pending-note">Factura electrónica está incluida en Pro, pero primero debes activarla y completar los datos fiscales del negocio. <button class="linkish" type="button" onclick="closeModal();go('fiscal')">Configurar</button></div>`:`<div class="invoice-pending-note">Factura electrónica está disponible con PUNTO YA CR Pro. El recibo normal sigue disponible en Gratis. <button class="linkish" type="button" onclick="closeModal();openProPlans()">Conocer Pro</button></div>`)}</div>`;
+  const savedId = normalizeFiscalId(saved.id || client?.identificationNumber || "");
+  const defaultName = saved.name || client?.fiscalName || client?.name || saleMeta.sourceOrderCustomer || "";
+  const activities = (Array.isArray(saved.activities) && saved.activities.length) ? saved.activities : clientFiscalActivities(client);
+  if (activities.length && !saleMeta.invoiceLookupActivities?.length) saleMeta.invoiceLookupActivities = activities;
+  const detailsVisible = !!(defaultName || savedId);
+  const selectedActivity = saved.activityCode || client?.economicActivityCode || "";
+  return `<div class="checkout-document"><div class="row-head"><strong>Comprobante</strong><span class="pro-mini-pill">PRO</span></div><div class="checkout-document-options"><label class="doc-choice"><input type="radio" name="checkoutDocument" value="receipt" ${selected?"":"checked"} onchange="setCheckoutDocumentType('receipt')"><span>Recibo normal</span></label><label class="doc-choice ${pro?"":"locked"}"><input type="radio" name="checkoutDocument" value="electronic_invoice" ${selected?"checked":""} ${enabled?"":"disabled"} onchange="setCheckoutDocumentType('electronic_invoice')"><span>${pro?"Factura electrónica":"Factura electrónica · PRO 🔒"}</span></label></div>${enabled?`<div id="invoiceCheckoutFields" class="invoice-fields" style="display:${selected?"block":"none"}"><div class="field"><label>Cédula / identificación del cliente</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input id="invoiceCustomerId" inputmode="numeric" value="${esc(savedId)}" placeholder="Escribe la identificación" onkeydown="if(event.key==='Enter'){event.preventDefault();lookupInvoiceTaxpayer()}"><button class="btn primary" type="button" onclick="lookupInvoiceTaxpayer()">Buscar</button></div><small class="muted">PUNTO YA CR busca primero clientes guardados y después consulta Hacienda.</small></div><div id="invoiceLookupStatus" class="invoice-lookup-status" style="display:none"></div><div id="invoiceCustomerDetails" style="display:${detailsVisible?"block":"none"}"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end"><div class="field"><label>Nombre / razón social</label><input id="invoiceCustomerName" value="${esc(defaultName)}" autocomplete="name"></div><div style="padding-bottom:14px"><small class="muted">Tipo</small><div id="invoiceCustomerIdTypeLabel" style="font-weight:900;margin-top:4px">${esc(fiscalIdLabel(saved.idType || client?.identificationType || ""))}</div></div></div><input id="invoiceCustomerIdType" type="hidden" value="${esc(saved.idType || client?.identificationType || "")}"><div id="invoiceManualIdType" class="field" style="display:none"><label>Tipo de identificación (solo ingreso manual)</label><select onchange="setInvoiceManualIdType(this.value)"><option value="01">Cédula física</option><option value="02">Cédula jurídica</option><option value="03">DIMEX</option><option value="04">NITE</option></select></div><div class="field"><label>Actividad económica</label><select id="invoiceCustomerActivity">${invoiceActivityOptions(activities, selectedActivity)}</select><small class="muted">Si Hacienda reporta varias actividades, selecciona la que corresponde a esta factura.</small></div><div class="form-grid"><div class="field"><label>Correo</label><input id="invoiceCustomerEmail" type="email" inputmode="email" value="${esc(saved.email || client?.fiscalEmail || client?.email || "")}" placeholder="cliente@correo.com"></div><div class="field"><label>Teléfono (opcional)</label><input id="invoiceCustomerPhone" value="${esc(saved.phone || client?.phone || "")}" inputmode="tel"></div></div><div class="toolbar"><button class="btn ghost" type="button" onclick="previewInvoiceBeforeSale()">Vista previa</button></div></div><div class="toolbar" style="margin-top:8px"><button class="btn ghost" type="button" onclick="openInvoiceManualEntry()">Ingresar datos manualmente</button></div><div class="invoice-pending-note">Los datos del receptor se guardarán para próximas compras. La emisión oficial seguirá marcada como pendiente hasta que el XML 4.4 sea firmado, enviado y aceptado por Hacienda.</div></div>`:(pro?`<div class="invoice-pending-note">Factura electrónica está incluida en Pro, pero primero debes activarla y completar los datos fiscales del negocio. <button class="linkish" type="button" onclick="closeModal();go('fiscal')">Configurar</button></div>`:`<div class="invoice-pending-note">Factura electrónica está disponible con PUNTO YA CR Pro. El recibo normal sigue disponible en Gratis. <button class="linkish" type="button" onclick="closeModal();openProPlans()">Conocer Pro</button></div>`)}</div>`;
 }
 window.setCheckoutDocumentType = kind => {
   if (kind === "electronic_invoice") {
@@ -4600,14 +4822,13 @@ function readCheckoutDocument() {
   const selected = document.querySelector('input[name="checkoutDocument"]:checked')?.value || saleMeta.documentType || "receipt";
   if (selected !== "electronic_invoice") { saleMeta.documentType = "receipt"; saleMeta.invoiceCustomer = null; return true; }
   if (!state.settings.fiscalUsesEInvoice) { toast("Primero completa la configuración de Factura electrónica Pro."); return false; }
-  const name = $("#invoiceCustomerName")?.value.trim() || "";
-  const idType = $("#invoiceCustomerIdType")?.value || "01";
-  const id = $("#invoiceCustomerId")?.value.trim() || "";
-  const email = $("#invoiceCustomerEmail")?.value.trim().toLowerCase() || "";
-  if (!name || !id || !email) { toast("Completa nombre, identificación y correo para la factura."); return false; }
-  if (!email.includes("@")) { toast("Revisa el correo de la factura."); return false; }
+  const invoice = invoiceCustomerFromFields();
+  if (!invoice.id || invoice.id.length < 9 || invoice.id.length > 12) { toast("Revisa la identificación del cliente."); return false; }
+  if (!invoice.name) { toast("Busca la identificación o escribe el nombre / razón social."); return false; }
+  if (invoice.email && !invoice.email.includes("@")) { toast("Revisa el correo de la factura."); return false; }
+  if (invoice.activities.length && !invoice.activityCode) { toast("Selecciona la actividad económica que corresponde a esta factura."); return false; }
   saleMeta.documentType = "electronic_invoice";
-  saleMeta.invoiceCustomer = { name, idType, id, email };
+  saleMeta.invoiceCustomer = invoice;
   return true;
 }
 window.pay = method => {
@@ -4661,13 +4882,18 @@ window.saveClientForCredit = async () => {
 };
 
 async function saveSale(method, reference = "", clientId = "", received = null) {
+  if (saleMeta.documentType === "electronic_invoice" && saleMeta.invoiceCustomer) {
+    const invoiceClient = await persistInvoiceCustomerClient(saleMeta.invoiceCustomer);
+    if (invoiceClient) { clientId = invoiceClient.id; saleMeta.clientId = invoiceClient.id; }
+  }
   const t = currentSaleTotals();
   const afterItems=Math.max(0,Number(t.afterItems||0));
   const savedItems=cart.map(i=>{
     const gross=itemGross(i), itemDisc=itemDiscountAmount(i), afterItem=Math.max(0,gross-itemDisc);
     const saleDiscShare=afterItems>0?Number(t.saleDiscount||0)*(afterItem/afterItems):0;
     const netTotal=Math.max(0,afterItem-saleDiscShare);
-    return { id:i.id,name:i.name,variant:i.variant||"",price:Number(i.price||0),originalPrice:Number(i.price||0),cost:Number(i.cost||0),qty:Number(i.qty||0),discountType:i.discountType||"",discountValue:Number(i.discountValue||0),itemDiscount:Number(itemDisc||0),saleDiscountShare:Number(saleDiscShare||0),netTotal,serviceReference:i.serviceReference||"",serviceAmount:Number(i.serviceAmount||0),serviceFee:Number(i.serviceFee||0),cabys:i.cabys||"",fiscalTaxRate:Number(i.fiscalTaxRate||0) };
+    const fiscalLine=fiscalLineAmounts(i,netTotal,state.settings.fiscalPricesIncludeTax!==false);
+    return { id:i.id,name:i.name,variant:i.variant||"",price:Number(i.price||0),originalPrice:Number(i.price||0),cost:Number(i.cost||0),qty:Number(i.qty||0),discountType:i.discountType||"",discountValue:Number(i.discountValue||0),itemDiscount:Number(itemDisc||0),saleDiscountShare:Number(saleDiscShare||0),netTotal,serviceReference:i.serviceReference||"",serviceAmount:Number(i.serviceAmount||0),serviceFee:Number(i.serviceFee||0),cabys:i.cabys||"",fiscalTaxRate:Number(fiscalLine.rate||0),fiscalSubtotalBeforeTax:Number(fiscalLine.base||0),fiscalTaxAmount:Number(fiscalLine.tax||0),fiscalLineTotal:Number(fiscalLine.total||0) };
   });
   const sale = {
     id: uid("sale"),
@@ -4684,8 +4910,10 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
     discountTotal: Number(t.discountTotal||0),
     subtotal: t.subtotal,
     tax: t.tax,
-    taxMode: state.settings.taxMode,
-    taxRate: Number(state.settings.taxRate || 0),
+    taxMode: state.settings.fiscalUsesEInvoice && isProPlan() ? (state.settings.fiscalPricesIncludeTax!==false ? "included" : "added") : state.settings.taxMode,
+    taxRate: Number((state.settings.fiscalUsesEInvoice && isProPlan()) ? (state.settings.fiscalDefaultTaxRate ?? state.settings.taxRate ?? 0) : (state.settings.taxRate || 0)),
+    fiscalPricesIncludeTax: state.settings.fiscalPricesIncludeTax!==false,
+    fiscalPricingVersion: state.settings.fiscalUsesEInvoice && isProPlan() ? 1 : 0,
     total: t.total,
     method,
     reference,
@@ -4705,7 +4933,10 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
     deliveryAddress: saleMeta.sourceOrderAddress || "",
     documentType: saleMeta.documentType || "receipt",
     electronicInvoiceRequested: saleMeta.documentType === "electronic_invoice",
-    electronicInvoiceStatus: saleMeta.documentType === "electronic_invoice" ? "pending_integration" : "",
+    electronicInvoiceStatus: saleMeta.documentType === "electronic_invoice" ? "pending_emission" : "",
+    fiscalClave: "",
+    fiscalConsecutivo: "",
+    fiscalResponseAt: "",
     invoiceCustomer: saleMeta.documentType === "electronic_invoice" ? { ...(saleMeta.invoiceCustomer || {}) } : null,
     exchangeCredit: Number(t.exchangeCreditApplied||0),
     exchangeSourceSaleId: saleMeta.exchangeSourceSaleId||"",
@@ -4787,30 +5018,84 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
 /* =========================
    COMPROBANTE / PDF
 ========================= */
+function isElectronicSale(sale) { return !!(sale?.electronicInvoiceRequested || sale?.documentType === "electronic_invoice"); }
+function electronicStatusLabel(sale) {
+  const status = String(sale?.electronicInvoiceStatus || "").toLowerCase();
+  if (["accepted","aceptado"].includes(status)) return "Aceptado por Hacienda";
+  if (["rejected","rechazado"].includes(status)) return "Rechazado por Hacienda";
+  if (["sent","submitted","processing","pending_response"].includes(status)) return "Enviado · pendiente de respuesta";
+  return "Pendiente de emisión oficial";
+}
 function receiptTypeLabel(sale) {
-  if (sale.electronicInvoiceRequested || sale.documentType === "electronic_invoice") return "SOLICITUD DE FACTURA ELECTRÓNICA";
+  if (isElectronicSale(sale)) {
+    const official = ["accepted","aceptado","sent","submitted","processing","pending_response"].includes(String(sale.electronicInvoiceStatus || "").toLowerCase());
+    return official ? "FACTURA ELECTRÓNICA" : "SOLICITUD DE FACTURA ELECTRÓNICA";
+  }
   if (sale.businessType === "food") return "COMPROBANTE DE COMIDA";
   if (sale.businessType === "services") return "COMPROBANTE DE SERVICIO";
   return "COMPROBANTE DE VENTA";
 }
 function invoiceRequestTicketHtml(sale) {
-  if (!(sale.electronicInvoiceRequested || sale.documentType === "electronic_invoice")) return "";
+  if (!isElectronicSale(sale)) return "";
   const x = sale.invoiceCustomer || {};
-  const idLabels = { "01":"Cédula física", "02":"Cédula jurídica", "03":"DIMEX", "04":"NITE" };
-  return `<div class="panel" style="box-shadow:none;margin:10px 0;background:#f3fbf8;border:1px solid #b9ddd3"><strong>🧾 Factura electrónica solicitada</strong><div class="muted" style="margin-top:5px">Pendiente de integración con Hacienda · todavía no es una factura electrónica oficial emitida.</div>${x.name?`<div class="ticket-line" style="margin-top:8px"><span>Razón social</span><strong>${esc(x.name)}</strong></div>`:""}${x.id?`<div class="ticket-line"><span>${esc(idLabels[x.idType]||"Identificación")}</span><strong>${esc(x.id)}</strong></div>`:""}${x.email?`<div class="ticket-line"><span>Correo</span><strong>${esc(x.email)}</strong></div>`:""}</div>`;
+  return `<div class="panel" style="box-shadow:none;margin:10px 0;background:#f3fbf8;border:1px solid #b9ddd3"><strong>🧾 ${esc(receiptTypeLabel(sale))}</strong><div class="muted" style="margin-top:5px">${esc(electronicStatusLabel(sale))}</div>${sale.fiscalConsecutivo?`<div class="ticket-line" style="margin-top:8px"><span>Consecutivo</span><strong>${esc(sale.fiscalConsecutivo)}</strong></div>`:""}${sale.fiscalClave?`<div class="ticket-line"><span>Clave</span><strong style="font-size:11px;word-break:break-all">${esc(sale.fiscalClave)}</strong></div>`:""}${x.name?`<div class="ticket-line"><span>Receptor</span><strong>${esc(x.name)}</strong></div>`:""}${x.id?`<div class="ticket-line"><span>${esc(fiscalIdLabel(x.idType))}</span><strong>${esc(x.id)}</strong></div>`:""}${x.activityCode||x.activityName?`<div class="ticket-line"><span>Actividad</span><strong>${esc([x.activityCode,x.activityName].filter(Boolean).join(" · "))}</strong></div>`:""}${x.email?`<div class="ticket-line"><span>Correo</span><strong>${esc(x.email)}</strong></div>`:""}</div>`;
 }
-function invoiceRequestPrintHtml(sale) {
-  if (!(sale.electronicInvoiceRequested || sale.documentType === "electronic_invoice")) return "";
+function invoiceRequestPrintHtml(sale) { return ""; }
+function invoiceRequestPdfHtml(sale) { return ""; }
+function invoiceDocumentStatusNote(sale) {
+  if (!isElectronicSale(sale)) return "";
+  const status = electronicStatusLabel(sale);
+  const pending = status === "Pendiente de emisión oficial";
+  return `<div class="invoice-status ${pending?"pending":""}"><strong>${esc(status)}</strong>${pending?`<span>Este documento todavía no sustituye el XML firmado y aceptado por Hacienda.</span>`:""}</div>`;
+}
+function unifiedInvoiceItemsHtml(sale) {
+  return (sale.items || []).map((i, index) => {
+    const qty = Number(i.qty || 0), unit = Number(i.price || 0), discount = Number(i.itemDiscount||0)+Number(i.saleDiscountShare||0);
+    const net = sale.businessType === "products" ? saleItemNetTotal(i) : unit * qty;
+    const taxRate = Number(i.fiscalTaxRate ?? sale.taxRate ?? state.settings.fiscalDefaultTaxRate ?? 0);
+    const pricingIncluded = sale.fiscalPricesIncludeTax !== false;
+    const calculated = fiscalLineAmounts(i, net, pricingIncluded);
+    const total = Number(i.fiscalLineTotal ?? calculated.total);
+    return `<div class="invoice-item"><div class="invoice-item-main"><span class="invoice-index">${index+1}</span><div><strong>${esc(i.name)}</strong>${i.variant?`<small>${esc(i.variant)}</small>`:""}${i.cabys?`<small>CAByS ${esc(i.cabys)}</small>`:""}</div></div><div class="invoice-item-values"><span><small>Cant.</small><strong>${qty}</strong></span><span><small>P. unit.</small><strong>${money(unit)}</strong></span><span><small>Desc.</small><strong>${money(discount)}</strong></span><span><small>IVA</small><strong>${taxRate}%</strong></span><span><small>Total</small><strong>${money(total)}</strong></span></div></div>`;
+  }).join("");
+}
+function unifiedInvoiceHtml(sale, { preview = false } = {}) {
   const x = sale.invoiceCustomer || {};
-  const idLabels = { "01":"Cédula física", "02":"Cédula jurídica", "03":"DIMEX", "04":"NITE" };
-  return `<hr><div class="center"><strong>SOLICITUD DE FACTURA ELECTRÓNICA</strong><br><small>Pendiente de integración con Hacienda. No corresponde todavía a una factura oficial emitida.</small></div>${x.name?`<div class="line"><span>Razón social</span><strong>${esc(x.name)}</strong></div>`:""}${x.id?`<div class="line"><span>${esc(idLabels[x.idType]||"Identificación")}</span><strong>${esc(x.id)}</strong></div>`:""}${x.email?`<div class="line"><span>Correo</span><strong>${esc(x.email)}</strong></div>`:""}`;
+  const client = sale.clientId ? state.clients.find(c => c.id === sale.clientId) : null;
+  const logo = state.settings.businessLogoDataUrl || BRAND.horizontal;
+  const emitterName = state.settings.fiscalLegalName || state.settings.businessName || "PUNTO YA CR";
+  const emitterId = state.settings.fiscalId || "";
+  const emitterActivity = [state.settings.fiscalEconomicActivityCode,state.settings.fiscalEconomicActivityName].filter(Boolean).join(" · ");
+  const emitterAddress = [state.settings.fiscalProvince,state.settings.fiscalCanton,state.settings.fiscalDistrict].filter(Boolean).join(", ");
+  const subtotalBeforeTax = sale.fiscalPricingVersion ? Math.max(0,Number(sale.subtotal||0)) : Math.max(0, Number(sale.total||0) - Number(sale.tax||0));
+  return `<div class="invoice-doc"><div class="invoice-header"><div class="invoice-brand"><img src="${esc(logo)}" alt="Logo"><div><h1>${esc(state.settings.businessName || "PUNTO YA CR")}</h1>${emitterName!==state.settings.businessName?`<div>${esc(emitterName)}</div>`:""}${emitterId?`<small>Identificación: ${esc(emitterId)}</small>`:""}${emitterActivity?`<small>Actividad: ${esc(emitterActivity)}</small>`:""}${state.settings.phone?`<small>Tel: ${esc(state.settings.phone)}</small>`:""}${state.settings.fiscalEmail||state.settings.email?`<small>Correo: ${esc(state.settings.fiscalEmail||state.settings.email)}</small>`:""}${emitterAddress?`<small>${esc(emitterAddress)}</small>`:""}</div></div><div class="invoice-docmeta"><h2>${esc(receiptTypeLabel(sale))}</h2><span>${preview?"VISTA PREVIA":`Comprobante #${esc(sale.number)}`}</span><span>${esc(dateTime(sale.createdAt || new Date()))}</span>${sale.fiscalConsecutivo?`<span><b>Consecutivo:</b> ${esc(sale.fiscalConsecutivo)}</span>`:""}${sale.fiscalClave?`<span class="invoice-key"><b>Clave:</b> ${esc(sale.fiscalClave)}</span>`:""}</div></div><section class="invoice-section"><h3>DATOS DEL CLIENTE</h3><div class="invoice-two"><div><b>${esc(x.name || client?.name || "Cliente")}</b><span>${esc(fiscalIdLabel(x.idType))}: ${esc(x.id || client?.identificationNumber || "—")}</span>${x.activityCode||x.activityName?`<span>Actividad: ${esc([x.activityCode,x.activityName].filter(Boolean).join(" · "))}</span>`:""}</div><div>${x.email?`<span>Correo: ${esc(x.email)}</span>`:""}${x.phone||client?.phone?`<span>Teléfono: ${esc(x.phone||client?.phone)}</span>`:""}<span>Condición: ${sale.method==="Crédito"?"Crédito":"Contado"}</span></div></div></section><section class="invoice-section"><h3>DETALLE</h3><div class="invoice-items">${unifiedInvoiceItemsHtml(sale)}</div></section><section class="invoice-summary"><div class="invoice-payment"><span><b>Medio de pago:</b> ${esc(sale.method || "Pendiente")}</span>${sale.reference?`<span><b>Referencia:</b> ${esc(sale.reference)}</span>`:""}${sale.employeeName?`<span><b>Atendió:</b> ${esc(sale.employeeName)}${sale.employeeCode?` · CR${esc(sale.employeeCode)}`:""}</span>`:""}</div><div class="invoice-totals"><div><span>Subtotal neto</span><b>${money(subtotalBeforeTax)}</b></div>${Number(sale.discountTotal||0)>0?`<div class="discount-info"><span>Descuentos aplicados</span><b>${money(sale.discountTotal)}</b></div>`:""}<div><span>Impuestos</span><b>${money(sale.tax||0)}</b></div><div class="grand"><span>TOTAL</span><b>${money(sale.total||0)}</b></div></div></section>${invoiceDocumentStatusNote(sale)}<footer>Representación gráfica generada por PUNTO YA CR${preview?" · Vista previa":""}.</footer></div>`;
 }
-function invoiceRequestPdfHtml(sale) {
-  if (!(sale.electronicInvoiceRequested || sale.documentType === "electronic_invoice")) return "";
-  const x = sale.invoiceCustomer || {};
-  const idLabels = { "01":"Cédula física", "02":"Cédula jurídica", "03":"DIMEX", "04":"NITE" };
-  return `<div style="margin-top:14px;padding:12px;background:#f3fbf8;border:1px solid #b9ddd3;border-radius:12px;font-size:11px;line-height:1.5"><strong style="color:#065F5E">SOLICITUD DE FACTURA ELECTRÓNICA</strong><div style="color:#536B79;margin-top:4px">Pendiente de integración con Hacienda. Este comprobante no es todavía una factura electrónica oficial emitida.</div>${x.name?`<div style="margin-top:7px"><span style="color:#536B79">Razón social: </span><strong>${esc(x.name)}</strong></div>`:""}${x.id?`<div><span style="color:#536B79">${esc(idLabels[x.idType]||"Identificación")}: </span><strong>${esc(x.id)}</strong></div>`:""}${x.email?`<div><span style="color:#536B79">Correo: </span><strong>${esc(x.email)}</strong></div>`:""}</div>`;
+function unifiedInvoiceCss() {
+  return `.invoice-doc{box-sizing:border-box;background:#fff;color:#162B38;font-family:Arial,sans-serif;padding:28px}.invoice-header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #162B38;padding-bottom:18px}.invoice-brand{display:flex;gap:14px;align-items:flex-start;min-width:0}.invoice-brand img{width:150px;max-height:70px;object-fit:contain;object-position:left top}.invoice-brand h1{font-size:22px;margin:0 0 5px}.invoice-brand small,.invoice-brand div>div{display:block;color:#536B79;font-size:11px;line-height:1.45}.invoice-docmeta{text-align:right;max-width:48%}.invoice-docmeta h2{font-size:19px;margin:0 0 7px;color:#065F5E}.invoice-docmeta span{display:block;font-size:10px;line-height:1.45}.invoice-key{word-break:break-all}.invoice-section{margin-top:18px}.invoice-section h3{font-size:10px;letter-spacing:.08em;margin:0 0 9px;color:#536B79}.invoice-two{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:12px;background:#f5f8f7;border-radius:10px;font-size:11px}.invoice-two span,.invoice-two b{display:block;margin:2px 0}.invoice-items{border-top:1px solid #dfe7e4}.invoice-item{padding:10px 0;border-bottom:1px solid #dfe7e4}.invoice-item-main{display:grid;grid-template-columns:24px 1fr;gap:8px}.invoice-item-main strong{font-size:12px}.invoice-item-main small{display:block;color:#536B79;font-size:9px;margin-top:2px}.invoice-index{font-size:10px;color:#536B79}.invoice-item-values{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:7px 0 0 32px}.invoice-item-values span{display:block}.invoice-item-values small{display:block;color:#536B79;font-size:8px}.invoice-item-values strong{display:block;font-size:10px;margin-top:2px}.invoice-summary{display:grid;grid-template-columns:1fr minmax(220px,42%);gap:20px;margin-top:18px}.invoice-payment{font-size:10px}.invoice-payment span{display:block;margin:4px 0}.invoice-totals>div{display:flex;justify-content:space-between;gap:14px;padding:5px 0;font-size:11px}.invoice-totals .grand{border-top:2px solid #162B38;margin-top:5px;padding-top:10px;font-size:16px;color:#065F5E}.invoice-status{margin-top:18px;padding:10px 12px;background:#eefaf6;border:1px solid #cfe8e1;border-radius:10px;font-size:10px}.invoice-status span{display:block;color:#536B79;margin-top:4px}.invoice-status.pending{background:#fffbed;border-color:#e7dfbd}footer{text-align:center;color:#536B79;font-size:9px;border-top:1px solid #dfe7e4;margin-top:22px;padding-top:12px}@media(max-width:520px){.invoice-doc{padding:12px}.invoice-header{display:block}.invoice-brand{display:block}.invoice-brand img{width:125px;margin-bottom:8px}.invoice-docmeta{text-align:left;max-width:none;margin-top:12px}.invoice-two{grid-template-columns:1fr;gap:7px}.invoice-item-values{grid-template-columns:repeat(2,1fr);margin-left:32px}.invoice-summary{grid-template-columns:1fr}.invoice-totals{margin-top:8px}}`;
 }
+function buildElectronicInvoiceElement(sale, { preview=false, width=794 } = {}) {
+  const el = document.createElement("div");
+  el.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;background:#fff;z-index:-1`;
+  el.innerHTML = `<style>${unifiedInvoiceCss()}</style>${unifiedInvoiceHtml(sale,{preview})}`;
+  document.body.appendChild(el);
+  return el;
+}
+function draftInvoiceSale() {
+  const t = currentSaleTotals();
+  const invoice = invoiceCustomerFromFields();
+  const afterItems=Math.max(0,Number(t.afterItems||0));
+  const previewItems=cart.map(i=>{const gross=itemGross(i),itemDisc=itemDiscountAmount(i),afterItem=Math.max(0,gross-itemDisc),saleDiscShare=afterItems>0?Number(t.saleDiscount||0)*(afterItem/afterItems):0,netTotal=Math.max(0,afterItem-saleDiscShare),fiscalLine=fiscalLineAmounts(i,netTotal,state.settings.fiscalPricesIncludeTax!==false);return {...i,itemDiscount:itemDisc,saleDiscountShare,netTotal,fiscalSubtotalBeforeTax:fiscalLine.base,fiscalTaxAmount:fiscalLine.tax,fiscalLineTotal:fiscalLine.total};});
+  return { id:"preview", number:"PREVIA", createdAt:new Date().toISOString(), businessType:type(), items:previewItems, subtotal:t.subtotal, discountTotal:t.discountTotal, tax:t.tax, taxMode:state.settings.fiscalPricesIncludeTax!==false?"included":"added", taxRate:Number(state.settings.taxRate||0), fiscalPricesIncludeTax:state.settings.fiscalPricesIncludeTax!==false, fiscalPricingVersion:1, total:t.total, method:"Pendiente", change:0, invoiceCustomer:invoice, documentType:"electronic_invoice", electronicInvoiceRequested:true, electronicInvoiceStatus:"pending_emission", employeeName:role==="employee"?(state.settings.memberDisplayName||"Empleado"):(state.settings.ownerName||"Dueño"), employeeCode:role==="employee"?Number(state.settings.employeeCode||0):null };
+}
+window.previewInvoiceBeforeSale = () => {
+  const invoice = invoiceCustomerFromFields();
+  if (!invoice.id || !invoice.name) return toast("Busca o completa primero los datos del cliente.");
+  const sale = draftInvoiceSale();
+  const w = window.open("", "_blank", "width=900,height=900");
+  if (!w) return toast("Permite ventanas emergentes para abrir la vista previa.");
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Vista previa · Factura</title><style>body{margin:0;background:#eef2f1;padding:24px}.wrap{max-width:794px;margin:auto;box-shadow:0 10px 35px rgba(0,0,0,.08)}${unifiedInvoiceCss()}</style></head><body><div class="wrap">${unifiedInvoiceHtml(sale,{preview:true})}</div></body></html>`);
+  w.document.close();
+};
 function returnedQtyForSaleItem(sale,index){return saleReturnEntries(sale).reduce((sum,r)=>sum+(r.items||[]).filter(x=>Number(x.saleItemIndex)===Number(index)).reduce((a,x)=>a+Number(x.qty||0),0),0);}
 function returnTotalsForSale(sale,base){
   const subtotal=Math.max(0,Number(base||0)),rate=Number(sale.taxRate||0),mode=sale.taxMode||"exempt";
@@ -4883,14 +5168,31 @@ async function createReceiptPdf(sale) {
     return pdf.output("blob");
   } finally { receipt.remove(); }
 }
+async function createElectronicInvoicePdf(sale) {
+  await ensurePdfLibraries();
+  const el = buildElectronicInvoiceElement(sale, { width:794 });
+  try {
+    await waitForElementImages(el);
+    const canvas = await window.html2canvas(el, { scale:2, backgroundColor:"#ffffff", useCORS:true, logging:false });
+    const img = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const pageW=190, pageH=277, imgH=pageW*canvas.height/canvas.width;
+    let offset=0, page=0;
+    while (offset < imgH) { if (page>0) pdf.addPage(); pdf.addImage(img,"PNG",10,10-offset,pageW,imgH,undefined,"FAST"); offset += pageH; page++; }
+    return pdf.output("blob");
+  } finally { el.remove(); }
+}
 window.sharePdf = async id => {
   const sale = state.sales.find(x => x.id === id); if (!sale) return;
   try {
-    toast("Generando comprobante...");
-    const blob = await createReceiptPdf(sale);
-    const file = new File([blob], `comprobante-${sale.number}.pdf`, { type: "application/pdf" });
-    if (navigator.share && navigator.canShare?.({ files: [file] })) return navigator.share({ title: `Comprobante #${sale.number}`, text: `${state.settings.businessName} · Comprobante #${sale.number}`, files: [file] });
-    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000); toast("PDF generado.");
+    toast(isElectronicSale(sale) ? "Generando factura..." : "Generando comprobante...");
+    const electronic = isElectronicSale(sale);
+    const blob = electronic ? await createElectronicInvoicePdf(sale) : await createReceiptPdf(sale);
+    const filename = electronic ? `factura-${sale.number}.pdf` : `comprobante-${sale.number}.pdf`;
+    const file = new File([blob], filename, { type:"application/pdf" });
+    if (navigator.share && navigator.canShare?.({files:[file]})) return navigator.share({ title:electronic?`Factura #${sale.number}`:`Comprobante #${sale.number}`, text:`${state.settings.businessName} · ${electronic?"Factura":"Comprobante"} #${sale.number}`, files:[file] });
+    const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),5000); toast("PDF generado.");
   } catch (e) { console.error(e); toast("No se pudo generar el PDF. Necesitas conexión la primera vez."); }
 };
 
@@ -6093,7 +6395,14 @@ function printSimpleDocument(title, bodyHtml){
   const w=window.open("","_blank","width=520,height=760");if(!w)return toast("Permite ventanas emergentes para imprimir.");
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:80mm auto;margin:4mm}body{font-family:Arial,sans-serif;width:72mm;margin:0 auto;color:#111;font-size:12px}.center{text-align:center}.line{display:flex;justify-content:space-between;gap:10px;padding:4px 0}.total{font-size:16px;font-weight:700}h1{font-size:18px;text-align:center;margin:0 0 4px}h2{font-size:14px;text-align:center;margin:0 0 12px}hr{border:0;border-top:1px dashed #888;margin:10px 0}</style></head><body><h1>${esc(state.settings.businessName)}</h1><h2>${title}</h2>${bodyHtml}<hr><p class="center" style="font-size:10px;color:#555">PUNTO YA CR · Tu negocio, más simple</p><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script></body></html>`);w.document.close();
 }
-window.printReceipt=id=>{const sale=state.sales.find(x=>x.id===id);if(!sale)return;const client=sale.clientId?state.clients.find(x=>x.id===sale.clientId):null;const body=`${sale.voided?`<div class="center" style="font-size:16px;font-weight:700;color:#9f2f26">ANULADO</div><hr>`:""}<div class="center"><strong>${esc(receiptTypeLabel(sale))}</strong><br>Comprobante #${sale.number}<br>${dateTime(sale.createdAt)}</div>${invoiceRequestPrintHtml(sale)}<hr>${sale.orderType?`<div class="line"><span>Pedido</span><strong>${esc(sale.orderType)}${sale.table?` · Mesa ${esc(sale.table)}`:""}</strong></div>`:""}${client?`<div class="line"><span>Cliente</span><strong>${esc(client.name)}</strong></div>`:""}${sale.items.map(i=>`<div class="line"><span>${i.qty} × ${esc(i.name)}${i.variant?` · ${esc(i.variant)}`:""}</span><strong>${money(sale.businessType==="products"?saleItemNetTotal(i):Number(i.price||0)*Number(i.qty||0))}</strong></div>`).join("")}${Number(sale.expressFee||0)>0?`<div class="line"><span>Express</span><strong>${money(sale.expressFee)}</strong></div>`:""}${Number(sale.discountTotal||0)>0?`<div class="line"><span>Descuentos</span><strong>−${money(sale.discountTotal)}</strong></div>`:""}${Number(sale.exchangeCredit||0)>0?`<div class="line"><span>Crédito por cambio #${esc(sale.exchangeSourceSaleNumber||"")}</span><strong>−${money(sale.exchangeCredit)}</strong></div>`:""}<hr>${sale.tax>0?`<div class="line"><span>Impuesto</span><strong>${money(sale.tax)}</strong></div>`:""}<div class="line total"><span>TOTAL</span><strong>${money(sale.total)}</strong></div><div class="line"><span>Pago</span><strong>${esc(sale.method)}</strong></div>${sale.change>0?`<div class="line"><span>Vuelto</span><strong>${money(sale.change)}</strong></div>`:""}${sale.voidReason?`<hr><div>Motivo anulación: ${esc(sale.voidReason)}</div>`:""}<hr><p class="center">Gracias por su compra</p>`;printSimpleDocument(`Comprobante #${sale.number}${sale.voided?" · ANULADO":""}`,body);};
+function printUnifiedElectronicInvoice(sale) {
+  const mm=String(state.settings.printerWidth||"80")==="58"?58:80;
+  const bodyMm=mm===58?54:76;
+  const logoMm=mm===58?28:34;
+  const w=window.open("","_blank","width=520,height=760"); if(!w)return toast("Permite ventanas emergentes para imprimir.");
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(receiptTypeLabel(sale))} #${esc(sale.number)}</title><style>@page{size:${mm}mm auto;margin:2mm}html,body{margin:0;padding:0;background:#fff}body{width:${bodyMm}mm;margin:0 auto}${unifiedInvoiceCss()} .invoice-doc{padding:${mm===58?5:8}px!important}.invoice-brand img{width:${logoMm}mm!important}.invoice-header{display:block!important}.invoice-docmeta{text-align:left!important;max-width:none!important;margin-top:8px}.invoice-two{grid-template-columns:1fr!important;gap:5px!important}.invoice-item-values{grid-template-columns:${mm===58?"1fr 1fr":"repeat(2,1fr)"}!important;margin-left:${mm===58?0:24}px!important}.invoice-summary{grid-template-columns:1fr!important;gap:6px!important}.invoice-brand{display:block!important}.invoice-brand h1{font-size:${mm===58?16:18}px!important}.invoice-docmeta h2{font-size:${mm===58?14:16}px!important}.invoice-item-values strong{font-size:${mm===58?9:10}px!important}.invoice-totals .grand{font-size:${mm===58?14:16}px!important}</style></head><body>${unifiedInvoiceHtml(sale)}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),700)}<\/script></body></html>`); w.document.close();
+}
+window.printReceipt=id=>{const sale=state.sales.find(x=>x.id===id);if(!sale)return;if(isElectronicSale(sale))return printUnifiedElectronicInvoice(sale);const client=sale.clientId?state.clients.find(x=>x.id===sale.clientId):null;const body=`${sale.voided?`<div class="center" style="font-size:16px;font-weight:700;color:#9f2f26">ANULADO</div><hr>`:""}<div class="center"><strong>${esc(receiptTypeLabel(sale))}</strong><br>Comprobante #${sale.number}<br>${dateTime(sale.createdAt)}</div><hr>${sale.orderType?`<div class="line"><span>Pedido</span><strong>${esc(sale.orderType)}${sale.table?` · Mesa ${esc(sale.table)}`:""}</strong></div>`:""}${client?`<div class="line"><span>Cliente</span><strong>${esc(client.name)}</strong></div>`:""}${sale.items.map(i=>`<div class="line"><span>${i.qty} × ${esc(i.name)}${i.variant?` · ${esc(i.variant)}`:""}</span><strong>${money(sale.businessType==="products"?saleItemNetTotal(i):Number(i.price||0)*Number(i.qty||0))}</strong></div>`).join("")}${Number(sale.expressFee||0)>0?`<div class="line"><span>Express</span><strong>${money(sale.expressFee)}</strong></div>`:""}${Number(sale.discountTotal||0)>0?`<div class="line"><span>Descuentos</span><strong>−${money(sale.discountTotal)}</strong></div>`:""}${Number(sale.exchangeCredit||0)>0?`<div class="line"><span>Crédito por cambio #${esc(sale.exchangeSourceSaleNumber||"")}</span><strong>−${money(sale.exchangeCredit)}</strong></div>`:""}<hr>${sale.tax>0?`<div class="line"><span>Impuesto</span><strong>${money(sale.tax)}</strong></div>`:""}<div class="line total"><span>TOTAL</span><strong>${money(sale.total)}</strong></div><div class="line"><span>Pago</span><strong>${esc(sale.method)}</strong></div>${sale.change>0?`<div class="line"><span>Vuelto</span><strong>${money(sale.change)}</strong></div>`:""}${sale.voidReason?`<hr><div>Motivo anulación: ${esc(sale.voidReason)}</div>`:""}<hr><p class="center">Gracias por su compra</p>`;printSimpleDocument(`Comprobante #${sale.number}${sale.voided?" · ANULADO":""}`,body);};
 function buildDayReportElement(sh){const r=shiftReportData(sh);const e=document.createElement("div");e.style.cssText=`position:fixed;left:-10000px;top:0;width:700px;background:#fff;color:#162B38;padding:34px;font-family:Arial,sans-serif;z-index:-1`;const sales=(sh.report?.saleIds||r.sales.map(s=>s.id)).map(id=>state.sales.find(s=>s.id===id)).filter(Boolean);const products=Object.entries(sh.report?.products||r.products);e.innerHTML=`<div style="text-align:center"><h1 style="margin:0">${esc(state.settings.businessName)}</h1><div style="font-size:22px;font-weight:800;margin-top:8px">REPORTE DEL DÍA</div><div style="color:#667085;margin-top:6px">${dateTime(sh.openedAt)} → ${dateTime(sh.closedAt)}</div></div><hr style="margin:24px 0"><table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td>Ventas</td><td style="text-align:right;font-weight:700">${sh.report?.count??r.count}</td></tr><tr><td>Total vendido</td><td style="text-align:right;font-weight:700">${money(sh.report?.gross??r.gross)}</td></tr><tr><td>Impuestos</td><td style="text-align:right">${money(sh.report?.tax??r.tax)}</td></tr><tr><td>Efectivo</td><td style="text-align:right">${money(sh.report?.cash??r.cash)}</td></tr><tr><td>SINPE</td><td style="text-align:right">${money(sh.report?.sinpe??r.sinpe)}</td></tr><tr><td>Tarjeta</td><td style="text-align:right">${money(sh.report?.card??r.card)}</td></tr><tr><td>Crédito</td><td style="text-align:right">${money(sh.report?.credit??r.credit)}</td></tr><tr><td>Abonos recibidos</td><td style="text-align:right">${money(sh.report?.creditPayments??r.creditPayments)}</td></tr><tr><td>Mostrador</td><td style="text-align:right">${sh.report?.orderCounts?.Mostrador??r.orderCounts.Mostrador}</td></tr><tr><td>Para llevar</td><td style="text-align:right">${sh.report?.orderCounts?.["Para llevar"]??r.orderCounts["Para llevar"]}</td></tr><tr><td>Mesas</td><td style="text-align:right">${sh.report?.orderCounts?.Mesa??r.orderCounts.Mesa}</td></tr><tr><td>Fondo inicial</td><td style="text-align:right">${money(sh.opening)}</td></tr><tr><td>Efectivo esperado</td><td style="text-align:right">${money(sh.expected??r.expected)}</td></tr><tr><td>Efectivo contado</td><td style="text-align:right">${money(sh.counted||0)}</td></tr><tr><td>Diferencia</td><td style="text-align:right;font-weight:700">${money(sh.difference||0)}</td></tr></table><h3 style="margin-top:28px">Comprobantes</h3>${sales.map(s=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid #e6e6e6;padding:8px 0"><span>#${s.number} · ${new Date(s.createdAt).toLocaleTimeString("es-CR",{hour:"2-digit",minute:"2-digit"})} · ${esc(s.method)}</span><strong>${money(s.total)}</strong></div>`).join("")||"Sin ventas"}<h3 style="margin-top:28px">Productos vendidos</h3>${products.map(([n,q])=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid #e6e6e6;padding:7px 0"><span>${esc(n)}</span><strong>${q}</strong></div>`).join("")||"Sin productos"}<div style="display:flex;align-items:center;justify-content:center;gap:9px;margin-top:30px;padding-top:16px;border-top:1px solid #e6e8e7;color:#536B79;font-size:11px"><span>Generado con</span><img src="${BRAND.horizontal}" alt="PUNTO YA CR" style="width:120px;height:auto"></div>`;document.body.appendChild(e);return e;}
 async function createDayReportPdf(sh){await ensurePdfLibraries();const el=buildDayReportElement(sh);try{await waitForElementImages(el);const canvas=await window.html2canvas(el,{scale:2,backgroundColor:"#fff",logging:false});const img=canvas.toDataURL("image/png");const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});const pageW=190,pageH=277,imgH=pageW*canvas.height/canvas.width;let offset=0,page=0;while(offset<imgH){if(page>0)pdf.addPage();pdf.addImage(img,"PNG",10,10-offset,pageW,imgH);offset+=pageH;page++;}return pdf.output("blob");}finally{el.remove();}}
 window.shareDayReportPdf=async id=>{const sh=state.cashSessions.find(x=>x.id===id);if(!sh)return;try{toast("Generando reporte...");const blob=await createDayReportPdf(sh);const file=new File([blob],`reporte-${localDayKey(sh.closedAt||new Date())}.pdf`,{type:"application/pdf"});if(navigator.share&&navigator.canShare?.({files:[file]}))return navigator.share({title:"Reporte del día",files:[file]});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){console.error(e);toast("No se pudo generar el reporte PDF.");}};
@@ -6682,33 +6991,8 @@ function renderProSettingsPanel() {
   const detail = pro ? "Tu negocio tiene PUNTO YA CR PRO activo. Respaldo y sincronización Pro están habilitados." : "La operación básica funciona offline. Pro agrega nube, facturación electrónica y herramientas para crecer.";
   return `<div class="panel pro-settings-card" style="margin-top:14px"><div class="row-head"><div><strong>⭐ PUNTO YA CR Pro</strong><p class="muted" style="margin:5px 0 0">${status}</p></div><span class="plan-pill ${pro?"pro":""}">${pro?"PRO":"GRATIS"}</span></div><p class="muted">${detail}</p><div class="plan-feature-grid"><div class="plan-feature pro">☁️ Nube y seguridad<small>Respaldo, recuperación, varios dispositivos y empleados.</small></div><div class="plan-feature pro">🧾 Facturación electrónica<small>Configuración fiscal, CAByS e impuestos. La transmisión oficial se habilitará al conectar Hacienda.</small></div><div class="plan-feature pro">📈 Crecimiento inteligente<small>Análisis, proyecciones y recomendaciones basadas en tus datos reales.</small></div><div class="plan-feature">📱 Operación normal<small>Ventas, inventario, caja, pedidos y trabajo offline.</small></div></div>${pro?"":`<button class="btn primary" style="margin-top:12px" onclick="openProPlans()">Conocer Pro</button>`}</div>`;
 }
-window.openProPlans = () => {
-  modal(`<h3>⭐ PUNTO YA CR Pro</h3><p class="muted">Pro reúne nube y seguridad, facturación electrónica y crecimiento inteligente.</p><div class="setup-note">☁️ Respaldo y varios dispositivos · 👥 Empleados · 🧾 Factura electrónica · 📈 Crecimiento inteligente</div><div class="pro-plan-list" style="margin-top:14px"><button class="type-choice" onclick="beginProPurchase('monthly')"><strong>₡4.990 / mes</strong><small>PRO completo · pago mensual</small></button><button class="type-choice" onclick="beginProPurchase('annual')"><strong>₡49.900 / año</strong><small>PRO completo · equivale aproximadamente a 2 meses de beneficio frente al pago mensual</small></button></div><div class="panel" style="box-shadow:none;margin-top:14px"><strong>¿Tienes un código promocional?</strong><div class="field" style="margin-top:10px"><input id="proPromoCode" autocomplete="off" placeholder="Ej. PRO-7K4M2X" style="text-transform:uppercase"></div><button id="redeemPromoBtn" class="btn primary full" onclick="redeemProPromo()">Activar código</button></div><button class="btn ghost full" style="margin-top:12px" onclick="closeModal()">Cerrar</button>`);
-};
-window.beginProPurchase = period => {
-  const annual = period === "annual";
-  const label = annual ? "₡49.900 / año" : "₡4.990 / mes";
-  if (state.settings.guestMode || !state.settings.cloudLinked) {
-    modal(`<h3>Activa tu cuenta para usar PRO</h3><p>Elegiste <strong>${label}</strong>.</p><p class="muted">PRO se asocia a la cuenta del negocio para que puedas recuperar la suscripción y usarla en tus dispositivos.</p><div class="toolbar"><button class="btn primary" onclick="closeModal();openCloudLink()">Crear cuenta / iniciar sesión</button><button class="btn" onclick="closeModal()">Ahora no</button></div>`);
-    return;
-  }
-  modal(`<h3>PRO · ${label}</h3><p>Tu cuenta está lista para asociar una suscripción.</p><div class="setup-note">El cobro automático de esta versión de prueba todavía no está conectado. Antes de publicar enlazaremos Google Play Billing para Android y el checkout web. No se ha realizado ningún cobro.</div><p class="muted">Los códigos promocionales continúan disponibles para pruebas internas.</p><button class="btn primary full" onclick="closeModal();openProPlans()">Volver a PRO</button>`);
-};
-window.redeemProPromo = async () => {
-  const code = $("#proPromoCode")?.value || "";
-  const btn = $("#redeemPromoBtn");
-  if (!state.settings.cloudLinked) return toast("Crea o inicia sesión para activar Pro.");
-  if (btn) { btn.disabled = true; btn.textContent = "Activando…"; }
-  try {
-    const result = await cloudRedeemPromoCode(code);
-    closeModal();
-    renderSettings();
-    modal(`<h3>✨ ¡Tu negocio ahora es Pro!</h3><p>Has activado <strong>PUNTO YA CR Pro</strong>.</p><div class="setup-note">☁️ Nube y respaldo · 🧾 Facturación electrónica · 📈 Crecimiento inteligente</div><p class="muted">Tu código de Dueño Pro será <strong>CR${Number(state.settings.ownerProCode || 1000)}</strong>.</p>${result?.expires_at ? `<p class="muted">Pro activo hasta ${new Date(result.expires_at).toLocaleDateString("es-CR")}.</p>` : ""}<button class="btn primary full" onclick="closeModal();go('users')">Configurar mi Pro</button>`);
-  } catch (error) {
-    console.error(error); toast(cloudAuthErrorMessage(error));
-    if (btn) { btn.disabled = false; btn.textContent = "Activar código"; }
-  }
-};
+/* El flujo PRO definitivo de Android se define en el bloque v7.44 al final del archivo.
+   Se eliminó el checkout PRE-BETA y la activación de códigos dentro de la app. */
 
 /* =========================
    CONFIGURACIÓN
@@ -6717,6 +7001,7 @@ function renderSettings() {
   if (role !== "owner") { screen = "home"; return renderHome(); }
   settingsFormDirty = false;
   const s = state.settings;
+  const allowTypeSwitch = internalBusinessTypeSwitchEnabled();
   const cloudPanel = s.cloudLinked
     ? `<div class="panel" style="margin-top:14px"><strong>${isProPlan()?"Nube Pro":"Cuenta conectada"}</strong><p class="muted">${s.email ? esc(s.email) : "Cuenta activa"}</p><p class="muted">${isProPlan()?"Ventas, clientes, caja, inventario, pedidos y respaldos se sincronizan con la nube.":"En Gratis, la operación se mantiene en este dispositivo. El catálogo público puede publicarse en línea; activa Pro para respaldo y varios dispositivos."}</p></div>`
     : `<div class="panel" style="margin-top:14px"><strong>Crear una cuenta</strong><p class="muted">Puedes seguir trabajando offline sin cuenta. Una cuenta permite publicar tu catálogo; Pro agrega respaldo y sincronización completa.</p><button class="btn primary" onclick="openCloudLink()">Crear cuenta</button></div>`;
@@ -6727,9 +7012,9 @@ function renderSettings() {
   const backupPanel = typeof renderBackupSettingsPanel === "function" ? renderBackupSettingsPanel() : "";
   const syncPanel = renderAdminSyncPanel();
 
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Configuración</h2><p>Ajusta la información y preferencias de tu negocio.</p></section>${syncPanel}${renderProSettingsPanel()}<div class="panel" style="margin-top:14px"><strong>Datos del negocio</strong><div class="form-grid" style="margin-top:12px"><div class="field"><label>Tipo de negocio</label><select id="sType" onchange="settingsFormDirty=true"><option value="food" ${type() === "food" ? "selected" : ""}>Comida / Soda / Repostería</option><option value="products" ${type() === "products" ? "selected" : ""}>Venta de artículos / Retail</option>${isServices()?`<option value="services" selected>Servicios (oculto temporalmente)</option>`:""}</select></div>${isFood() ? `<div class="field"><label>Cantidad de mesas</label><input id="sTableCount" type="number" min="0" max="100" value="${Number(s.tableCount || 0)}"></div>` : ""}<div class="field"><label>Nombre del negocio</label><input id="sName" value="${esc(s.businessName)}"></div><div class="field"><label>Propietario</label><input value="${esc(s.ownerName || "")}" disabled></div><div class="field"><label>Correo</label><input value="${esc(s.email || "")}" disabled></div><div class="field"><label>Teléfono</label><input id="sPhone" value="${esc(s.phone || "")}"></div><div class="field"><label>WhatsApp</label><input id="sWa" value="${esc(s.whatsapp)}"></div><div class="field"><label>Número SINPE</label><input id="sSinpe" value="${esc(s.sinpe)}"></div>${isServices()?`<div style="grid-column:1/-1"><strong>Bancos y accesos</strong><p class="muted" style="margin:5px 0 8px">Desactiva una entidad una sola vez y desaparecerá de todos los servicios.</p><div class="service-config-list">${Object.entries(SERVICE_PROVIDERS).map(([id,p])=>`<label class="service-config-row"><span>${p.name}</span><input id="sp_${id}" type="checkbox" ${(s.serviceProviders||{})[id]!==false?"checked":""}></label>`).join("")}</div></div><div class="field"><label>Comisión SINPE</label><input id="sSinpeServiceFee" type="number" min="0" inputmode="decimal" value="${Number(s.sinpeServiceFee||500)}"></div><div class="field"><label>Por cada monto</label><input id="sSinpeServiceBlock" type="number" min="1" inputmode="decimal" value="${Number(s.sinpeServiceBlock||10000)}"><small class="muted">Se cobra por bloque o fracción.</small></div>`:""}${!isServices()?`<div class="field"><label>Express predeterminado</label><input id="sExpressFee" type="number" min="0" inputmode="decimal" value="${Number(s.expressFee||0)}"><small class="muted">Se puede cambiar en cada pedido.</small></div>`:""}<div class="field"><label>Factura electrónica</label><select id="sFiscalUses"><option value="no" ${!s.fiscalUsesEInvoice?"selected":""}>No la utilizo</option><option value="yes" ${s.fiscalUsesEInvoice?"selected":""}>Sí${isProPlan()?" · Configurar en Pro":" · Requiere Pro"}</option></select></div><div class="field"><label>Código del negocio</label><input value="${esc(s.businessId || "")}" disabled></div></div><button class="btn primary full" style="margin-top:14px" onclick="saveSettings()">Guardar cambios</button></div>${usersPanel}${cloudPanel}${backupPanel}${securityPanel}${isProPlan()?`<div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>📈 Crecimiento inteligente</strong><p class="muted" style="margin:5px 0 0">Análisis y recomendaciones basadas en tus ventas.</p></div><button class="btn ghost" onclick="go('growth')">Abrir</button></div></div><div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>🧾 Facturación electrónica</strong><p class="muted" style="margin:5px 0 0">${s.fiscalUsesEInvoice?"Configuración fiscal y CAByS":"Tu negocio indicó que no la usa actualmente"}.</p></div><button class="btn ghost" onclick="go('fiscal')">Abrir</button></div></div>`:""}<div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>Legal y privacidad</strong><p class="muted" style="margin:5px 0 0">Política, términos, exportación y eliminación de datos.</p></div><button class="btn ghost" onclick="go('legal')">Abrir</button></div></div>`, "more");
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Configuración</h2><p>Ajusta la información y preferencias de tu negocio.</p></section>${syncPanel}${renderProSettingsPanel()}<div class="panel" style="margin-top:14px"><strong>Datos del negocio</strong><div class="form-grid" style="margin-top:12px"><div class="field"><label>Tipo de negocio</label>${allowTypeSwitch?`<select id="sType" onchange="settingsFormDirty=true"><option value="food" ${type() === "food" ? "selected" : ""}>Comida / Soda / Repostería</option><option value="products" ${type() === "products" ? "selected" : ""}>Venta de artículos / Retail</option>${isServices()?`<option value="services" selected>Servicios (oculto temporalmente)</option>`:""}</select><small class="muted">Modo interno de pruebas.</small>`:`<input id="sType" type="hidden" value="${esc(type())}"><input value="${esc(businessTypeDisplayLabel())}" disabled><small class="muted">Se definió al crear el negocio. No se cambia desde la operación normal.</small>`}</div>${isFood() ? `<div class="field"><label>Cantidad de mesas</label><input id="sTableCount" type="number" min="0" max="100" value="${Number(s.tableCount || 0)}"></div>` : ""}<div class="field"><label>Nombre del negocio</label><input id="sName" value="${esc(s.businessName)}"></div><div class="field"><label>Propietario</label><input value="${esc(s.ownerName || "")}" disabled></div><div class="field"><label>Correo</label><input value="${esc(s.email || "")}" disabled></div><div class="field"><label>Teléfono</label><input id="sPhone" value="${esc(s.phone || "")}"></div><div class="field"><label>WhatsApp</label><input id="sWa" value="${esc(s.whatsapp)}"></div><div class="field"><label>Número SINPE</label><input id="sSinpe" value="${esc(s.sinpe)}"></div>${isServices()?`<div style="grid-column:1/-1"><strong>Bancos y accesos</strong><p class="muted" style="margin:5px 0 8px">Desactiva una entidad una sola vez y desaparecerá de todos los servicios.</p><div class="service-config-list">${Object.entries(SERVICE_PROVIDERS).map(([id,p])=>`<label class="service-config-row"><span>${p.name}</span><input id="sp_${id}" type="checkbox" ${(s.serviceProviders||{})[id]!==false?"checked":""}></label>`).join("")}</div></div><div class="field"><label>Comisión SINPE</label><input id="sSinpeServiceFee" type="number" min="0" inputmode="decimal" value="${Number(s.sinpeServiceFee||500)}"></div><div class="field"><label>Por cada monto</label><input id="sSinpeServiceBlock" type="number" min="1" inputmode="decimal" value="${Number(s.sinpeServiceBlock||10000)}"><small class="muted">Se cobra por bloque o fracción.</small></div>`:""}${!isServices()?`<div class="field"><label>Express predeterminado</label><input id="sExpressFee" type="number" min="0" inputmode="decimal" value="${Number(s.expressFee||0)}"><small class="muted">Se puede cambiar en cada pedido.</small></div>`:""}<div class="field"><label>Factura electrónica</label><select id="sFiscalUses"><option value="no" ${!s.fiscalUsesEInvoice?"selected":""}>No la utilizo</option><option value="yes" ${s.fiscalUsesEInvoice?"selected":""}>Sí${isProPlan()?" · Configurar en Pro":" · Requiere Pro"}</option></select></div><div class="field"><label>Código del negocio</label><input value="${esc(s.businessId || "")}" disabled></div></div><button class="btn primary full" style="margin-top:14px" onclick="saveSettings()">Guardar cambios</button></div>${usersPanel}${cloudPanel}${backupPanel}${securityPanel}${isProPlan()?`<div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>📈 Crecimiento inteligente</strong><p class="muted" style="margin:5px 0 0">Análisis y recomendaciones basadas en tus ventas.</p></div><button class="btn ghost" onclick="go('growth')">Abrir</button></div></div><div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>🧾 Facturación electrónica</strong><p class="muted" style="margin:5px 0 0">${s.fiscalUsesEInvoice?"Configuración fiscal y CAByS":"Tu negocio indicó que no la usa actualmente"}.</p></div><button class="btn ghost" onclick="go('fiscal')">Abrir</button></div></div>`:""}<div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>Legal y privacidad</strong><p class="muted" style="margin:5px 0 0">Política, términos, exportación y eliminación de datos.</p></div><button class="btn ghost" onclick="go('legal')">Abrir</button></div></div>`, "more");
 }
-window.saveSettings = async () => { const previousType=type(); const nextType=$("#sType").value; state.settings = { ...state.settings, businessType: nextType, businessName: $("#sName").value.trim() || "PUNTO YA CR", phone: $("#sPhone").value.trim(), whatsapp: $("#sWa").value.trim(), sinpe: $("#sSinpe").value.trim(), fiscalOnboardingAsked: true, fiscalUsesEInvoice: $("#sFiscalUses")?.value === "yes", expressFee: Math.max(0,Number($("#sExpressFee")?.value || state.settings.expressFee || 0)), serviceProviders: isServices()?Object.fromEntries(Object.keys(SERVICE_PROVIDERS).map(id=>[id,$("#sp_"+id)?.checked!==false])):(state.settings.serviceProviders||{}), sinpeServiceFee: Math.max(0,Number($("#sSinpeServiceFee")?.value || state.settings.sinpeServiceFee || 500)), sinpeServiceBlock: Math.max(1,Number($("#sSinpeServiceBlock")?.value || state.settings.sinpeServiceBlock || 10000)), taxMode: "exempt", taxRate: 0, tableCount: nextType !== "services" ? Number($("#sTableCount")?.value || state.settings.tableCount || 0) : Number(state.settings.tableCount || 0) }; await put("settings", state.settings); if (state.settings.cloudLinked && navigator.onLine) { try { await cloudSaveBusinessSettings(); } catch (error) { console.error(error); toast("Se guardó localmente, pero la nube no respondió."); } } settingsFormDirty = false; quickCategory = ""; cart=[]; resetSaleMeta(); screen = "home"; render(); toast(previousType===nextType?"Configuración guardada.":"Módulo cambiado. Inventario y ventas independientes."); };
+window.saveSettings = async () => { const previousType=type(); const requestedType=$("#sType")?.value || previousType; const nextType=internalBusinessTypeSwitchEnabled()?requestedType:previousType; state.settings = { ...state.settings, businessType: nextType, businessName: $("#sName").value.trim() || "PUNTO YA CR", phone: $("#sPhone").value.trim(), whatsapp: $("#sWa").value.trim(), sinpe: $("#sSinpe").value.trim(), fiscalOnboardingAsked: true, fiscalUsesEInvoice: $("#sFiscalUses")?.value === "yes", expressFee: Math.max(0,Number($("#sExpressFee")?.value || state.settings.expressFee || 0)), serviceProviders: isServices()?Object.fromEntries(Object.keys(SERVICE_PROVIDERS).map(id=>[id,$("#sp_"+id)?.checked!==false])):(state.settings.serviceProviders||{}), sinpeServiceFee: Math.max(0,Number($("#sSinpeServiceFee")?.value || state.settings.sinpeServiceFee || 500)), sinpeServiceBlock: Math.max(1,Number($("#sSinpeServiceBlock")?.value || state.settings.sinpeServiceBlock || 10000)), taxMode: "exempt", taxRate: 0, tableCount: nextType !== "services" ? Number($("#sTableCount")?.value || state.settings.tableCount || 0) : Number(state.settings.tableCount || 0) }; await put("settings", state.settings); if (state.settings.cloudLinked && navigator.onLine) { try { await cloudSaveBusinessSettings(); } catch (error) { console.error(error); toast("Se guardó localmente, pero la nube no respondió."); } } settingsFormDirty = false; quickCategory = ""; cart=[]; resetSaleMeta(); screen = "home"; render(); toast(previousType===nextType?"Configuración guardada.":"Módulo cambiado. Inventario y ventas independientes."); };
 
 
 
@@ -6796,9 +7081,9 @@ function renderFiscal(){
   const s=state.settings;
   if(!s.fiscalUsesEInvoice){$("#app").innerHTML=shell(`<section class="screen-title"><h2>🧾 Facturación electrónica</h2><p>Tu negocio indicó que no utiliza factura electrónica.</p></section><div class="pro-feature-card"><div class="pro-feature-head"><div><h3>¿Quieres preparar el módulo?</h3><p class="muted">Puedes dejar listos tus datos fiscales ahora y conectarlo oficialmente más adelante.</p></div><span class="pro-mini-pill">PRO</span></div><button class="btn primary" style="margin-top:12px" onclick="enableFiscalPrep()">Sí, preparar facturación</button></div>`,"more");return;}
   const percent=fiscalCompletion();
-  $("#app").innerHTML=shell(`<section class="screen-title"><h2>🧾 Facturación electrónica</h2><p>Configuración fiscal Pro para dejar el negocio preparado.</p></section><div class="fiscal-status"><div><strong>${percent===100?"Configuración fiscal completa":"Configuración en progreso"}</strong><small>${percent}% de los datos principales completados</small><div class="fiscal-progress"><span style="width:${percent}%"></span></div></div><span class="pro-mini-pill">PRO</span></div><div class="fiscal-note"><strong>Importante:</strong> esta versión todavía no firma ni transmite comprobantes oficiales a Hacienda. Aquí estamos preparando datos fiscales, CAByS e impuestos para la integración posterior. La llave criptográfica y su PIN no se almacenan en esta pantalla.</div><div class="panel" style="margin-top:14px"><strong>Datos del emisor</strong><div class="fiscal-grid" style="margin-top:12px"><div class="field"><label>Razón social / nombre fiscal</label><input id="fLegalName" value="${esc(s.fiscalLegalName||"")}"></div><div class="field"><label>Tipo de identificación</label><select id="fIdType"><option value="01" ${s.fiscalIdType==="01"?"selected":""}>Cédula física</option><option value="02" ${s.fiscalIdType==="02"?"selected":""}>Cédula jurídica</option><option value="03" ${s.fiscalIdType==="03"?"selected":""}>DIMEX</option><option value="04" ${s.fiscalIdType==="04"?"selected":""}>NITE</option></select></div><div class="field"><label>Número de identificación</label><input id="fId" value="${esc(s.fiscalId||"")}"></div><div class="field"><label>Correo para comprobantes</label><input id="fEmail" type="email" value="${esc(s.fiscalEmail||s.email||"")}"></div><div class="field"><label>Código de actividad económica</label><input id="fActivityCode" value="${esc(s.fiscalEconomicActivityCode||"")}" placeholder="Actividad registrada"></div><div class="field"><label>Descripción de actividad</label><input id="fActivityName" value="${esc(s.fiscalEconomicActivityName||"")}" placeholder="Ej. Venta al por menor"></div></div></div><div class="panel" style="margin-top:14px"><strong>Sucursal y punto de venta</strong><div class="fiscal-grid" style="margin-top:12px"><div class="field"><label>Sucursal</label><input id="fBranch" maxlength="3" value="${esc(s.fiscalBranchCode||"001")}" placeholder="001"></div><div class="field"><label>Punto de venta / caja</label><input id="fTerminal" maxlength="5" value="${esc(s.fiscalTerminalCode||"00001")}" placeholder="00001"></div><div class="field"><label>Provincia</label><input id="fProvince" value="${esc(s.fiscalProvince||"")}"></div><div class="field"><label>Cantón</label><input id="fCanton" value="${esc(s.fiscalCanton||"")}"></div><div class="field"><label>Distrito</label><input id="fDistrict" value="${esc(s.fiscalDistrict||"")}"></div></div></div><div class="panel" style="margin-top:14px"><strong>Valores predeterminados</strong><div class="fiscal-grid" style="margin-top:12px"><div class="field"><label>Condición de venta</label><select id="fCondition"><option value="01" ${s.fiscalDefaultCondition==="01"?"selected":""}>Contado</option><option value="02" ${s.fiscalDefaultCondition==="02"?"selected":""}>Crédito</option><option value="10" ${s.fiscalDefaultCondition==="10"?"selected":""}>Otros</option></select></div><div class="field"><label>Medio de pago predeterminado</label><select id="fPayment"><option value="01" ${s.fiscalDefaultPayment==="01"?"selected":""}>Efectivo</option><option value="02" ${s.fiscalDefaultPayment==="02"?"selected":""}>Tarjeta</option><option value="06" ${s.fiscalDefaultPayment==="06"?"selected":""}>SINPE / transferencia</option><option value="04" ${s.fiscalDefaultPayment==="04"?"selected":""}>Otros</option></select></div><div class="field"><label>Impuesto predeterminado</label><select id="fTax"><option value="0" ${Number(s.fiscalDefaultTaxRate||0)===0?"selected":""}>0%</option><option value="1" ${Number(s.fiscalDefaultTaxRate||0)===1?"selected":""}>1%</option><option value="2" ${Number(s.fiscalDefaultTaxRate||0)===2?"selected":""}>2%</option><option value="4" ${Number(s.fiscalDefaultTaxRate||0)===4?"selected":""}>4%</option><option value="13" ${Number(s.fiscalDefaultTaxRate??13)===13?"selected":""}>13%</option></select></div></div><button class="btn primary full" onclick="saveFiscalSettings()">Guardar configuración fiscal</button></div><div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>CAByS e impuestos por producto</strong><p class="muted" style="margin:5px 0 0">Al editar un producto o servicio ahora puedes guardar su CAByS y porcentaje de impuesto.</p></div><button class="btn ghost" onclick="go('products')">Ir a productos</button></div></div>`,"more");
+  $("#app").innerHTML=shell(`<section class="screen-title"><h2>🧾 Facturación electrónica</h2><p>Configuración fiscal Pro para dejar el negocio preparado.</p></section><div class="fiscal-status"><div><strong>${percent===100?"Configuración fiscal completa":"Configuración en progreso"}</strong><small>${percent}% de los datos principales completados</small><div class="fiscal-progress"><span style="width:${percent}%"></span></div></div><span class="pro-mini-pill">PRO</span></div><div class="fiscal-note"><strong>Importante:</strong> esta versión todavía no firma ni transmite comprobantes oficiales a Hacienda. Aquí estamos preparando datos fiscales, CAByS e impuestos para la integración posterior. La llave criptográfica y su PIN no se almacenan en esta pantalla.</div><div class="panel" style="margin-top:14px"><strong>Datos del emisor</strong><div class="fiscal-grid" style="margin-top:12px"><div class="field"><label>Razón social / nombre fiscal</label><input id="fLegalName" value="${esc(s.fiscalLegalName||"")}"></div><div class="field"><label>Tipo de identificación</label><select id="fIdType"><option value="01" ${s.fiscalIdType==="01"?"selected":""}>Cédula física</option><option value="02" ${s.fiscalIdType==="02"?"selected":""}>Cédula jurídica</option><option value="03" ${s.fiscalIdType==="03"?"selected":""}>DIMEX</option><option value="04" ${s.fiscalIdType==="04"?"selected":""}>NITE</option></select></div><div class="field"><label>Número de identificación</label><input id="fId" value="${esc(s.fiscalId||"")}"></div><div class="field"><label>Correo para comprobantes</label><input id="fEmail" type="email" value="${esc(s.fiscalEmail||s.email||"")}"></div><div class="field"><label>Código de actividad económica</label><input id="fActivityCode" value="${esc(s.fiscalEconomicActivityCode||"")}" placeholder="Actividad registrada"></div><div class="field"><label>Descripción de actividad</label><input id="fActivityName" value="${esc(s.fiscalEconomicActivityName||"")}" placeholder="Ej. Venta al por menor"></div></div></div><div class="panel" style="margin-top:14px"><strong>Sucursal y punto de venta</strong><div class="fiscal-grid" style="margin-top:12px"><div class="field"><label>Sucursal</label><input id="fBranch" maxlength="3" value="${esc(s.fiscalBranchCode||"001")}" placeholder="001"></div><div class="field"><label>Punto de venta / caja</label><input id="fTerminal" maxlength="5" value="${esc(s.fiscalTerminalCode||"00001")}" placeholder="00001"></div><div class="field"><label>Provincia</label><input id="fProvince" value="${esc(s.fiscalProvince||"")}"></div><div class="field"><label>Cantón</label><input id="fCanton" value="${esc(s.fiscalCanton||"")}"></div><div class="field"><label>Distrito</label><input id="fDistrict" value="${esc(s.fiscalDistrict||"")}"></div></div></div><div class="panel" style="margin-top:14px"><strong>Valores predeterminados</strong><div class="fiscal-grid" style="margin-top:12px"><div class="field"><label>Condición de venta</label><select id="fCondition"><option value="01" ${s.fiscalDefaultCondition==="01"?"selected":""}>Contado</option><option value="02" ${s.fiscalDefaultCondition==="02"?"selected":""}>Crédito</option><option value="10" ${s.fiscalDefaultCondition==="10"?"selected":""}>Otros</option></select></div><div class="field"><label>Medio de pago predeterminado</label><select id="fPayment"><option value="01" ${s.fiscalDefaultPayment==="01"?"selected":""}>Efectivo</option><option value="02" ${s.fiscalDefaultPayment==="02"?"selected":""}>Tarjeta</option><option value="06" ${s.fiscalDefaultPayment==="06"?"selected":""}>SINPE / transferencia</option><option value="04" ${s.fiscalDefaultPayment==="04"?"selected":""}>Otros</option></select></div><div class="field"><label>Impuesto predeterminado</label><select id="fTax"><option value="0" ${Number(s.fiscalDefaultTaxRate||0)===0?"selected":""}>0%</option><option value="1" ${Number(s.fiscalDefaultTaxRate||0)===1?"selected":""}>1%</option><option value="2" ${Number(s.fiscalDefaultTaxRate||0)===2?"selected":""}>2%</option><option value="4" ${Number(s.fiscalDefaultTaxRate||0)===4?"selected":""}>4%</option><option value="13" ${Number(s.fiscalDefaultTaxRate??13)===13?"selected":""}>13%</option></select></div><div class="field"><label>Precios e IVA</label><select id="fPricesIncludeTax"><option value="included" ${s.fiscalPricesIncludeTax!==false?"selected":""}>Mis precios ya incluyen IVA</option><option value="added" ${s.fiscalPricesIncludeTax===false?"selected":""}>Agregar IVA al cobrar</option></select><small class="muted">Define una sola vez cómo registras tus precios.</small></div></div><button class="btn primary full" onclick="saveFiscalSettings()">Guardar configuración fiscal</button></div><div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>CAByS e impuestos por producto</strong><p class="muted" style="margin:5px 0 0">Al editar un producto o servicio ahora puedes guardar su CAByS y porcentaje de impuesto.</p></div><button class="btn ghost" onclick="go('products')">Ir a productos</button></div></div>`,"more");
 }
-window.saveFiscalSettings=async()=>{const digits=(v,max)=>String(v||"").replace(/\D/g,"").slice(0,max);const branch=digits($("#fBranch")?.value,3).padStart(3,"0"),terminal=digits($("#fTerminal")?.value,5).padStart(5,"0");state.settings={...state.settings,fiscalOnboardingAsked:true,fiscalUsesEInvoice:true,fiscalLegalName:$("#fLegalName")?.value.trim()||"",fiscalIdType:$("#fIdType")?.value||"01",fiscalId:$("#fId")?.value.trim()||"",fiscalEmail:$("#fEmail")?.value.trim()||"",fiscalEconomicActivityCode:$("#fActivityCode")?.value.trim()||"",fiscalEconomicActivityName:$("#fActivityName")?.value.trim()||"",fiscalBranchCode:branch,fiscalTerminalCode:terminal,fiscalProvince:$("#fProvince")?.value.trim()||"",fiscalCanton:$("#fCanton")?.value.trim()||"",fiscalDistrict:$("#fDistrict")?.value.trim()||"",fiscalDefaultCondition:$("#fCondition")?.value||"01",fiscalDefaultPayment:$("#fPayment")?.value||"01",fiscalDefaultTaxRate:Number($("#fTax")?.value||0),fiscalSetupUpdatedAt:new Date().toISOString()};await put("settings",state.settings);if(state.settings.cloudLinked&&navigator.onLine){try{await cloudSaveBusinessSettings();}catch(error){console.error(error);toast("Se guardó en este dispositivo, pero la nube no respondió.");}}renderFiscal();toast(fiscalConfigReady()?"Configuración fiscal lista para la siguiente etapa.":"Configuración fiscal guardada.");};
+window.saveFiscalSettings=async()=>{const digits=(v,max)=>String(v||"").replace(/\D/g,"").slice(0,max);const branch=digits($("#fBranch")?.value,3).padStart(3,"0"),terminal=digits($("#fTerminal")?.value,5).padStart(5,"0");state.settings={...state.settings,fiscalOnboardingAsked:true,fiscalUsesEInvoice:true,fiscalLegalName:$("#fLegalName")?.value.trim()||"",fiscalIdType:$("#fIdType")?.value||"01",fiscalId:$("#fId")?.value.trim()||"",fiscalEmail:$("#fEmail")?.value.trim()||"",fiscalEconomicActivityCode:$("#fActivityCode")?.value.trim()||"",fiscalEconomicActivityName:$("#fActivityName")?.value.trim()||"",fiscalBranchCode:branch,fiscalTerminalCode:terminal,fiscalProvince:$("#fProvince")?.value.trim()||"",fiscalCanton:$("#fCanton")?.value.trim()||"",fiscalDistrict:$("#fDistrict")?.value.trim()||"",fiscalDefaultCondition:$("#fCondition")?.value||"01",fiscalDefaultPayment:$("#fPayment")?.value||"01",fiscalDefaultTaxRate:Number($("#fTax")?.value||0),fiscalPricesIncludeTax:$("#fPricesIncludeTax")?.value!=="added",fiscalSetupUpdatedAt:new Date().toISOString()};await put("settings",state.settings);if(state.settings.cloudLinked&&navigator.onLine){try{await cloudSaveBusinessSettings();}catch(error){console.error(error);toast("Se guardó en este dispositivo, pero la nube no respondió.");}}renderFiscal();toast(fiscalConfigReady()?"Configuración fiscal lista para la siguiente etapa.":"Configuración fiscal guardada.");};
 
 /* =========================
    LEGAL, PRIVACIDAD Y DATOS · v7.39
@@ -6810,7 +7095,7 @@ function termsHtml() { return `<div class="legal-copy"><p><strong>Versión:</str
 window.showPrivacyPolicy=()=>modal(`<h3>Política de privacidad</h3>${privacyHtml()}<div class="toolbar"><button class="btn primary" onclick="window.open('${publicLegalUrl("privacy")}','_blank','noopener,noreferrer')">Abrir versión pública</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
 window.showTerms=()=>modal(`<h3>Términos y condiciones</h3>${termsHtml()}<div class="toolbar"><button class="btn primary" onclick="window.open('${publicLegalUrl("terms")}','_blank','noopener,noreferrer')">Abrir versión pública</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
 function renderPublicLegal(kind){ const isTerms=kind==="terms"; document.body.innerHTML=`<main class="legal-public"><article>${brandHorizontal("brand-logo-horizontal compact")}<h1>${isTerms?"Términos y condiciones":"Política de privacidad"}</h1>${isTerms?termsHtml():privacyHtml()}</article></main>`; }
-function exportLocalData(){ const cleanSettings={...state.settings}; delete cleanSettings.ownerPin; delete cleanSettings.ownerPinHash; delete cleanSettings.ownerPinSalt; const payload={app:"PUNTO YA CR",version:"7.43",exportedAt:new Date().toISOString(),settings:cleanSettings,products:state.products,clients:state.clients,sales:state.sales,orders:state.orders,cashMoves:state.cashMoves,cashSessions:state.cashSessions,creditMoves:state.creditMoves,tableAccounts:state.tableAccounts,expenses:state.expenses}; const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`PUNTO-YA-CR-mis-datos-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast("Datos exportados."); }
+function exportLocalData(){ const cleanSettings={...state.settings}; delete cleanSettings.ownerPin; delete cleanSettings.ownerPinHash; delete cleanSettings.ownerPinSalt; const payload={app:"PUNTO YA CR",version:"7.44",exportedAt:new Date().toISOString(),settings:cleanSettings,products:state.products,clients:state.clients,sales:state.sales,orders:state.orders,cashMoves:state.cashMoves,cashSessions:state.cashSessions,creditMoves:state.creditMoves,tableAccounts:state.tableAccounts,expenses:state.expenses}; const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`PUNTO-YA-CR-mis-datos-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast("Datos exportados."); }
 window.exportLocalData=exportLocalData;
 async function cloudRecordDeletionRequest(){ if(!mpCloud||!mpCloudUser||!mpCloudBusiness?.id) throw new Error("No se encontró una cuenta activa."); const now=new Date().toISOString(); const {error}=await mpCloud.from("audit_log").insert({business_id:mpCloudBusiness.id,user_id:mpCloudUser.id,action:"account_deletion_request",entity_type:"account",entity_id:mpCloudUser.id,old_data:null,new_data:{requested_at:now,email:mpCloudUser.email||state.settings.email||""}}); if(error) throw error; state.settings.deletionRequestedAt=now; await put("settings",state.settings); return now; }
 window.requestAccountDeletion=()=>{ const guest=state.settings.guestMode||!state.settings.cloudLinked; modal(`<h3>${guest?"Eliminar datos de este dispositivo":"Solicitar eliminación de cuenta"}</h3><div class="danger-zone"><p>${guest?"Se borrarán los datos locales de este negocio en este dispositivo.":"Se registrará una solicitud de eliminación para la cuenta y los datos asociados. La información local de este dispositivo también se borrará al confirmar."}</p><p><strong>Esta acción no se puede deshacer localmente.</strong></p></div><div class="field" style="margin-top:14px"><label>Escribe ELIMINAR para confirmar</label><input id="deleteAccountConfirm" autocomplete="off"></div><div class="toolbar"><button class="btn danger" onclick="confirmAccountDeletion()">Confirmar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
@@ -7304,10 +7589,24 @@ window.go = target => {
   return v739GoFinal(target);
 };
 
-/* Pro se contrata/administra desde el Panel; la app solo muestra el estado/beneficio cuando corresponde. */
+/* v7.44 · PRO Android: la compra digital se realiza con Google Play.
+   El código recibido por correo se activa únicamente en la web/Panel. */
 window.openProPlans = () => {
-  toast('PUNTO YA CR Pro se administra desde el Panel del Emprendedor.');
-  return openEntrepreneurPanel();
+  if (isProPlan()) {
+    const expires=state.settings.planExpiresAt?new Date(state.settings.planExpiresAt):null;
+    const expiry=expires&&!Number.isNaN(expires.getTime())?` hasta ${expires.toLocaleDateString('es-CR')}`:'';
+    return modal(`<h3>★ PUNTO YA CR PRO</h3><div class="setup-note">Tu negocio tiene <strong>PRO activo${expiry}</strong>.</div><p class="muted">El estado PRO pertenece al negocio y se conserva al iniciar sesión en tus dispositivos.</p><div class="toolbar"><button class="btn primary" onclick="closeModal();openEntrepreneurPanel()">Abrir Panel</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
+  }
+  modal(`<h3>★ PUNTO YA CR PRO</h3><p class="muted">PRO agrega nube y respaldo, empleados, facturación electrónica y herramientas de crecimiento.</p><div class="setup-note"><strong>1. Compra PRO en Google Play</strong><br>La compra o suscripción se procesa dentro de la app Android mediante Google Play Billing.</div><div class="setup-note" style="margin-top:10px"><strong>2. Recibe tu código por correo</strong><br>Después de validar la compra, PUNTO YA CR enviará un código único al correo de tu cuenta.</div><div class="setup-note" style="margin-top:10px"><strong>3. Actívalo en la web</strong><br>Entra al Panel del Emprendedor con la misma cuenta y activa allí el código. PRO quedará asociado al negocio.</div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="startGooglePlayProPurchase()">Comprar PRO con Google Play</button><button class="btn ghost" onclick="closeModal();openEntrepreneurPanel()">Ya tengo mi código</button><button class="btn" onclick="closeModal()">Ahora no</button></div>`);
+};
+window.startGooglePlayProPurchase = () => {
+  if (state.settings.guestMode || !state.settings.cloudLinked) {
+    return modal(`<h3>Primero conecta tu cuenta</h3><p class="muted">La compra PRO debe quedar vinculada a una cuenta para poder recuperarla y enviar el código de activación.</p><div class="toolbar"><button class="btn primary" onclick="closeModal();openCloudLink()">Crear cuenta / iniciar sesión</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+  }
+  if (!isNativeApp()) {
+    return modal(`<h3>Compra desde Android</h3><p class="muted">La compra de PRO se realizará dentro de la app oficial de PUNTO YA CR publicada en Google Play.</p><button class="btn primary full" onclick="closeModal();openEntrepreneurPanel()">Abrir Panel</button>`);
+  }
+  modal(`<h3>Google Play Billing</h3><div class="setup-note">La pantalla de compra quedará habilitada cuando configuremos el producto PRO en Google Play Console y conectemos la validación del backend.</div><p class="muted">Esta compilación de cierre no realiza cobros simulados ni envía al usuario a un checkout web.</p><button class="btn primary full" onclick="closeModal()">Entendido</button>`);
 };
 
 const v739RenderFinal = render;
@@ -7514,7 +7813,7 @@ const v740RenderSettingsPreBeta=renderSettings;
 renderSettings=function(){v740RenderSettingsPreBeta();if(role!=='owner')return;const note=document.querySelector('.retail-settings-note');if(note)note.insertAdjacentHTML('beforebegin',`<div class="panel" style="margin-top:14px"><strong>Identidad del negocio</strong><p class="muted">El logo, reportes, Pro, empleados y configuración avanzada se administran desde el Panel del Emprendedor.</p><button class="btn primary" onclick="openEntrepreneurPanel()">Abrir Panel del Emprendedor</button></div>`);};
 
 /* =========================
-   v7.43 · PRE-BETA CIERRE
+   v7.44 · CIERRE APP
    Impresión automática guiada
 ========================= */
 function v742InferPrinterWidth(name){

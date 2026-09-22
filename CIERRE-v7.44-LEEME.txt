@@ -1,0 +1,74 @@
+PUNTO YA CR · v7.44 · CIERRE APP
+================================
+
+OBJETIVO
+-------
+Esta versión consolida el cierre de la app. No agrega nuevos módulos comerciales grandes;
+termina y conecta decisiones ya aprobadas para Restaurante y Retail.
+
+INCLUIDO EN ESTA ENTREGA
+------------------------
+- Splash de inicio con logo PUNTO YA CR sin retraso artificial.
+- Estado visual ★ PRO cuando el negocio realmente tiene PRO activo.
+- Restaurante y Retail fijos para clientes después del alta; el cambio queda solo en modo interno de prueba.
+- Flujo PRO Android alineado a Google Play: compra en Android -> validación backend -> código por correo -> activación en web/Panel.
+- Se eliminó el checkout PRE-BETA con precios hardcodeados dentro de la app/Panel.
+- Facturación rápida por identificación:
+  * busca primero clientes guardados;
+  * luego consulta Hacienda;
+  * carga nombre/tipo de identificación;
+  * muestra todas las actividades económicas disponibles;
+  * permite ingreso manual como respaldo;
+  * guarda el receptor para compras futuras.
+- Edge Function hacienda-taxpayer-lookup con cache server-side de 24 h.
+- Migración SUPABASE-v7.44-CLIENTE-FISCAL.sql para campos fiscales de clientes y cache.
+- Una sola plantilla de representación de factura electrónica:
+  * vista previa;
+  * PDF A4;
+  * impresión térmica;
+  * mismos datos y mismo orden;
+  * adaptación automática a 58/80 mm.
+- Vista previa claramente marcada como SOLICITUD mientras todavía no exista emisión oficial.
+- Regla de precios fiscales configurable:
+  * precio final con IVA incluido; o
+  * precio antes de IVA, sumándolo al cobrar.
+- Persistencia técnica de envío/estado Hacienda en fiscal_documents cuando se usan las funciones de envío/consulta.
+- GitHub Actions QA con rutas de artefactos corregidas.
+- Nuevo test factura-v744 y pruebas actualizadas al flujo Google Play/código web.
+- Package/cache Android actualizados a 7.44.0 / versionCode 744.
+- Workflow manual android-play-aab.yml preparado para generar un AAB firmado cuando existan los secretos de firma.
+
+NO MARCAR COMO TERMINADO TODAVÍA
+--------------------------------
+1. Hacienda 4.4 oficial de punta a punta:
+   falta construir XML 4.4 definitivo + validar XSD + firmar XAdES-EPES con .p12 + prueba real sandbox aceptada.
+   Las funciones actuales pueden guardar credenciales, probar OAuth, enviar XML YA FIRMADO y consultar/guardar estado.
+2. Google Play Billing real:
+   falta crear los productos/suscripciones en Play Console y conectar Billing + validación de compra + envío automático del código por correo.
+3. Google Login dentro del APK/AAB debe probarse con la configuración real de Google/Play.
+4. Impresora y lector deben probarse con hardware físico antes del lanzamiento.
+5. El BOT QA completo debe quedar verde en GitHub Actions. Localmente se validó sintaxis y scanner estático, no el Playwright completo.
+
+SUPABASE · PASO NUEVO DE v7.44
+------------------------------
+Ejecutar UNA VEZ en SQL Editor:
+  SUPABASE-v7.44-CLIENTE-FISCAL.sql
+
+Las tablas/funciones fiscales de v7.43 se conservan. No borres fiscal_secret_envelopes ni cambies FISCAL_MASTER_KEY
+si ya existen secretos cifrados sin planificar la rotación/re-encriptado.
+
+ORDEN DE PUBLICACIÓN RECOMENDADO
+--------------------------------
+1. Ejecutar SUPABASE-v7.44-CLIENTE-FISCAL.sql.
+2. Subir TODO el contenido de esta carpeta a la raíz del repositorio MIPUNTOCR.
+3. Hacer commit/push a main.
+4. Esperar BOT QA y Deploy Supabase Edge Functions.
+5. Si QA falla, revisar únicamente los tests fallidos y sus evidencias.
+6. Probar Panel -> Factura electrónica -> estado/conexión sandbox.
+7. Después completar firma XAdES/XML 4.4 y conseguir una aceptación real en sandbox.
+8. Configurar Google Play Billing/email/códigos y después generar AAB final firmado.
+
+IMPORTANTE
+----------
+Producción fiscal permanece bloqueada durante PRE-BETA/CIERRE hasta aprobar el recorrido real con Hacienda.
+Nunca subir usuario/contraseña/PIN/.p12/FISCAL_MASTER_KEY/keystore de Google Play al repositorio.
