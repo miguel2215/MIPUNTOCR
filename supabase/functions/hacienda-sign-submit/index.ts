@@ -147,10 +147,27 @@ Deno.serve(async (req) => {
       body: JSON.stringify(payload),
     });
     const responseText = await response.text();
-    const detail = responseText || response.headers.get('X-Error-Cause') || '';
+    const errorCause = response.headers.get('X-Error-Cause') || '';
+    const detail = errorCause || responseText || 'Hacienda no devolvió detalle adicional.';
 
     if (![200, 201, 202].includes(response.status)) {
-      return json({ error: `Hacienda ${response.status}`, detail }, response.status);
+      // No propagamos el mismo 4xx de Hacienda como status de la Edge Function porque
+      // supabase-js lo convierte en un error genérico y oculta el cuerpo en algunos clientes.
+      // El comprobante NO se persiste como venta y producción sigue bloqueada arriba.
+      console.error('Hacienda recepción rechazó el comprobante', {
+        environment,
+        hacienda_status: response.status,
+        error_cause: errorCause,
+        response_text: responseText,
+        clave,
+      });
+      return json({
+        error: 'Hacienda rechazó la prueba sandbox',
+        stage: 'hacienda_recepcion',
+        hacienda_status: response.status,
+        detail,
+        safe_to_retry: true,
+      }, 502);
     }
 
     const location = response.headers.get('Location') || null;
