@@ -290,7 +290,7 @@ function fiscalSettingsV743(){
   </section>
   <section class="section secure-box"><h3>🔐 Conexión segura con Hacienda</h3><p class="muted">Las credenciales y la llave de cada negocio se envían directamente al backend seguro. No se guardan en localStorage, IndexedDB ni dentro del APK.</p>
     <div class="secure-row"><span>Ambiente PRE-BETA</span><strong>Pruebas / sandbox</strong></div><div class="secure-row"><span>Estado</span><strong>${esc(conn)}</strong></div>
-    ${connected?`<div class="status ok" style="margin-top:12px">✓ Este negocio ya tiene credenciales fiscales protegidas. Puedes probar OAuth sin mostrar los secretos.</div><div class="actions left wrap"><button class="btn primary" id="testHacienda">Probar conexión</button><button class="btn ghost" id="refreshHaciendaStatus">Actualizar estado</button></div>`:
+    ${connected?`<div class="status ok" style="margin-top:12px">✓ Este negocio ya tiene credenciales fiscales protegidas. Puedes probar OAuth sin mostrar los secretos.</div><div class="actions left wrap"><button class="btn primary" id="testHacienda">Probar conexión</button><button class="btn ghost" id="testFiscalKey">Probar clave y consecutivo</button><button class="btn ghost" id="refreshHaciendaStatus">Actualizar estado</button></div><div id="fiscalKeyStatus" class="status hidden"></div>`:
     `<div class="fiscal-grid2 section">
       <div class="field"><label>Usuario de pruebas de Hacienda</label><input id="haciendaUser" autocomplete="off" ${owner?'':'disabled'}></div>
       <div class="field"><label>Contraseña de pruebas</label><input id="haciendaPass" type="password" autocomplete="new-password" ${owner?'':'disabled'}></div>
@@ -329,6 +329,22 @@ async function saveHaciendaCredentialsV743(){
 async function testHaciendaConnectionV743(){const box=$('#haciendaStatus');if(!box)return;try{box.className='status';box.textContent='Probando OAuth con Hacienda…';const {data:r,error}=await sb.functions.invoke('hacienda-test-connection',{body:{business_id:business.id,environment:'sandbox'}});if(error)throw error;box.className='status ok';box.textContent=r?.ok?'✓ Conexión de pruebas correcta.':'Hacienda respondió, pero la conexión no quedó validada.'}catch(e){console.error(e);box.className='status error';box.textContent=e?.message||'No se pudo validar la conexión de pruebas.'}}
 async function refreshHaciendaStatusV743(){const box=$('#haciendaStatus');if(box){box.className='status';box.textContent='Actualizando…'}await loadV743FiscalSecureStatus();render()}
 
+async function testFiscalKeyV744(){
+  const box=$('#fiscalKeyStatus');if(!box||!business?.id)return;
+  const s=settings();
+  try{
+    box.className='status';box.textContent='Generando clave y consecutivo de prueba en sandbox…';
+    if(!s.fiscalId||!s.fiscalIdType)throw new Error('Guarda primero la identificación fiscal del negocio.');
+    const body={business_id:business.id,branch_code:String(s.fiscalBranchCode||'001').padStart(3,'0'),terminal_code:String(s.fiscalTerminalCode||'00001').padStart(5,'0'),document_type:'01',situation:'1',emitter_id_type:s.fiscalIdType,emitter_id_number:s.fiscalId};
+    const {data:r,error}=await sb.functions.invoke('hacienda-generate-key',{body});
+    if(error)throw error;
+    const consecutivo=String(r?.consecutivo||''),clave=String(r?.clave||'');
+    if(!/^\d{20}$/.test(consecutivo)||!/^\d{50}$/.test(clave))throw new Error('La función respondió, pero la longitud de la clave o consecutivo no es válida.');
+    box.className='status ok';
+    box.innerHTML=`✓ Generación correcta en sandbox.<br><b>Consecutivo (${consecutivo.length} dígitos):</b> ${esc(consecutivo)}<br><b>Clave (${clave.length} dígitos):</b> ${esc(clave)}<br><small>Esta prueba reserva un consecutivo de sandbox. No emite ni envía una factura a Hacienda.</small>`;
+  }catch(e){console.error(e);box.className='status error';box.textContent=e?.message||'No se pudo generar la clave y el consecutivo de prueba.'}
+}
+
 function bind(){
   document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.nav;if(view==='settings')settingsSection='';render()}));
   document.querySelectorAll('[data-settings]').forEach(b=>b.addEventListener('click',()=>{const key=b.dataset.settings||'';if(key==='pro'){view='pro';settingsSection='pro'}else{view='settings';settingsSection=key}render()}));
@@ -343,7 +359,7 @@ function bind(){
   $('#findPrinter')?.addEventListener('click',findPrinterV742);$('#printTest')?.addEventListener('click',printPrinterTestV742);$('#printerOk')?.addEventListener('click',()=>printerCalibrationV742(true));$('#printerNo')?.addEventListener('click',()=>printerCalibrationV742(false));
   $('#activateProCode')?.addEventListener('click',()=>redeemProCodeV742('full'));
   $('#activateProCodeQuick')?.addEventListener('click',()=>redeemProCodeV742('quick'));
-  $('#lookupFiscalBusinessP')?.addEventListener('click',lookupFiscalBusinessV744);$('#saveFiscalProfile')?.addEventListener('click',saveFiscalProfileV743);$('#saveHaciendaCredentials')?.addEventListener('click',saveHaciendaCredentialsV743);$('#testHacienda')?.addEventListener('click',testHaciendaConnectionV743);$('#refreshHaciendaStatus')?.addEventListener('click',refreshHaciendaStatusV743);
+  $('#lookupFiscalBusinessP')?.addEventListener('click',lookupFiscalBusinessV744);$('#saveFiscalProfile')?.addEventListener('click',saveFiscalProfileV743);$('#saveHaciendaCredentials')?.addEventListener('click',saveHaciendaCredentialsV743);$('#testHacienda')?.addEventListener('click',testHaciendaConnectionV743);$('#testFiscalKey')?.addEventListener('click',testFiscalKeyV744);$('#refreshHaciendaStatus')?.addEventListener('click',refreshHaciendaStatusV743);
   $('#saveGoal')?.addEventListener('click',saveGoal);document.querySelectorAll('[data-ask]').forEach(b=>b.addEventListener('click',()=>{const box=$('#askAnswer');if(box)box.textContent=askPointYaAnswer(b.dataset.ask)}));
 }
 async function init(){const {data:{session}}=await sb.auth.getSession();if(!session){return showAuth()}user=session.user;let m=null;const mr=await sb.from('business_members').select('*').eq('user_id',user.id).eq('active',true).order('created_at',{ascending:true}).limit(1);if(!mr.error)m=mr.data?.[0]||null;let b=null;if(m){const br=await sb.from('businesses').select('*').eq('id',m.business_id).maybeSingle();if(!br.error)b=br.data}else{const br=await sb.from('businesses').select('*').eq('owner_user_id',user.id).order('created_at',{ascending:true}).limit(1);if(!br.error)b=br.data?.[0]||null}if(!b)return showMessage('No encontramos un negocio vinculado a esta cuenta.','Abre PUNTO YA CR y termina la configuración del negocio.');membership=m||{role:'owner'};if(!['owner','admin'].includes(membership.role||'owner'))return showMessage('Acceso restringido','El Panel del Emprendedor está reservado para el Dueño o administración autorizada.');business=b;await Promise.all([loadAll(),loadV742PlanStatus(),loadV743FiscalSecureStatus()]);render()}
