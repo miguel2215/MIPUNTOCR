@@ -5473,17 +5473,99 @@ window.productForm = (id, presetCategory="") => {
   setTimeout(()=>{ if(isProducts()) updateProductFinancialPreview(id||""); updateProductTaxPreview(); },0);
 };
 const PYCR_FISCAL_HINTS=[
-  {keys:["pizza","pizzeria"],name:"Pizza",queries:["suministro de comida restaurante","servicio de restaurante","comida preparada"],must:["comida","restaurante","aliment"]},
-  {keys:["coca","coca cola","fanta","sprite","gaseosa","refresco"],name:"Bebida gaseosa",queries:["bebida gaseosa","bebidas gaseosas"],must:["gaseos","bebida"]},
-  {keys:["agua","agua botella","agua embotellada"],name:"Agua embotellada",queries:["agua natural embotellada","agua embotellada"],must:["agua"]},
-  {keys:["cafe","coffee"],name:"Café",queries:["cafe preparado","bebida cafe","cafe"],must:["cafe"]},
-  {keys:["hamburguesa","burger"],name:"Hamburguesa",queries:["suministro de comida restaurante","comida preparada"],must:["comida","restaurante","aliment"]},
-  {keys:["pollo","pollo frito","pollo asado"],name:"Pollo preparado",queries:["comida preparada pollo","suministro de comida"],must:["pollo","comida","aliment"]},
-  {keys:["camisa","camiseta","t shirt","blusa"],name:"Prenda de vestir",queries:["camisas prendas de vestir","camisetas prendas de vestir"],must:["camis","prenda","vestir"]},
-  {keys:["zapato","zapatos","tenis","calzado"],name:"Calzado",queries:["calzado zapatos"],must:["calzado","zapato"]},
-  {keys:["perfume","colonia","fragancia"],name:"Perfume",queries:["perfumes fragancias"],must:["perfume","fragancia"]},
-  {keys:["shampoo","champu","champú"],name:"Champú",queries:["champu cabello"],must:["champ","cabello"]},
-  {keys:["celular","telefono","smartphone"],name:"Teléfono celular",queries:["telefonos celulares","telefono movil"],must:["telefono","celular","movil"]}
+// RESTAURANTE · bebidas
+{keys:["coca","coca cola","coca-cola","fanta","sprite","pepsi","7up","seven up","ginger ale","gaseosa","refresco","soda","cola"],name:"Bebida gaseosa",queries:["bebidas gaseosas azucaradas edulcoradas aromatizadas"],must:["gaseos"],exclude:["aparato","maquina","alimento para animales"],exactCabys:"2449001000000"},
+{keys:["agua","agua botella","agua embotellada","agua mineral","agua con gas","agua sin gas"],name:"Agua embotellada",queries:["agua natural embotellada","agua embotellada"],must:["agua"],exclude:["residual","alcantarill","riego"]},
+{keys:["jugo","zumo","nectar","néctar","jugo naranja","jugo manzana","jugo pina","jugo piña"],name:"Jugo o néctar",queries:["jugos de frutas","nectares de frutas"],must:["jugo","nectar","frut"]},
+{keys:["te frio","té frío","iced tea","fuze tea","te botella","té botella"],name:"Té listo para beber",queries:["bebida de te lista para beber","te listo para beber"],must:["te","bebida"]},
+{keys:["energetica","energética","red bull","monster","energy drink"],name:"Bebida energética",queries:["bebidas energeticas"],must:["energet"]},
+{keys:["isotonica","isotónica","gatorade","powerade","bebida deportiva"],name:"Bebida deportiva",queries:["bebidas deportivas isotonicas"],must:["deport","isoton"]},
+{keys:["cafe","coffee","americano","espresso","expreso"],name:"Café",queries:["cafe preparado","bebida de cafe"],must:["cafe"]},
+{keys:["cappuccino","capuccino","capuchino","latte","mocaccino","mocha"],name:"Bebida de café con leche",queries:["bebida de cafe con leche","cafe preparado"],must:["cafe"]},
+{keys:["te","té","infusion","infusión","manzanilla"],name:"Té o infusión",queries:["te preparado","infusiones preparadas"],must:["te","infusion"]},
+{keys:["leche","leche entera","leche descremada","leche deslactosada"],name:"Leche",queries:["leche liquida"],must:["leche"]},
+{keys:["batido","milkshake","smoothie"],name:"Batido",queries:["bebidas preparadas batidos","batidos de frutas"],must:["bebida","batido","frut"]},
+// RESTAURANTE · comidas
+{keys:["pizza","pizzeria","pepperoni","hawaiana"],name:"Pizza preparada",queries:["pizza preparada","productos alimenticios preparados pizza"],must:["pizza"],exclude:["sin hornear","maquina","aparato","servicio"]},
+{keys:["hamburguesa","burger","cheeseburger"],name:"Hamburguesa preparada",queries:["hamburguesa preparada","productos alimenticios preparados hamburguesa"],must:["hamburg"]},
+{keys:["hot dog","perro caliente","perrito caliente"],name:"Hot dog preparado",queries:["perro caliente preparado","hot dog preparado"],must:["perro","hot dog"]},
+{keys:["sandwich","sándwich","emparedado","panini"],name:"Sándwich preparado",queries:["sandwich preparado","emparedado preparado"],must:["sandwich","empared"]},
+{keys:["casado","plato del dia","plato del día","almuerzo ejecutivo"],name:"Comida preparada",queries:["comidas preparadas platos preparados"],must:["comida","plato","aliment"]},
+{keys:["gallo pinto","pinto","desayuno tipico","desayuno típico"],name:"Desayuno preparado",queries:["desayunos preparados","comidas preparadas"],must:["desay","comida","aliment"]},
+{keys:["arroz con pollo","arroz cantonés","arroz cantones","arroz preparado"],name:"Arroz preparado",queries:["arroz preparado platos"],must:["arroz","prepar"]},
+{keys:["pasta","spaghetti","espagueti","lasagna","lasaña","macarrones"],name:"Pasta preparada",queries:["pastas preparadas","platos de pasta preparados"],must:["pasta","prepar"]},
+{keys:["sopa","crema de","consome","consomé"],name:"Sopa preparada",queries:["sopas preparadas"],must:["sopa"]},
+{keys:["ensalada","cesar","césar"],name:"Ensalada preparada",queries:["ensaladas preparadas"],must:["ensalad"]},
+{keys:["pollo frito","pollo asado","pechuga","alitas","wings","muslo"],name:"Pollo preparado",queries:["pollo preparado","carne de pollo preparada"],must:["pollo"],exclude:["alimento animal"]},
+{keys:["carne asada","bistec","lomito","res","steak"],name:"Carne de res preparada",queries:["carne de res preparada","platos de carne de res"],must:["res","carne"]},
+{keys:["cerdo","chuleta","costilla de cerdo","pork"],name:"Carne de cerdo preparada",queries:["carne de cerdo preparada"],must:["cerdo","carne"]},
+{keys:["pescado","filete de pescado","fish"],name:"Pescado preparado",queries:["pescado preparado"],must:["pescado"]},
+{keys:["ceviche","cebiche"],name:"Ceviche",queries:["ceviche preparado","pescado preparado"],must:["ceviche","pescado"]},
+{keys:["camaron","camarón","camarones","mariscos","pulpo","calamar","langosta"],name:"Mariscos preparados",queries:["mariscos preparados"],must:["marisc","camaron","pulpo","calamar","langosta"]},
+{keys:["papas fritas","papas","french fries"],name:"Papas preparadas",queries:["papas fritas preparadas"],must:["papa"]},
+{keys:["pan","baguette","bollo"],name:"Pan",queries:["pan productos de panaderia"],must:["pan"]},
+{keys:["croissant","croasan","reposteria","repostería","pasteleria","pastelería"],name:"Repostería",queries:["productos de reposteria pasteleria"],must:["reposter","pasteler"]},
+{keys:["queque","pastel","torta","cake"],name:"Pastel o queque",queries:["pasteles queques"],must:["pastel","queque","torta"]},
+{keys:["helado","ice cream","gelato"],name:"Helado",queries:["helados"],must:["helad"]},
+{keys:["galleta","galletas","cookie","cookies"],name:"Galletas",queries:["galletas"],must:["gallet"]},
+{keys:["chocolate","barra chocolate"],name:"Chocolate",queries:["chocolate productos de chocolate"],must:["chocolat"]},
+{keys:["salsa tomate","ketchup","mayonesa","mostaza","salsa bbq"],name:"Salsa o condimento",queries:["salsas condimentos alimenticios"],must:["salsa","mayonesa","mostaza","condiment"]},
+// RETAIL · ropa y calzado
+{keys:["camiseta","t shirt","t-shirt","tshirt","playera"],name:"Camiseta",queries:["camisetas prendas de vestir"],must:["camiset"]},
+{keys:["camisa","camisa hombre","camisa mujer"],name:"Camisa",queries:["camisas prendas de vestir"],must:["camisa"]},
+{keys:["blusa","top mujer"],name:"Blusa",queries:["blusas prendas de vestir"],must:["blusa"]},
+{keys:["pantalon","pantalón","jean","jeans","vaquero"],name:"Pantalón",queries:["pantalones prendas de vestir"],must:["pantal"]},
+{keys:["short","shorts","pantalon corto","pantalón corto"],name:"Pantalón corto",queries:["pantalones cortos prendas vestir"],must:["corto","short"]},
+{keys:["vestido","dress"],name:"Vestido",queries:["vestidos prendas de vestir"],must:["vestido"]},
+{keys:["falda","skirt"],name:"Falda",queries:["faldas prendas de vestir"],must:["falda"]},
+{keys:["ropa interior","calzon","calzón","boxer","brasier","sosten","sostén"],name:"Ropa interior",queries:["ropa interior prendas vestir"],must:["interior","calzon","boxer","sosten"]},
+{keys:["medias","calcetines","socks"],name:"Calcetines",queries:["calcetines medias vestir"],must:["calcetin","media"]},
+{keys:["tenis","sneakers","zapatillas deportivas","calzado deportivo"],name:"Calzado deportivo",queries:["calzado deportivo"],must:["calzado","deport"]},
+{keys:["zapato","zapatos","calzado formal"],name:"Zapatos",queries:["zapatos calzado"],must:["zapato","calzado"]},
+{keys:["sandalia","sandalias","chancletas","flip flop"],name:"Sandalias",queries:["sandalias calzado"],must:["sandalia"]},
+{keys:["bota","botas"],name:"Botas",queries:["botas calzado"],must:["bota"]},
+{keys:["gorra","cap","sombrero"],name:"Gorra o sombrero",queries:["gorras sombreros"],must:["gorra","sombrero"]},
+{keys:["bolso","cartera","handbag","mochila","backpack"],name:"Bolso o mochila",queries:["bolsos carteras mochilas"],must:["bolso","cartera","mochila"]},
+// RETAIL · belleza y cuidado personal
+{keys:["perfume","colonia","fragancia","eau de parfum","eau de toilette"],name:"Perfume o fragancia",queries:["perfumes fragancias"],must:["perfume","fragancia"]},
+{keys:["shampoo","champu","champú"],name:"Champú",queries:["champu cabello"],must:["champ"]},
+{keys:["acondicionador","conditioner"],name:"Acondicionador para cabello",queries:["acondicionador cabello"],must:["acondicion"]},
+{keys:["crema corporal","locion corporal","loción corporal","body lotion"],name:"Crema corporal",queries:["cremas lociones para piel"],must:["crema","locion","piel"]},
+{keys:["maquillaje","base maquillaje","foundation"],name:"Maquillaje",queries:["maquillaje cosmeticos"],must:["maquill","cosmetic"]},
+{keys:["labial","lipstick","pintalabios"],name:"Labial",queries:["preparaciones maquillaje labios"],must:["labio","maquill"]},
+{keys:["mascara pestañas","rimmel","rimel"],name:"Máscara para pestañas",queries:["maquillaje ojos mascara pestanas"],must:["pest","ojo","maquill"]},
+{keys:["desodorante","antitranspirante"],name:"Desodorante",queries:["desodorantes antitranspirantes"],must:["desodor","antitrans"]},
+{keys:["jabon","jabón","soap"],name:"Jabón",queries:["jabon tocador"],must:["jabon"]},
+{keys:["pasta dental","crema dental","dentifrico","dentífrico"],name:"Pasta dental",queries:["dentifricos pasta dental"],must:["dental","dentif"]},
+// RETAIL · tecnología
+{keys:["celular","telefono celular","teléfono celular","smartphone","iphone","galaxy"],name:"Teléfono móvil",queries:["telefonos moviles celulares"],must:["telefono","movil","celular"]},
+{keys:["tablet","ipad","tableta"],name:"Tableta electrónica",queries:["tabletas electronicas computadoras"],must:["tableta","tablet"]},
+{keys:["laptop","computadora portatil","computadora portátil","notebook"],name:"Computadora portátil",queries:["computadoras portatiles"],must:["computador","portatil"]},
+{keys:["computadora","pc","desktop"],name:"Computadora",queries:["computadoras escritorio"],must:["computador"]},
+{keys:["cargador","charger","adaptador usb"],name:"Cargador eléctrico",queries:["cargadores para telefonos dispositivos"],must:["cargador"]},
+{keys:["cable usb","cable lightning","cable tipo c","usb c","cable hdmi"],name:"Cable electrónico",queries:["cables electricos conectores"],must:["cable"]},
+{keys:["audifonos","audífonos","headphones","earbuds","airpods"],name:"Audífonos",queries:["auriculares audifonos"],must:["auricular","audif"]},
+{keys:["parlante","speaker","altavoz"],name:"Altavoz",queries:["altavoces parlantes"],must:["altavoz","parlante"]},
+{keys:["televisor","tv","smart tv"],name:"Televisor",queries:["televisores"],must:["televisor"]},
+{keys:["mouse","raton computadora","ratón computadora"],name:"Mouse de computadora",queries:["mouse dispositivos entrada computadora"],must:["mouse","raton"]},
+{keys:["teclado","keyboard"],name:"Teclado de computadora",queries:["teclados computadora"],must:["teclado"]},
+// RETAIL · hogar, limpieza, papelería, juguetes, bebé, mascotas
+{keys:["olla","sarten","sartén","cacerola"],name:"Utensilio de cocina",queries:["ollas sartenes utensilios cocina"],must:["olla","sarten","cocina"]},
+{keys:["vaso","taza","copa"],name:"Vaso o taza",queries:["vasos tazas vajilla"],must:["vaso","taza","copa"]},
+{keys:["plato","vajilla"],name:"Plato o vajilla",queries:["platos vajilla"],must:["plato","vajilla"]},
+{keys:["detergente","jabon ropa","jabón ropa"],name:"Detergente",queries:["detergentes limpieza"],must:["detergent"]},
+{keys:["cloro","lejia","lejía","blanqueador"],name:"Blanqueador",queries:["blanqueadores cloro limpieza"],must:["blanque","cloro"]},
+{keys:["desinfectante","limpiador multiuso","limpiador"],name:"Producto de limpieza",queries:["productos limpieza desinfectantes"],must:["limpieza","desinfect"]},
+{keys:["papel higienico","papel higiénico"],name:"Papel higiénico",queries:["papel higienico"],must:["higien"]},
+{keys:["servilleta","servilletas"],name:"Servilletas",queries:["servilletas papel"],must:["servilleta"]},
+{keys:["cuaderno","notebook escolar"],name:"Cuaderno",queries:["cuadernos escolares"],must:["cuaderno"]},
+{keys:["lapicero","boligrafo","bolígrafo","pluma"],name:"Bolígrafo",queries:["boligrafos lapiceros"],must:["boligraf","lapicero"]},
+{keys:["lapiz","lápiz","pencil"],name:"Lápiz",queries:["lapices escritura"],must:["lapiz"]},
+{keys:["juguete","muñeca","muneca","carrito juguete","peluche"],name:"Juguete",queries:["juguetes"],must:["juguet"]},
+{keys:["pañal","panal","pañales","panales","diaper"],name:"Pañales",queries:["panales bebe"],must:["panal"]},
+{keys:["biberon","biberón","mamadera"],name:"Biberón",queries:["biberones bebe"],must:["biber"]},
+{keys:["comida perro","alimento perro","dog food","croquetas perro"],name:"Alimento para perros",queries:["alimentos preparados para perros"],must:["perro"]},
+{keys:["comida gato","alimento gato","cat food","croquetas gato"],name:"Alimento para gatos",queries:["alimentos preparados para gatos"],must:["gato"]}
 ];
 const pycrNorm=t=>String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim();
 function pycrFiscalHint(name,category){
@@ -5509,6 +5591,11 @@ window.searchOfficialCabys = async () => {
     if(!hint&&isFood())queries.push("suministro de comida");
     const uniqueQueries=[...new Set(queries.map(x=>String(x||"").trim()).filter(x=>x.length>=3))].slice(0,4);
     const batches=[];
+    if(hint?.exactCabys){
+      const exact=await fetch(`https://api.hacienda.go.cr/fe/cabys?codigo=${encodeURIComponent(hint.exactCabys)}`,{headers:{"Accept":"application/json"}});
+      if(exact.status===429)throw new Error("Hacienda limitó temporalmente las consultas. Espera un momento e intenta de nuevo.");
+      if(exact.ok)batches.push(await exact.json());
+    }
     for(const term of uniqueQueries){
       const res=await fetch(`https://api.hacienda.go.cr/fe/cabys?q=${encodeURIComponent(term)}&top=30`,{headers:{"Accept":"application/json"}});
       if(res.status===429)throw new Error("Hacienda limitó temporalmente las consultas. Espera un momento e intenta de nuevo.");
@@ -5525,8 +5612,10 @@ window.searchOfficialCabys = async () => {
       if(!/^\d{13}$/.test(code)||!description)return;
       const d=pycrNorm(description);
       const intentHits=hint?hint.must.filter(w=>d.includes(pycrNorm(w))).length:0;
-      if(hint&&intentHits===0)return; // evita sugerencias absurdas fuera de la familia detectada
-      let score=intentHits*12;
+      const excluded=hint?.exclude?.some(w=>d.includes(pycrNorm(w)));
+      if(excluded)return;
+      if(hint&&intentHits===0&&code!==hint.exactCabys)return; // evita sugerencias fuera de la familia detectada
+      let score=intentHits*12+(code===hint?.exactCabys?100:0);
       score+=words.reduce((n,w)=>n+(d.includes(w)?3:0),0);
       if(d.includes(pycrNorm(q)))score+=10;
       const prev=map.get(code);if(!prev||score>prev.score)map.set(code,{code,description,score});
