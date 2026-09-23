@@ -5011,6 +5011,12 @@ async function fiscalInvoke(name, body) {
   }
   return data||{};
 }
+function fiscalXmlActivityCode(value) {
+  const raw=String(value||"").trim();
+  const m=raw.match(/^(\d{4})\.(\d)$/);
+  if(m) return `${m[1]}${m[2]}0`;
+  return raw.replace(/\D/g,"");
+}
 async function emitElectronicInvoiceSandbox(sale) {
   if(!isElectronicSale(sale)) return null;
   if(!navigator.onLine) throw new Error("La prueba de Factura Electrónica requiere Internet.");
@@ -5032,7 +5038,7 @@ async function emitElectronicInvoiceSandbox(sale) {
   });
   const xml=await fiscalInvoke("hacienda-build-xml",{
     business_id:businessId,clave:sale.fiscalClave,consecutivo:sale.fiscalConsecutivo,issue_date:sale.createdAt,
-    provider_systems:String(s.fiscalId||""),issuer_activity:String(s.fiscalEconomicActivityCode||""),receiver_activity:String(receiver.activityCode||""),
+    provider_systems:String(s.fiscalId||""),issuer_activity:fiscalXmlActivityCode(s.fiscalEconomicActivityCode),receiver_activity:fiscalXmlActivityCode(receiver.activityCode),
     issuer:{name:String(s.fiscalLegalName||s.businessName||""),id_type:String(s.fiscalIdType||"01"),id_number:String(s.fiscalId||""),email:String(s.fiscalEmail||s.email||""),location:{province:fiscalProvinceCode(s.fiscalProvince),canton:String(s.fiscalCanton||""),district:String(s.fiscalDistrict||""),other_signs:String(s.fiscalOtherSigns||"")}},
     receiver:{name:String(receiver.name||""),id_type:String(receiver.idType||"01"),id_number:String(receiver.id||""),email:String(receiver.email||"")},
     sale_condition:fiscalSandboxConditionCode(sale.method),credit_days:fiscalSandboxConditionCode(sale.method)==="02"?String(s.fiscalCreditDays||"1"):"",payment_method:fiscalSandboxPaymentCode(sale.method),lines
@@ -5076,7 +5082,8 @@ async function refreshElectronicInvoiceStatus(saleId, { reopen = true } = {}) {
       sale.fiscalTemporaryStatus=null;
       if(["aceptado","rechazado","error"].includes(st)) sale.fiscalResponseAt=new Date().toISOString();
       await put("sales",sale);
-      toast(st==="aceptado"?"Factura aceptada por Hacienda.":st==="rechazado"?"Factura rechazada por Hacienda. Revisa el motivo fiscal.":`Estado Hacienda: ${st}.`);
+      if(st==="rechazado" || st==="error") sale.fiscalRejectionDetail=String(check.rejection_detail||"").trim();
+      toast(st==="aceptado"?"Factura aceptada por Hacienda.":st==="rechazado"?(sale.fiscalRejectionDetail?`Factura rechazada: ${sale.fiscalRejectionDetail.slice(0,180)}`:"Factura rechazada por Hacienda. Revisa el motivo fiscal."):`Estado Hacienda: ${st}.`);
     } else {
       await put("sales",sale);
       toast("Hacienda respondió sin un estado definitivo. La factura sigue pendiente.");
