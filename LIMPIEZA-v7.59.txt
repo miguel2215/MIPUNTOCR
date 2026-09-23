@@ -1,0 +1,27 @@
+PUNTO YA CR v7.59 - BASE LIMPIA
+
+ELIMINADO POR OBSOLETO:
+- PRE-BETA-v7.41.txt / v7.42 / v7.43
+- QA-v7.43.md / QA-v7.44.md
+- HACIENDA-4.4-v7.43.md / v7.44.md
+- SUPABASE-HACIENDA-v7.43.sql
+- SUPABASE-SECURITY-AUDIT.sql
+- CIERRE-v7.44-LEEME.txt
+- ACTUALIZACION-v7.34.txt
+- BOT-QA-README.txt
+- CAMBIOS históricos v7.57/v7.58
+- script prebeta-v743-scan.mjs
+
+CONSERVADO:
+- index.html, panel.html, PWA, imágenes e iconos.
+- Android/Capacitor y workflow APK.
+- QA Playwright vigente.
+- Edge Functions actuales de Hacienda.
+- Workflow de despliegue Supabase.
+- Flujo PRO + activación fiscal v7.58.
+
+CORREGIDO:
+- bot-qa.yml ya no apunta a la carpeta histórica v7.22.
+- package.json actualizado a v7.59.0 y sin comando PRE-BETA obsoleto.
+
+No se modificó la lógica fiscal funcional ni se generó ningún comprobante.
