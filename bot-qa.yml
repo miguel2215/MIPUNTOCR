@@ -1,0 +1,52 @@
+name: BOT QA - PUNTO YA CR
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  bot-qa:
+    name: Playwright QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar BOT QA
+        run: npx playwright test
+
+      - name: Guardar reporte Playwright
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-bot-qa
+          path: PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Guardar evidencias de errores
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencias-bot-qa
+          path: PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/PUNTO-YA-CR-v7.22-ACTUALIZACION-GRANDE/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
