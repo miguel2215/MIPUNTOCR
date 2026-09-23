@@ -2206,6 +2206,9 @@ async function cloudMergeRemoteCatalogClients(remote) {
       stock: Number(row.stock || 0),
       sku: row.sku || "",
       variants: Array.isArray(row.variants) ? row.variants : [],
+      cabys: String(row.cabys || existing?.cabys || "").replace(/\D/g, "").slice(0, 13),
+      cabysDescription: row.cabys_description || existing?.cabysDescription || "",
+      fiscalTaxRate: row.fiscal_tax_rate == null ? Math.max(0, Number(existing?.fiscalTaxRate ?? 0)) : Math.max(0, Number(row.fiscal_tax_rate)),
       category,
       active: row.active !== false,
       cloudSyncedAt: row.updated_at || new Date().toISOString()
@@ -3036,16 +3039,6 @@ function cloudSaleNotesPayload(sale) {
     electronicInvoiceRequested: !!sale.electronicInvoiceRequested,
     electronicInvoiceStatus: sale.electronicInvoiceStatus || "",
     invoiceCustomer: sale.invoiceCustomer || null,
-    fiscalClave: sale.fiscalClave || "",
-    fiscalConsecutivo: sale.fiscalConsecutivo || "",
-    fiscalXml44Version: sale.fiscalXml44Version || "",
-    fiscalXml44GeneratedAt: sale.fiscalXml44GeneratedAt || "",
-    fiscalXml44Preflight: Array.isArray(sale.fiscalXml44Preflight) ? sale.fiscalXml44Preflight : [],
-    fiscalSequence: Number(sale.fiscalSequence || 0),
-    fiscalSecurityCode: sale.fiscalSecurityCode || "",
-    fiscalTaxRates: Array.isArray(sale.fiscalTaxRates) ? sale.fiscalTaxRates : [],
-    fiscalPricesIncludeTax: sale.fiscalPricesIncludeTax !== false,
-    fiscalPricingVersion: Number(sale.fiscalPricingVersion || 0),
     grossSubtotal: Number(sale.grossSubtotal||0),
     itemDiscountTotal: Number(sale.itemDiscountTotal||0),
     saleDiscountType: sale.saleDiscountType||"",
@@ -3056,7 +3049,7 @@ function cloudSaleNotesPayload(sale) {
     exchangeSourceSaleId: sale.exchangeSourceSaleId||"",
     exchangeSourceSaleNumber: sale.exchangeSourceSaleNumber||"",
     returns: Array.isArray(sale.returns)?sale.returns:[],
-    itemMeta: (sale.items||[]).map(i=>({originalPrice:Number(i.originalPrice??i.price??0),discountType:i.discountType||"",discountValue:Number(i.discountValue||0),itemDiscount:Number(i.itemDiscount||0),saleDiscountShare:Number(i.saleDiscountShare||0),netTotal:Number(i.netTotal??(Number(i.price||0)*Number(i.qty||0))),cabys:i.cabys||"",fiscalTaxRate:Number(i.fiscalTaxRate??0),fiscalTaxAmount:Number(i.fiscalTaxAmount??0),fiscalSubtotalBeforeTax:Number(i.fiscalSubtotalBeforeTax??0),fiscalLineTotal:Number(i.fiscalLineTotal??0) }))
+    itemMeta: (sale.items||[]).map(i=>({originalPrice:Number(i.originalPrice??i.price??0),discountType:i.discountType||"",discountValue:Number(i.discountValue||0),itemDiscount:Number(i.itemDiscount||0),saleDiscountShare:Number(i.saleDiscountShare||0),netTotal:Number(i.netTotal??(Number(i.price||0)*Number(i.qty||0))) }))
   };
   return cloudPackMeta(CLOUD_SALE_META_PREFIX, meta, sale.note || "");
 }
@@ -3608,12 +3601,7 @@ async function cloudMergeOperationsRemote(remote) {
       items: (itemsBySale.get(row.id) || []).map((item,index) => { const im=(remoteSaleMeta.itemMeta||[])[index]||{}; return {
         id: productLocalId(item.product_id), cloudItemId: item.id, name: item.product_name, variant: item.variant || "",
         price: Number(item.unit_price || 0), originalPrice:Number(im.originalPrice??item.unit_price??0), qty: Number(item.quantity || 0),
-        discountType:im.discountType||"",discountValue:Number(im.discountValue||0),itemDiscount:Number(im.itemDiscount||0),saleDiscountShare:Number(im.saleDiscountShare||0),netTotal:Number(im.netTotal??item.subtotal??(Number(item.unit_price||0)*Number(item.quantity||0))),
-        cabys:String(item.cabys||im.cabys||"").replace(/\D/g,"").slice(0,13),
-        fiscalTaxRate:Number(item.fiscal_tax_rate??im.fiscalTaxRate??0),
-        fiscalTaxAmount:Number(item.fiscal_tax_amount??im.fiscalTaxAmount??0),
-        fiscalSubtotalBeforeTax:Number(item.fiscal_subtotal_before_tax??im.fiscalSubtotalBeforeTax??0),
-        fiscalLineTotal:Number(item.fiscal_line_total??im.fiscalLineTotal??item.subtotal??0)
+        discountType:im.discountType||"",discountValue:Number(im.discountValue||0),itemDiscount:Number(im.itemDiscount||0),saleDiscountShare:Number(im.saleDiscountShare||0),netTotal:Number(im.netTotal??item.subtotal??(Number(item.unit_price||0)*Number(item.quantity||0)))
       }; }),
       subtotal: Number(row.subtotal || 0), tax: Number(row.tax || 0), taxMode: row.tax_mode || "added", taxRate: Number(row.tax_rate || 0), total: Number(row.total || 0),
       method: cloudMethodToLocal(row.payment_method), reference: row.payment_reference || "", clientId: clientLocalId(row.client_id),
@@ -3630,16 +3618,6 @@ async function cloudMergeOperationsRemote(remote) {
       electronicInvoiceRequested: !!(remoteSaleMeta.electronicInvoiceRequested || existing?.electronicInvoiceRequested),
       electronicInvoiceStatus: remoteSaleMeta.electronicInvoiceStatus || existing?.electronicInvoiceStatus || "",
       invoiceCustomer: remoteSaleMeta.invoiceCustomer || existing?.invoiceCustomer || null,
-      fiscalClave: remoteSaleMeta.fiscalClave || existing?.fiscalClave || "",
-      fiscalConsecutivo: remoteSaleMeta.fiscalConsecutivo || existing?.fiscalConsecutivo || "",
-      fiscalXml44Version: remoteSaleMeta.fiscalXml44Version || existing?.fiscalXml44Version || "",
-      fiscalXml44GeneratedAt: remoteSaleMeta.fiscalXml44GeneratedAt || existing?.fiscalXml44GeneratedAt || "",
-      fiscalXml44Preflight: Array.isArray(remoteSaleMeta.fiscalXml44Preflight)?remoteSaleMeta.fiscalXml44Preflight:(existing?.fiscalXml44Preflight||[]),
-      fiscalSequence:Number(remoteSaleMeta.fiscalSequence||existing?.fiscalSequence||0),
-      fiscalSecurityCode:remoteSaleMeta.fiscalSecurityCode||existing?.fiscalSecurityCode||"",
-      fiscalTaxRates:Array.isArray(remoteSaleMeta.fiscalTaxRates)?remoteSaleMeta.fiscalTaxRates:(existing?.fiscalTaxRates||[]),
-      fiscalPricesIncludeTax:remoteSaleMeta.fiscalPricesIncludeTax!==undefined?remoteSaleMeta.fiscalPricesIncludeTax:(existing?.fiscalPricesIncludeTax!==false),
-      fiscalPricingVersion:Number(remoteSaleMeta.fiscalPricingVersion||existing?.fiscalPricingVersion||0),
       grossSubtotal:Number(remoteSaleMeta.grossSubtotal||existing?.grossSubtotal||0), itemDiscountTotal:Number(remoteSaleMeta.itemDiscountTotal||existing?.itemDiscountTotal||0),
       saleDiscountType:remoteSaleMeta.saleDiscountType||existing?.saleDiscountType||"", saleDiscountValue:Number(remoteSaleMeta.saleDiscountValue||existing?.saleDiscountValue||0), saleDiscountTotal:Number(remoteSaleMeta.saleDiscountTotal||existing?.saleDiscountTotal||0), discountTotal:Number(remoteSaleMeta.discountTotal||existing?.discountTotal||0),
       exchangeCredit:Number(remoteSaleMeta.exchangeCredit||existing?.exchangeCredit||0), exchangeSourceSaleId:remoteSaleMeta.exchangeSourceSaleId||existing?.exchangeSourceSaleId||"", exchangeSourceSaleNumber:remoteSaleMeta.exchangeSourceSaleNumber||existing?.exchangeSourceSaleNumber||"", returns:Array.isArray(remoteSaleMeta.returns)?remoteSaleMeta.returns:(existing?.returns||[]),
@@ -8740,300 +8718,6 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   };
 })();
 
-/* =========================
-   FACTURA ELECTRÓNICA XML 4.4 · GENERADOR PRE-FIRMA · v6.4
-   - Construye la estructura XML base desde ventas ya guardadas.
-   - NO firma XAdES, NO transmite a Hacienda y NO marca el comprobante como emitido.
-========================= */
-const PYCR_XML44_NS = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica";
-const PYCR_XML44_RATE_TO_TARIFF = new Map([[0.5,"09"],[1,"02"],[2,"03"],[4,"04"],[13,"08"]]);
-
-function pycrXmlEsc(value){return String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&apos;");}
-function pycrXmlDec(value, digits=5){const n=Number(value||0);return (Math.round((n+Number.EPSILON)*10**digits)/10**digits).toFixed(digits);}
-function pycrXmlDigits(value,max=99){return String(value??"").replace(/\D/g,"").slice(0,max);}
-function pycrXmlIdValid(type,id){const d=pycrXmlDigits(id,20);if(type==="01")return /^\d{9}$/.test(d)&&d[0]!=="0";if(type==="02")return /^\d{10}$/.test(d);if(type==="03")return /^\d{11,12}$/.test(d)&&d[0]!=="0";if(type==="04")return /^\d{10}$/.test(d);return false;}
-function pycrXmlProviderIdValid(id){const d=pycrXmlDigits(id,20);return (/^\d{9}$/.test(d)&&d[0]!=="0")||/^\d{10}$/.test(d)||(/^\d{11,12}$/.test(d)&&d[0]!=="0");}
-function pycrXmlIdForClave(type,id){const d=pycrXmlDigits(id,20);if(type==="01"&&d.length===9)return "000"+d;if(type==="02"&&d.length===10)return "00"+d;if(type==="03"&&d.length===11)return "0"+d;if(type==="03"&&d.length===12)return d;if(type==="04"&&d.length===10)return "00"+d;return d.padStart(12,"0").slice(-12);}
-function pycrXmlCostaRicaDate(date=new Date()){
-  const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Costa_Rica",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(date).reduce((a,p)=>(a[p.type]=p.value,a),{});
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}-06:00`;
-}
-function pycrXmlSecurityCode(seed){let h=2166136261;for(const ch of String(seed)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}return String(h>>>0).slice(-8).padStart(8,"0");}
-function pycrXmlConsecutive(sequence){const branch=pycrXmlDigits(state.settings.fiscalBranchCode||"001",3).padStart(3,"0");const terminal=pycrXmlDigits(state.settings.fiscalTerminalCode||"00001",5).padStart(5,"0");const seq=pycrXmlDigits(sequence,10).padStart(10,"0");return `${branch}${terminal}01${seq}`;}
-function pycrXmlClave({sequence,emissionDate,securitySeed}){const dt=new Date(emissionDate);const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"America/Costa_Rica",day:"2-digit",month:"2-digit",year:"2-digit"}).formatToParts(dt).reduce((a,p)=>(a[p.type]=p.value,a),{});const consecutive=pycrXmlConsecutive(sequence);const id12=pycrXmlIdForClave(state.settings.fiscalIdType||"01",state.settings.fiscalId||"");const security=pycrXmlSecurityCode(securitySeed||`${consecutive}|${dt.toISOString()}|${id12}`);return `506${parts.day}${parts.month}${parts.year}${id12}${consecutive}1${security}`;}
-function pycrXmlTariff(item){const explicit=String(item?.fiscalTaxTariffCode||"").padStart(2,"0");if(["01","02","03","04","08","09","10","11"].includes(explicit))return explicit;const rate=Number(item?.fiscalTaxRate);return PYCR_XML44_RATE_TO_TARIFF.get(rate)||"";}
-function pycrXmlTaxClass(item){const rate=Number(item?.fiscalTaxRate||0),tariff=pycrXmlTariff(item);if(rate>0)return "taxed";if(tariff==="10")return "exempt";if(tariff==="01"||tariff==="11")return "nonsubject";return "unknown";}
-function pycrXmlPaymentCode(sale){if(sale?.fiscalPaymentCode)return String(sale.fiscalPaymentCode).padStart(2,"0");const m=String(sale?.method||"").toLowerCase();if(m.includes("efectivo"))return "01";if(m.includes("tarjeta"))return "02";if(m.includes("sinpe"))return "06";if(m.includes("transfer"))return "04";return String(state.settings.fiscalDefaultPayment||"99").padStart(2,"0");}
-function pycrXmlConditionCode(sale){return String(sale?.method||"").toLowerCase().includes("crédito")||String(sale?.method||"").toLowerCase().includes("credito")?"02":"01";}
-function pycrXmlLineCalc(item,sale){
-  const qty=Number(item.qty||0),unitCommercial=Number(item.price||0),rate=Number(item.fiscalTaxRate||0),included=sale.fiscalPricesIncludeTax!==false;
-  const factor=1+rate/100,unitBase=included&&rate>0?unitCommercial/factor:unitCommercial;
-  const grossBase=unitBase*qty;
-  const discountCommercial=Math.max(0,Number(item.itemDiscount||0)+Number(item.saleDiscountShare||0));
-  const discountBase=included&&rate>0?discountCommercial/factor:discountCommercial;
-  const subtotal=Math.max(0,grossBase-discountBase),tax=subtotal*rate/100,total=subtotal+tax;
-  return {qty,rate,unitBase,grossBase,discountBase,subtotal,tax,total,tariff:pycrXmlTariff(item),taxClass:pycrXmlTaxClass(item)};
-}
-function pycrXmlSaleById(id){return (state.sales||[]).find(s=>String(s.id)===String(id));}
-function pycrXml44ValidateSale(sale){
-  const s=state.settings||{},errors=[],warnings=[];
-  if(!isProPlan()||!s.fiscalUsesEInvoice)errors.push("Requiere PRO y Factura electrónica activa.");
-  if(String(s.fiscalLegalName||"").trim().length<5)errors.push("Falta la razón social / nombre fiscal del emisor.");
-  if(!pycrXmlIdValid(String(s.fiscalIdType||"01"),s.fiscalId||""))errors.push("La identificación del emisor no tiene el formato esperado.");
-  if(!pycrXmlProviderIdValid(s.fiscalSystemProviderId||""))errors.push("Falta una identificación válida en Proveedor de sistemas. Si PUNTO YA CR es desarrollo propio, puedes usar la identificación del emisor.");
-  if(!/^\d{6}$/.test(pycrXmlDigits(s.fiscalEconomicActivityCode||"",6)))errors.push("El código de actividad económica del emisor debe tener 6 dígitos.");
-  if(!/^\d{3}$/.test(pycrXmlDigits(s.fiscalBranchCode||"",3)))errors.push("La sucursal debe tener 3 dígitos.");
-  if(!/^\d{5}$/.test(pycrXmlDigits(s.fiscalTerminalCode||"",5)))errors.push("El punto de venta debe tener 5 dígitos.");
-  if(!/^[1-7]$/.test(pycrXmlDigits(s.fiscalProvinceCode||"",1)))errors.push("Falta el código oficial de provincia (1 dígito). ");
-  if(!/^(?!00)\d{2}$/.test(pycrXmlDigits(s.fiscalCantonCode||"",2)))errors.push("Falta el código oficial de cantón (2 dígitos, distinto de 00).");
-  if(!/^(?!00)\d{2}$/.test(pycrXmlDigits(s.fiscalDistrictCode||"",2)))errors.push("Falta el código oficial de distrito (2 dígitos, distinto de 00).");
-  if(String(s.fiscalOtherSigns||"").trim().length<5)errors.push("Otras señas debe describir la dirección con al menos 5 caracteres.");
-  if(!/^\S+@\S+\.\S+$/.test(String(s.fiscalEmail||s.email||"").trim()))errors.push("Falta un correo válido del emisor.");
-  const sequence=Number(s.fiscalNextInvoiceSequence||0);if(!Number.isInteger(sequence)||sequence<1||sequence>9999999999)errors.push("Configura el próximo consecutivo de Factura Electrónica (1 a 9.999.999.999).");
-  if(!sale)errors.push("No encontramos la venta.");
-  if(sale&&!isElectronicSale(sale))errors.push("La venta no fue solicitada como Factura Electrónica.");
-  if(sale){
-    const r=sale.invoiceCustomer||{};
-    if(String(r.name||"").trim().length<3)errors.push("Falta el nombre o razón social del receptor.");
-    if(!pycrXmlIdValid(String(r.idType||""),r.id||""))errors.push("La identificación del receptor no tiene el formato esperado.");
-    if(r.activityCode&&!/^\d{6}$/.test(pycrXmlDigits(r.activityCode,6)))errors.push("La actividad económica del receptor debe tener 6 dígitos.");
-    if(!Array.isArray(sale.items)||!sale.items.length)errors.push("La venta no tiene líneas de detalle.");
-    if((sale.items||[]).length>1000)errors.push("El XML 4.4 admite hasta 1000 líneas de detalle.");
-    (sale.items||[]).forEach((item,index)=>{
-      const n=index+1,code=pycrXmlDigits(item.cabys,13),calc=pycrXmlLineCalc(item,sale);
-      if(!/^\d{13}$/.test(code))errors.push(`Línea ${n}: falta un CAByS válido de 13 dígitos.`);
-      if(!(calc.qty>0))errors.push(`Línea ${n}: la cantidad debe ser mayor a cero.`);
-      if(String(item.name||"").trim().length<3)errors.push(`Línea ${n}: el detalle debe tener al menos 3 caracteres.`);
-      if(!(calc.unitBase>0))errors.push(`Línea ${n}: el precio unitario debe ser mayor a cero.`);
-      if(calc.discountBase>calc.grossBase+0.001)errors.push(`Línea ${n}: el descuento supera el monto de la línea.`);
-      if(!calc.tariff){errors.push(`Línea ${n}: IVA ${calc.rate}% todavía no identifica de forma unívoca el CódigoTarifaIVA. En especial, un 0% debe indicar si es exento o no sujeto; PUNTO YA CR no lo inventará.`);}
-      if(![0,0.5,1,2,4,13].includes(calc.rate))warnings.push(`Línea ${n}: tarifa ${calc.rate}% requiere revisión antes de emisión oficial.`);
-    });
-    if(pycrXmlConditionCode(sale)==="02"&&!(Number(s.fiscalCreditTermDays||0)>0))errors.push("Para ventas a crédito configura el plazo de crédito en días.");
-  }
-  warnings.push("Este generador cubre el flujo estándar de IVA. Exoneraciones, IVA a nivel de fábrica, impuestos específicos, surtidos/combos fiscales y otros tratamientos especiales deben implementarse antes de emitir esos casos.");
-  return {ok:errors.length===0,errors,warnings};
-}
-function pycrXml44Build(sale,{sequence=null,emissionDate=null}={}){
-  const validation=pycrXml44ValidateSale(sale);if(!validation.ok){const e=new Error(validation.errors.join("\n"));e.validation=validation;throw e;}
-  const s=state.settings,r=sale.invoiceCustomer||{},seq=Number(sequence||s.fiscalNextInvoiceSequence),issued=emissionDate?new Date(emissionDate):new Date();
-  const consecutivo=pycrXmlConsecutive(seq),clave=pycrXmlClave({sequence:seq,emissionDate:issued,securitySeed:`${sale.id}|${seq}|${s.fiscalId}|${issued.toISOString().slice(0,16)}`}),fecha=pycrXmlCostaRicaDate(issued);
-  let totalServGravados=0,totalServExentos=0,totalServNoSujeto=0,totalMercGravadas=0,totalMercExentas=0,totalMercNoSujeta=0,totalDescuentos=0,totalTax=0;
-  const taxGroups=new Map();
-  const lines=(sale.items||[]).map((item,index)=>{
-    const c=pycrXmlLineCalc(item,sale),isService=/^[5-9]/.test(String(item.cabys||"")),unit=String(item.fiscalUnitCode||"Unid"),detail=String(item.name||"Producto").trim().slice(0,200);
-    totalDescuentos+=c.discountBase;totalTax+=c.tax;
-    if(c.taxClass==="taxed"){if(isService)totalServGravados+=c.grossBase;else totalMercGravadas+=c.grossBase;}
-    else if(c.taxClass==="exempt"){if(isService)totalServExentos+=c.grossBase;else totalMercExentas+=c.grossBase;}
-    else if(c.taxClass==="nonsubject"){if(isService)totalServNoSujeto+=c.grossBase;else totalMercNoSujeta+=c.grossBase;}
-    const groupKey=`01|${c.tariff}`;taxGroups.set(groupKey,(taxGroups.get(groupKey)||0)+c.tax);
-    const discountXml=c.discountBase>0.000004?`<Descuento><MontoDescuento>${pycrXmlDec(c.discountBase)}</MontoDescuento><CodigoDescuento>07</CodigoDescuento></Descuento>`:"";
-    const baseXml=c.rate>0?`<BaseImponible>${pycrXmlDec(c.subtotal)}</BaseImponible>`:"";
-    const taxXml=`<Impuesto><Codigo>01</Codigo><CodigoTarifaIVA>${pycrXmlEsc(c.tariff)}</CodigoTarifaIVA><Tarifa>${pycrXmlDec(c.rate,2)}</Tarifa><Monto>${pycrXmlDec(c.tax)}</Monto></Impuesto>`;
-    return `<LineaDetalle><NumeroLinea>${index+1}</NumeroLinea><CodigoCABYS>${pycrXmlEsc(pycrXmlDigits(item.cabys,13))}</CodigoCABYS><Cantidad>${pycrXmlDec(c.qty,3)}</Cantidad><UnidadMedida>${pycrXmlEsc(unit)}</UnidadMedida><Detalle>${pycrXmlEsc(detail)}</Detalle><PrecioUnitario>${pycrXmlDec(c.unitBase)}</PrecioUnitario><MontoTotal>${pycrXmlDec(c.grossBase)}</MontoTotal>${discountXml}<SubTotal>${pycrXmlDec(c.subtotal)}</SubTotal>${baseXml}${taxXml}<ImpuestoNeto>${pycrXmlDec(c.tax)}</ImpuestoNeto><MontoTotalLinea>${pycrXmlDec(c.total)}</MontoTotalLinea></LineaDetalle>`;
-  }).join("");
-  const totalGravado=totalServGravados+totalMercGravadas,totalExento=totalServExentos+totalMercExentas,totalNoSujeto=totalServNoSujeto+totalMercNoSujeta,totalVenta=totalGravado+totalExento+totalNoSujeto,totalVentaNeta=Math.max(0,totalVenta-totalDescuentos),totalComprobante=totalVentaNeta+totalTax;
-  const sumNode=(name,value)=>value>0.000004?`<${name}>${pycrXmlDec(value)}</${name}>`:"";
-  const taxBreakdown=[...taxGroups.entries()].map(([key,amount])=>{const [code,tariff]=key.split("|");return `<TotalDesgloseImpuesto><Codigo>${code}</Codigo><CodigoTarifaIVA>${tariff}</CodigoTarifaIVA><TotalMontoImpuesto>${pycrXmlDec(amount)}</TotalMontoImpuesto></TotalDesgloseImpuesto>`;}).join("");
-  const condition=pycrXmlConditionCode(sale),payment=pycrXmlPaymentCode(sale),creditXml=condition==="02"?`<PlazoCredito>${Math.max(1,Math.floor(Number(s.fiscalCreditTermDays||1)))}</PlazoCredito>`:"";
-  const paymentXml=condition==="02"?"":`<MedioPago><TipoMedioPago>${pycrXmlEsc(payment)}</TipoMedioPago><TotalMedioPago>${pycrXmlDec(totalComprobante)}</TotalMedioPago></MedioPago>`;
-  const emitterPhone=pycrXmlDigits(s.phone||"",20),receiverPhone=pycrXmlDigits(r.phone||"",20);
-  const receiverActivity=r.activityCode?`<CodigoActividadReceptor>${pycrXmlEsc(pycrXmlDigits(r.activityCode,6))}</CodigoActividadReceptor>`:"";
-  const xml=`<?xml version="1.0" encoding="utf-8"?>\n<FacturaElectronica xmlns="${PYCR_XML44_NS}"><Clave>${clave}</Clave><ProveedorSistemas>${pycrXmlEsc(pycrXmlDigits(s.fiscalSystemProviderId,20))}</ProveedorSistemas><CodigoActividadEmisor>${pycrXmlEsc(pycrXmlDigits(s.fiscalEconomicActivityCode,6))}</CodigoActividadEmisor>${receiverActivity}<NumeroConsecutivo>${consecutivo}</NumeroConsecutivo><FechaEmision>${fecha}</FechaEmision><Emisor><Nombre>${pycrXmlEsc(String(s.fiscalLegalName).slice(0,100))}</Nombre><Identificacion><Tipo>${pycrXmlEsc(s.fiscalIdType)}</Tipo><Numero>${pycrXmlEsc(pycrXmlDigits(s.fiscalId,20))}</Numero></Identificacion>${s.businessName&&s.businessName!==s.fiscalLegalName?`<NombreComercial>${pycrXmlEsc(String(s.businessName).slice(0,80))}</NombreComercial>`:""}<Ubicacion><Provincia>${pycrXmlEsc(pycrXmlDigits(s.fiscalProvinceCode,1))}</Provincia><Canton>${pycrXmlEsc(pycrXmlDigits(s.fiscalCantonCode,2))}</Canton><Distrito>${pycrXmlEsc(pycrXmlDigits(s.fiscalDistrictCode,2))}</Distrito><OtrasSenas>${pycrXmlEsc(String(s.fiscalOtherSigns).slice(0,250))}</OtrasSenas></Ubicacion>${emitterPhone.length>=8?`<Telefono><CodigoPais>506</CodigoPais><NumTelefono>${pycrXmlEsc(emitterPhone)}</NumTelefono></Telefono>`:""}<CorreoElectronico>${pycrXmlEsc(s.fiscalEmail||s.email)}</CorreoElectronico></Emisor><Receptor><Nombre>${pycrXmlEsc(String(r.name).slice(0,100))}</Nombre><Identificacion><Tipo>${pycrXmlEsc(r.idType)}</Tipo><Numero>${pycrXmlEsc(pycrXmlDigits(r.id,20))}</Numero></Identificacion>${receiverPhone.length>=8?`<Telefono><CodigoPais>506</CodigoPais><NumTelefono>${pycrXmlEsc(receiverPhone)}</NumTelefono></Telefono>`:""}${r.email?`<CorreoElectronico>${pycrXmlEsc(r.email)}</CorreoElectronico>`:""}</Receptor><CondicionVenta>${condition}</CondicionVenta>${creditXml}<DetalleServicio>${lines}</DetalleServicio><ResumenFactura><CodigoTipoMoneda><CodigoMoneda>CRC</CodigoMoneda><TipoCambio>1.00000</TipoCambio></CodigoTipoMoneda>${sumNode("TotalServGravados",totalServGravados)}${sumNode("TotalServExentos",totalServExentos)}${sumNode("TotalServNoSujeto",totalServNoSujeto)}${sumNode("TotalMercanciasGravadas",totalMercGravadas)}${sumNode("TotalMercanciasExentas",totalMercExentas)}${sumNode("TotalMercNoSujeta",totalMercNoSujeta)}${sumNode("TotalGravado",totalGravado)}${sumNode("TotalExento",totalExento)}${sumNode("TotalNoSujeto",totalNoSujeto)}<TotalVenta>${pycrXmlDec(totalVenta)}</TotalVenta>${sumNode("TotalDescuentos",totalDescuentos)}<TotalVentaNeta>${pycrXmlDec(totalVentaNeta)}</TotalVentaNeta>${taxBreakdown}${sumNode("TotalImpuesto",totalTax)}${paymentXml}<TotalComprobante>${pycrXmlDec(totalComprobante)}</TotalComprobante></ResumenFactura></FacturaElectronica>`;
-  return {xml,clave,consecutivo,fecha,sequence:seq,totalComprobante,validation};
-}
-function pycrXml44DownloadText(filename,text,mime="application/xml;charset=utf-8"){const blob=new Blob([text],{type:mime});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
-window.pycrXml44UseEmitterAsProvider=()=>{const input=$("#fSystemProvider");if(input)input.value=state.settings.fiscalId||$("#fId")?.value||"";};
-window.pycrXml44OpenForSale=(saleId)=>{
-  const sale=pycrXmlSaleById(saleId),v=pycrXml44ValidateSale(sale);
-  if(!v.ok){modal(`<h3>XML 4.4 · Falta completar</h3><p class="muted">PUNTO YA CR no generará un XML fiscal con datos incompletos o ambiguos.</p><div class="fiscal-note" style="margin-top:10px">${v.errors.map(e=>`<div>• ${esc(e)}</div>`).join("")}</div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="closeModal();go('fiscal')">Ir a configuración fiscal</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);return;}
-  let built;try{built=pycrXml44Build(sale);}catch(error){toast(error.message||"No se pudo construir el XML.");return;}
-  const encoded=encodeURIComponent(built.xml);
-  modal(`<h3>XML 4.4 · Borrador pre-firma</h3><p class="muted">Estructura generada con la venta guardada. Todavía no contiene firma XAdES y no ha sido enviada a Hacienda.</p><div class="fiscal-note" style="margin-top:10px"><strong>Clave de borrador</strong><div style="word-break:break-all;margin-top:5px">${esc(built.clave)}</div><div class="muted" style="margin-top:5px">Consecutivo: ${esc(built.consecutivo)} · Total XML: ${money(built.totalComprobante)}</div></div>${built.validation.warnings.length?`<div class="fiscal-note" style="margin-top:10px;background:#fffbed;border-color:#e7dfbd">${built.validation.warnings.map(w=>`<div>• ${esc(w)}</div>`).join("")}</div>`:""}<div class="field" style="margin-top:12px"><label>Vista XML</label><textarea readonly style="min-height:260px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px">${esc(built.xml)}</textarea></div><div class="toolbar"><button class="btn primary" onclick="pycrXml44Download('${sale.id}')">Descargar XML borrador</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
-};
-window.pycrXml44Download=(saleId)=>{const sale=pycrXmlSaleById(saleId);try{const built=pycrXml44Build(sale);pycrXml44DownloadText(`${built.clave}.xml`,built.xml);toast("XML 4.4 borrador descargado.");}catch(error){toast(error.message||"No se pudo generar el XML.");}};
-
-const PYCR_XML44_INVOICE_TICKET_BASE=invoiceRequestTicketHtml;
-invoiceRequestTicketHtml=function(sale){const base=PYCR_XML44_INVOICE_TICKET_BASE(sale);if(!isElectronicSale(sale))return base;return `${base}<div class="toolbar" style="margin:10px 0 14px"><button class="btn ghost" onclick="pycrXml44OpenForSale('${sale.id}')">Ver XML 4.4</button></div>`;};
-
-const PYCR_XML44_RENDER_FISCAL_BASE=renderFiscal;
-renderFiscal=function(){PYCR_XML44_RENDER_FISCAL_BASE();if(role!=="owner"||!isProPlan()||!state.settings.fiscalUsesEInvoice)return;const panels=[...document.querySelectorAll("#app .panel")],anchor=panels.find(p=>p.textContent.includes("CAByS e impuestos por producto"));if(!anchor||document.getElementById("pycrXml44Config"))return;const s=state.settings,readiness=pycrXml44ValidateSale(null);const setupErrors=readiness.errors.filter(e=>!e.includes("No encontramos la venta"));anchor.insertAdjacentHTML("beforebegin",`<div id="pycrXml44Config" class="panel" style="margin-top:14px"><div class="row-head"><div><strong>XML 4.4 · Preparación de emisión</strong><p class="muted" style="margin:5px 0 0">Datos requeridos para construir la Factura Electrónica antes de la firma y el envío.</p></div><span class="pro-mini-pill">4.4</span></div><div class="fiscal-grid" style="margin-top:12px"><div class="field"><label>Proveedor de sistemas</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input id="fSystemProvider" inputmode="numeric" value="${esc(s.fiscalSystemProviderId||"")}" placeholder="Identificación"><button type="button" class="btn ghost" onclick="pycrXml44UseEmitterAsProvider()">Usar mi identificación</button></div><small class="muted">En desarrollo propio puede ser la identificación del mismo obligado tributario.</small></div><div class="field"><label>Próximo consecutivo FE</label><input id="fNextSequence" type="number" min="1" max="9999999999" step="1" value="${s.fiscalNextInvoiceSequence?Number(s.fiscalNextInvoiceSequence):''}"><small class="muted">PUNTO YA CR no lo incrementa al generar borradores. La reserva oficial se hará al firmar/enviar.</small></div><div class="field"><label>Código provincia</label><input id="fProvinceCode" inputmode="numeric" maxlength="1" value="${esc(s.fiscalProvinceCode||"")}" placeholder="1–7"></div><div class="field"><label>Código cantón</label><input id="fCantonCode" inputmode="numeric" maxlength="2" value="${esc(s.fiscalCantonCode||"")}" placeholder="00"></div><div class="field"><label>Código distrito</label><input id="fDistrictCode" inputmode="numeric" maxlength="2" value="${esc(s.fiscalDistrictCode||"")}" placeholder="00"></div><div class="field"><label>Plazo de crédito (días)</label><input id="fCreditDays" type="number" min="1" max="99999" step="1" value="${s.fiscalCreditTermDays?Number(s.fiscalCreditTermDays):''}"><small class="muted">Solo se usa cuando la venta es a crédito.</small></div></div><div class="fiscal-note" style="margin-top:12px"><strong>Estado del generador</strong><div class="muted" style="margin-top:5px">${setupErrors.length?`${setupErrors.length} dato(s) de configuración todavía necesitan revisión.`:"Configuración base lista. La validación final también revisa receptor, CAByS e IVA de cada venta."}</div></div><div class="fiscal-note" style="margin-top:10px;background:#fffbed;border-color:#e7dfbd"><strong>Alcance actual:</strong> genera el XML 4.4 pre-firma para ventas estándar con IVA. Todavía no firma XAdES, no transmite a Hacienda y bloquea casos fiscales que PUNTO YA CR no pueda determinar de forma segura.</div></div>`);};
-
-window.saveFiscalSettings=async()=>{
-  const digits=(v,max)=>String(v||"").replace(/\D/g,"").slice(0,max),branch=digits($("#fBranch")?.value,3).padStart(3,"0"),terminal=digits($("#fTerminal")?.value,5).padStart(5,"0");
-  state.settings={...state.settings,fiscalOnboardingAsked:true,fiscalUsesEInvoice:true,fiscalLegalName:$("#fLegalName")?.value.trim()||"",fiscalIdType:$("#fIdType")?.value||"01",fiscalId:$("#fId")?.value.trim()||"",fiscalEmail:$("#fEmail")?.value.trim()||"",fiscalEconomicActivityCode:digits($("#fActivityCode")?.value,6),fiscalEconomicActivityName:$("#fActivityName")?.value.trim()||"",fiscalBranchCode:branch,fiscalTerminalCode:terminal,fiscalProvince:$("#fProvince")?.value.trim()||"",fiscalCanton:$("#fCanton")?.value.trim()||"",fiscalDistrict:$("#fDistrict")?.value.trim()||"",fiscalOtherSigns:$("#fOtherSigns")?.value.trim()||"",fiscalDefaultCondition:$("#fCondition")?.value||"01",fiscalDefaultPayment:$("#fPayment")?.value||"01",fiscalDefaultTaxRate:Number($("#fTax")?.value||0),fiscalPricesIncludeTax:$("#fPricesIncludeTax")?.value!=="added",fiscalSystemProviderId:digits($("#fSystemProvider")?.value||state.settings.fiscalSystemProviderId,20),fiscalProvinceCode:digits($("#fProvinceCode")?.value||state.settings.fiscalProvinceCode,1),fiscalCantonCode:(()=>{const v=digits($("#fCantonCode")?.value||state.settings.fiscalCantonCode,2);return v?v.padStart(2,"0"):"";})(),fiscalDistrictCode:(()=>{const v=digits($("#fDistrictCode")?.value||state.settings.fiscalDistrictCode,2);return v?v.padStart(2,"0"):"";})(),fiscalNextInvoiceSequence:(()=>{const raw=String($("#fNextSequence")?.value??state.settings.fiscalNextInvoiceSequence??"").trim();if(!raw)return 0;return Math.max(1,Math.min(9999999999,Math.floor(Number(raw)||0)));})(),fiscalCreditTermDays:(()=>{const raw=String($("#fCreditDays")?.value??state.settings.fiscalCreditTermDays??"").trim();if(!raw)return 0;return Math.max(1,Math.min(99999,Math.floor(Number(raw)||0)));})(),fiscalSetupUpdatedAt:new Date().toISOString()};
-  await put("settings",state.settings);if(state.settings.cloudLinked&&navigator.onLine){try{await cloudSaveBusinessSettings();}catch(error){console.error(error);toast("Se guardó en este dispositivo, pero la nube no respondió.");}}renderFiscal();toast("Configuración fiscal y XML 4.4 guardada.");
-};
-
-</script>
-
-<script>
-/* =========================
-   PUNTO YA CR · XML 4.4 PREVALIDACIÓN · v6.4 FINAL
-   Capa de seguridad sobre el generador local:
-   - ProveedorSistemas es configuración central de PUNTO YA CR, no del comerciante.
-   - Receptor nacional incluye ubicación para Factura Electrónica.
-   - 0% solo se interpreta como Exento cuando el CAByS local oficial lo respalda.
-   - Casos con posibles impuestos específicos quedan bloqueados para emisión automática.
-   - Corrige medios de pago v4.4 y conserva datos fiscales al sincronizar ventas.
-========================= */
-(() => {
-  // Debe configurarse en el despliegue oficial de PUNTO YA CR cuando la identificación
-  // del proveedor de sistemas esté definida/registrada. Nunca se inventa ni se pide al comercio.
-  const PYCR_XML44_PROVIDER_SYSTEM_ID_CENTRAL = "";
-  const pycrXml44CentralProviderId = () => pycrXmlDigits(PYCR_XML44_PROVIDER_SYSTEM_ID_CENTRAL,20);
-
-  const baseTariff = pycrXmlTariff;
-  pycrXmlTariff = function(item){
-    const explicit=String(item?.fiscalTaxTariffCode||"").padStart(2,"0");
-    if(["01","02","03","04","08","09","10","11"].includes(explicit))return explicit;
-    const rate=Number(item?.fiscalTaxRate);
-    if(rate===0){
-      const code=pycrXmlDigits(item?.cabys,13), row=PYCR_CABYS_BY_CODE?.get?.(code);
-      // En la base local oficial que usa PUNTO YA CR, las filas numéricas 0 corresponden a Exento.
-      if(row && Number(row[2])===0)return "10";
-      return "";
-    }
-    return baseTariff(item);
-  };
-
-  function pycrXml44SpecificTaxRisk(item){
-    const code=pycrXmlDigits(item?.cabys,13);
-    if(!/^\d{13}$/.test(code) || Number(code[0])>=5)return ""; // servicios: no aplicar esta alarma de bienes
-    const row=PYCR_CABYS_BY_CODE?.get?.(code)||[];
-    const t=pycrNorm(`${item?.name||""} ${row[1]||""} ${row[3]||""}`);
-    if(/\b(cerveza|licor|whisky|whiskey|ron|vodka|tequila|ginebra|gin|brandy|cognac|bebida alcoholica|vino)\b/.test(t))return "posible impuesto específico de bebidas alcohólicas";
-    if(/\b(cigarr|tabaco|cigarro|cigarrillo|puros?)\b/.test(t))return "posible impuesto a productos de tabaco";
-    if(/\b(cemento)\b/.test(t))return "posible impuesto específico al cemento";
-    if(/\b(jabon de tocador|jabon tocador)\b/.test(t))return "posible impuesto específico sobre jabón de tocador";
-    if(/\b(gaseosa|refresco gaseoso|bebida envasada|bebida no alcoholica embotellada|bebida no alcoholica envasada)\b/.test(t))return "posible impuesto específico sobre bebidas envasadas sin alcohol";
-    return "";
-  }
-
-  const baseInvoiceCustomerFromFields=invoiceCustomerFromFields;
-  invoiceCustomerFromFields=function(){
-    const out=baseInvoiceCustomerFromFields();
-    const d=(v,n)=>String(v||"").replace(/\D/g,"").slice(0,n);
-    return {...out,
-      provinceCode:d($("#invoiceCustomerProvinceCode")?.value,1),
-      cantonCode:d($("#invoiceCustomerCantonCode")?.value,2),
-      districtCode:d($("#invoiceCustomerDistrictCode")?.value,2),
-      barrio:$("#invoiceCustomerBarrio")?.value?.trim()||"",
-      otherSigns:$("#invoiceCustomerOtherSigns")?.value?.trim()||""
-    };
-  };
-
-  const baseCheckoutDocumentHtml=checkoutDocumentHtml;
-  checkoutDocumentHtml=function(){
-    let html=baseCheckoutDocumentHtml();
-    if(!isProPlan()||!state.settings.fiscalUsesEInvoice)return html;
-    const saved=saleMeta.invoiceCustomer||{},client=saleMeta.clientId?state.clients.find(c=>c.id===saleMeta.clientId):null;
-    const province=saved.provinceCode||client?.fiscalProvinceCode||"";
-    const canton=saved.cantonCode||client?.fiscalCantonCode||"";
-    const district=saved.districtCode||client?.fiscalDistrictCode||"";
-    const barrio=saved.barrio||client?.fiscalBarrio||"";
-    const other=saved.otherSigns||client?.fiscalOtherSigns||"";
-    const loc=`<div class="panel" style="box-shadow:none;margin:10px 0 4px"><strong>Ubicación fiscal del receptor</strong><p class="muted" style="margin:5px 0 10px">Para Factura Electrónica, si el receptor tiene domicilio en Costa Rica se incluye su ubicación.</p><div class="form-grid"><div class="field"><label>Provincia (código)</label><input id="invoiceCustomerProvinceCode" inputmode="numeric" maxlength="1" value="${esc(province)}" placeholder="1–7"></div><div class="field"><label>Cantón (código)</label><input id="invoiceCustomerCantonCode" inputmode="numeric" maxlength="2" value="${esc(canton)}" placeholder="01"></div><div class="field"><label>Distrito (código)</label><input id="invoiceCustomerDistrictCode" inputmode="numeric" maxlength="2" value="${esc(district)}" placeholder="01"></div><div class="field"><label>Barrio (opcional)</label><input id="invoiceCustomerBarrio" maxlength="50" value="${esc(barrio)}" placeholder="Nombre del barrio"></div></div><div class="field"><label>Otras señas</label><input id="invoiceCustomerOtherSigns" maxlength="160" value="${esc(other)}" placeholder="Dirección lo más exacta posible"></div></div>`;
-    const marker='<div class="toolbar"><button class="btn ghost" type="button" onclick="previewInvoiceBeforeSale()">';
-    if(html.includes(marker))html=html.replace(marker,loc+marker);
-    return html;
-  };
-
-  const basePersistInvoiceCustomerClient=persistInvoiceCustomerClient;
-  persistInvoiceCustomerClient=async function(invoice){
-    const c=await basePersistInvoiceCustomerClient(invoice);
-    if(!c)return c;
-    c.fiscalProvinceCode=invoice.provinceCode||c.fiscalProvinceCode||"";
-    c.fiscalCantonCode=invoice.cantonCode||c.fiscalCantonCode||"";
-    c.fiscalDistrictCode=invoice.districtCode||c.fiscalDistrictCode||"";
-    c.fiscalBarrio=invoice.barrio||c.fiscalBarrio||"";
-    c.fiscalOtherSigns=invoice.otherSigns||c.fiscalOtherSigns||"";
-    await put("clients",c);
-    try{await cloudSaveClientFromApp(c);}catch(error){console.error(error);c.cloudPending=true;await put("clients",c);}
-    return c;
-  };
-
-  const baseValidate=pycrXml44ValidateSale;
-  pycrXml44ValidateSale=function(sale){
-    const old=state.settings.fiscalSystemProviderId;
-    state.settings.fiscalSystemProviderId=pycrXml44CentralProviderId();
-    let result;
-    try{result=baseValidate(sale);}finally{state.settings.fiscalSystemProviderId=old;}
-    result.errors=result.errors.filter(e=>!e.includes("Proveedor de sistemas"));
-    if(!pycrXmlProviderIdValid(pycrXml44CentralProviderId()))result.errors.push("PUNTO YA CR todavía debe configurar centralmente la identificación oficial del Proveedor de Sistemas antes de una emisión real.");
-    if(sale){
-      const r=sale.invoiceCustomer||{};
-      if(["01","02","03","04"].includes(String(r.idType||""))){
-        if(!/^[1-7]$/.test(String(r.provinceCode||"")))result.errors.push("Receptor: falta el código de provincia.");
-        if(!/^(?!00)\d{2}$/.test(String(r.cantonCode||"")))result.errors.push("Receptor: falta el código de cantón de 2 dígitos.");
-        if(!/^(?!00)\d{2}$/.test(String(r.districtCode||"")))result.errors.push("Receptor: falta el código de distrito de 2 dígitos.");
-        if(String(r.otherSigns||"").trim().length<5)result.errors.push("Receptor: Otras señas debe tener al menos 5 caracteres.");
-      }
-      (sale.items||[]).forEach((item,index)=>{
-        const risk=pycrXml44SpecificTaxRisk(item);
-        if(risk)result.errors.push(`Línea ${index+1}: ${risk}. Esta v6.4 no inventará ese impuesto; requiere la regla fiscal específica antes de emitir.`);
-      });
-    }
-    result.ok=result.errors.length===0;
-    return result;
-  };
-
-  const baseBuild=pycrXml44Build;
-  pycrXml44Build=function(sale,options={}){
-    const central=pycrXml44CentralProviderId(),old=state.settings.fiscalSystemProviderId;
-    state.settings.fiscalSystemProviderId=central;
-    let built;
-    try{built=baseBuild(sale,options);}finally{state.settings.fiscalSystemProviderId=old;}
-    const r=sale?.invoiceCustomer||{};
-    if(["01","02","03","04"].includes(String(r.idType||""))){
-      const barrio=String(r.barrio||"").trim();
-      const loc=`<Ubicacion><Provincia>${pycrXmlEsc(r.provinceCode)}</Provincia><Canton>${pycrXmlEsc(r.cantonCode)}</Canton><Distrito>${pycrXmlEsc(r.districtCode)}</Distrito>${barrio.length>=5?`<Barrio>${pycrXmlEsc(barrio.slice(0,50))}</Barrio>`:""}<OtrasSenas>${pycrXmlEsc(String(r.otherSigns||"").slice(0,160))}</OtrasSenas></Ubicacion>`;
-      built.xml=built.xml.replace(/(<Receptor>[\s\S]*?<\/Identificacion>)/,`$1${loc}`);
-    }
-    return built;
-  };
-
-  // Corrige la presentación de medios de pago de la configuración 4.4 y oculta
-  // ProveedorSistemas como campo del comercio: es configuración central de la plataforma.
-  const renderFiscalV64=renderFiscal;
-  renderFiscal=function(){
-    renderFiscalV64();
-    if(role!=="owner"||!isProPlan()||!state.settings.fiscalUsesEInvoice)return;
-    const p=$("#fPayment");
-    if(p){
-      const current=String(state.settings.fiscalDefaultPayment||p.value||"01");
-      p.innerHTML=`<option value="01">Efectivo</option><option value="02">Tarjeta</option><option value="03">Cheque</option><option value="04">Transferencia / depósito</option><option value="05">Recaudado por terceros</option><option value="06">SINPE Móvil</option><option value="07">Plataforma digital</option><option value="99">Otros</option>`;
-      p.value=["01","02","03","04","05","06","07","99"].includes(current)?current:"99";
-    }
-    const tax=$("#fTax");
-    if(tax && !tax.parentElement.querySelector(".pycr-v64-tax-note"))tax.insertAdjacentHTML("afterend",'<small class="muted pycr-v64-tax-note">Este valor no sustituye el CAByS + IVA confirmado de cada producto.</small>');
-    const systemInput=$("#fSystemProvider");
-    if(systemInput){
-      const field=systemInput.closest(".field");
-      if(field)field.innerHTML=`<label>Proveedor de sistemas</label><div class="fiscal-note"><strong>Configuración central de PUNTO YA CR</strong><div class="muted" style="margin-top:4px">No se solicita al comerciante. Antes de la primera emisión real PUNTO YA CR debe tener configurada su identificación de proveedor de sistemas.</div></div><input id="fSystemProvider" type="hidden" value="">`;
-    }
-  };
-
-  // Garantiza que la configuración local no conserve un valor de ProveedorSistemas ingresado por un comercio.
-  const saveFiscalV64=window.saveFiscalSettings;
-  window.saveFiscalSettings=async function(){
-    if($("#fSystemProvider"))$("#fSystemProvider").value="";
-    await saveFiscalV64();
-    state.settings.fiscalSystemProviderId="";
-    await put("settings",state.settings);
-  };
-
-  // Mejora el mensaje de prevalidación cuando el único bloqueo es configuración central.
-  const openXmlV64=window.pycrXml44OpenForSale;
-  window.pycrXml44OpenForSale=function(saleId){
-    const sale=pycrXmlSaleById(saleId),v=pycrXml44ValidateSale(sale);
-    if(!v.ok){
-      const centralOnly=v.errors.length===1&&v.errors[0].includes("configurar centralmente");
-      modal(`<h3>XML 4.4 · ${centralOnly?"Prevalidación local lista":"Falta completar"}</h3><p class="muted">${centralOnly?"Los datos de esta venta pasaron la revisión local. Falta la configuración central de PUNTO YA CR para construir un XML emitible.":"PUNTO YA CR no generará un XML fiscal con datos incompletos o ambiguos."}</p><div class="fiscal-note" style="margin-top:10px">${v.errors.map(e=>`<div>• ${esc(e)}</div>`).join("")}</div>${v.warnings.length?`<div class="fiscal-note" style="margin-top:10px;background:#fffbed;border-color:#e7dfbd">${v.warnings.map(w=>`<div>• ${esc(w)}</div>`).join("")}</div>`:""}<div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="closeModal();go('fiscal')">Revisar configuración fiscal</button><button class="btn" onclick="closeModal()">Cerrar</button></div>`);return;
-    }
-    return openXmlV64(saleId);
-  };
-})();
 </script>
 </body>
 </html>
