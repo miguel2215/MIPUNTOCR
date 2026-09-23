@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { business_id, clave } = body;
     const environment = body.environment === 'production' ? 'production' : 'sandbox';
-    if (environment === 'production') return json({ error: 'Producción está bloqueada durante PRE-BETA.' }, 409);
+    if (environment === 'production') return json({ error: 'La emisión en producción permanece bloqueada hasta completar las pruebas con Hacienda.' }, 409);
     if (!business_id || !clave) return json({ error: 'business_id y clave son requeridos.' }, 400);
     if (!/^\d{50}$/.test(String(clave))) return json({ error: 'La clave del comprobante debe contener 50 dígitos.' }, 400);
 
