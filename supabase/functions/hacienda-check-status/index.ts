@@ -65,14 +65,29 @@ Deno.serve(async (req) => {
     try { result = JSON.parse(text); } catch {}
     const errorCause = response.headers.get('X-Error-Cause') || '';
     if (!response.ok) {
+      const temporary = [502, 503, 504].includes(response.status);
       console.error('Hacienda consulta de estado falló', {
         environment,
         hacienda_status: response.status,
+        temporary,
         error_cause: errorCause,
         response_text: text,
         clave: String(clave),
       });
-      return json({ error: `Hacienda ${response.status}`, detail: result }, response.status);
+      // 502/503/504 son fallos temporales de infraestructura. El comprobante ya
+      // enviado conserva su misma clave/consecutivo y permanece pendiente; el POS
+      // puede volver a consultar sin emitir otro documento.
+      if (temporary) {
+        return json({
+          ok: true,
+          pending: true,
+          temporary: true,
+          fiscal_status: 'pendiente',
+          hacienda_status: response.status,
+          message: 'Hacienda no respondió temporalmente. El comprobante conserva su clave y puede consultarse nuevamente.',
+        });
+      }
+      return json({ error: `Hacienda ${response.status}`, hacienda_status: response.status, detail: result }, response.status);
     }
 
     const fiscalState = String((result as any)?.['ind-estado'] || '').toLowerCase();
