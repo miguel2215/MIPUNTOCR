@@ -405,7 +405,7 @@ export function haciendaConfig(
       'api-stag',
 
     apiBase:
-      'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1',
+      'https://api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1',
   };
 }
 
