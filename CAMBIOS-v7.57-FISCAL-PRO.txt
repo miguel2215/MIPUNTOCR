@@ -1,0 +1,14 @@
+PUNTO YA CR · v7.57 · PRO + ACTIVACIÓN FISCAL
+
+- PRO ya no implica Facturación Electrónica activa.
+- Un negocio PRO puede usar todas sus funciones sin activar Hacienda.
+- Facturación Electrónica puede activarse posteriormente.
+- Antes de activar se muestra una explicación breve de lo que incluye.
+- El asistente solicita y valida los datos fiscales principales.
+- fiscalUsesEInvoice solo queda activo cuando la configuración principal está completa.
+- Se actualizó el texto de Caja para reflejar el flujo aprobado:
+  venta normal -> Tiquete Electrónico; receptor -> Factura Electrónica.
+- No se modificaron las Edge Functions de envío/firma/estado que ya funcionaban.
+- No se generó ni transmitió ningún comprobante durante este cambio.
+
+Siguiente bloque: implementar Tiquete Electrónico v4.4 automático + plantillas físicas/PDF aprobadas.
