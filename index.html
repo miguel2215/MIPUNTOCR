@@ -5501,17 +5501,37 @@ function pycrSearchLocal(q,limit=8){
   return out;
 }
 window.useSuggestedProductName=()=>{};
+const PYCR_STRONG_MATCHES=[
+  {terms:["coca cola","coca-cola","coca","fanta","sprite","pepsi","7up","seven up","ginger ale"],code:"2449001000000",concept:"Bebida gaseosa"},
+  {terms:["perfume","eau de parfum","eau de toilette"],code:"3532306030100",concept:"Perfume"},
+  {terms:["iphone","samsung galaxy","smartphone","celular","telefono celular","teléfono celular"],code:"4722200990000",concept:"Teléfono móvil"},
+  {terms:["shampoo","champu","champú"],code:"3532303000100",concept:"Champú para el cabello"}
+];
+function pycrStrongMatch(text){
+  const n=pycrNorm(text);
+  for(const item of PYCR_STRONG_MATCHES){
+    if(item.terms.some(term=>{const t=pycrNorm(term);return new RegExp(`(^|\\s)${t.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')}(\\s|$)`).test(n)})){
+      const row=PYCR_CABYS_BY_CODE.get(item.code); if(row)return {item,row};
+    }
+  }
+  return null;
+}
 window.searchOfficialCabys=()=>{
   const input=$("#pCabysSearch"),box=$("#pCabysResults"); if(!input||!box)return;
   const q=String(input.value||$("#pName")?.value||"").trim(); if(q.length<3)return toast("Escribe lo que vendes con al menos 3 caracteres.");
-  const results=pycrSearchLocal(q,8);
-  if(!results.length){
-    box.innerHTML=`<div class="fiscal-note"><strong>No encontramos una clasificación segura.</strong><div class="muted" style="margin-top:4px">PUNTO YA CR clasifica productos de Restaurante y Retail desde su catálogo local. No vamos a inventar un CAByS.</div></div><button type="button" class="btn ghost" onclick="copyCabysSupportRequest()">Contactar soporte · copiar producto</button>`;return;
+  const strong=pycrStrongMatch(q);
+  if(strong){
+    const {item,row}=strong,[code,desc,rate]=row;
+    box.innerHTML=`<div class="fiscal-note"><strong>PUNTO YA CR identificó: ${esc(item.concept)}</strong><div class="muted" style="margin-top:5px">Coincidencia de alta confianza. Conservamos tu nombre comercial y asignamos automáticamente CAByS e IVA.</div></div><div class="fiscal-note" style="margin-top:8px"><strong>${esc(desc)}</strong><div class="muted" style="margin-top:4px">Código fiscal ${code} · IVA ${rate}%</div><div style="margin-top:8px">✓ Clasificación fiscal encontrada</div></div>`;
+    selectOfficialCabys(code,desc); return;
   }
-  box.innerHTML=`<div class="fiscal-note"><strong>PUNTO YA CR encontró ${results.length===1?'una clasificación':'estas clasificaciones'}.</strong><div class="muted" style="margin-top:4px">Selecciona la que mejor describe lo que vendes. IVA y CAByS se asignarán juntos automáticamente.</div></div>`+results.map(r=>{
-    const [code,desc,rate,inc,exc]=r; const extra=inc?`<div class="muted" style="margin-top:5px"><strong>Incluye:</strong> ${esc(inc).slice(0,260)}</div>`:'';
-    return `<button type="button" class="btn ghost" style="text-align:left;white-space:normal" onclick="selectOfficialCabys('${code}',decodeURIComponent('${enc(desc)}'))"><strong>${esc(desc)}</strong><br><span class="muted">Código fiscal ${code} · IVA ${rate}%</span>${extra}</button>`;
-  }).join('');
+  const results=pycrSearchLocal(q,3);
+  if(!results.length){
+    box.innerHTML=`<div class="fiscal-note"><strong>No encontramos una clasificación segura.</strong><div class="muted" style="margin-top:4px">No vamos a inventar un CAByS. Contacta a soporte para revisar este producto.</div></div><button type="button" class="btn ghost" onclick="copyCabysSupportRequest()">Contactar soporte · copiar producto</button>`;return;
+  }
+  if(results.length===1){ const [code,desc]=results[0]; box.innerHTML=`<div class="fiscal-note"><strong>PUNTO YA CR encontró una clasificación.</strong><div class="muted" style="margin-top:4px">Confirma la clasificación fiscal sugerida.</div></div>`; }
+  else box.innerHTML=`<div class="fiscal-note"><strong>Necesitamos una confirmación.</strong><div class="muted" style="margin-top:4px">Encontramos varias posibilidades. Mostramos solo las ${results.length} más cercanas.</div></div>`;
+  box.innerHTML+=results.map(r=>{const [code,desc,rate,inc]=r;const extra=inc?`<div class="muted" style="margin-top:5px"><strong>Incluye:</strong> ${esc(inc).slice(0,180)}</div>`:'';return `<button type="button" class="btn ghost" style="text-align:left;white-space:normal" onclick="selectOfficialCabys('${code}',decodeURIComponent('${enc(desc)}'))"><strong>${esc(desc)}</strong><br><span class="muted">Código fiscal ${code} · IVA ${rate}%</span>${extra}</button>`;}).join('');
 };
 
 window.copyCabysSupportRequest=async()=>{
