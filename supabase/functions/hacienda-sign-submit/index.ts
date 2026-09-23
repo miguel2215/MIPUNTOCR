@@ -122,6 +122,11 @@ Deno.serve(async (req) => {
     if (!signedBase64) throw new Error('No fue posible generar la firma XAdES-EPES.');
 
     const token = await haciendaToken(environment, String(secrets.username || ''), String(secrets.password || ''));
+    // Hacienda devuelve un JWT OIDC. Evita enviar por accidente hashes, firmas o secretos
+    // en Authorization si el IdP cambia o responde con un valor inesperado.
+    if (String(token.accessToken || '').split('.').length !== 3) {
+      throw new Error('Hacienda OAuth devolvió un access_token con formato inesperado. No se envió el comprobante.');
+    }
     const payload: Record<string, unknown> = {
       clave,
       fecha,
