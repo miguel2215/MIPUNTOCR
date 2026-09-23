@@ -5592,15 +5592,18 @@ window.searchOfficialCabys = async () => {
     const uniqueQueries=[...new Set(queries.map(x=>String(x||"").trim()).filter(x=>x.length>=3))].slice(0,4);
     const batches=[];
     if(hint?.exactCabys){
-      const exact=await fetch(`https://api.hacienda.go.cr/fe/cabys?codigo=${encodeURIComponent(hint.exactCabys)}`,{headers:{"Accept":"application/json"}});
-      if(exact.status===429)throw new Error("Hacienda limitó temporalmente las consultas. Espera un momento e intenta de nuevo.");
-      if(exact.ok)batches.push(await exact.json());
+      if(!mpCloud) throw new Error("La conexión segura con PUNTO YA CR no está disponible.");
+      const { data: exactData, error: exactError } = await mpCloud.functions.invoke("hacienda-cabys-lookup", { body: { codigo: hint.exactCabys } });
+      if(exactError) throw new Error(exactError.message || "No se pudo validar el CAByS.");
+      if(exactData?.error) throw new Error(exactData.error);
+      if(exactData) batches.push(exactData);
     }
     for(const term of uniqueQueries){
-      const res=await fetch(`https://api.hacienda.go.cr/fe/cabys?q=${encodeURIComponent(term)}&top=30`,{headers:{"Accept":"application/json"}});
-      if(res.status===429)throw new Error("Hacienda limitó temporalmente las consultas. Espera un momento e intenta de nuevo.");
-      if(!res.ok)continue;
-      batches.push(await res.json());
+      if(!mpCloud) throw new Error("La conexión segura con PUNTO YA CR no está disponible.");
+      const { data: cabysData, error: cabysError } = await mpCloud.functions.invoke("hacienda-cabys-lookup", { body: { q: term, top: 30 } });
+      if(cabysError) throw new Error(cabysError.message || "No se pudo consultar la clasificación fiscal.");
+      if(cabysData?.error) throw new Error(cabysData.error);
+      if(cabysData) batches.push(cabysData);
     }
     const flattenData=data=>{const arrays=[];const seen=new Set();const walk=v=>{if(!v||typeof v!=="object"||seen.has(v))return;seen.add(v);if(Array.isArray(v)){arrays.push(v);v.forEach(walk);}else Object.values(v).forEach(walk);};walk(data);return Array.isArray(data)?data:(arrays.find(a=>a.some(x=>x&&typeof x==="object"))||[]);};
     const pick=(o,names)=>{for(const k of names){if(o?.[k]!=null&&String(o[k]).trim())return String(o[k]).trim();}return "";};
