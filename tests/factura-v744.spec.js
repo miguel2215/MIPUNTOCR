@@ -71,10 +71,11 @@ test.describe('PUNTO YA CR - Facturación rápida v7.44', () => {
     }
     expect(cardClicked).toBeTruthy();
 
-    const electronic = page.locator('input[name="checkoutDocument"][value="electronic_invoice"]');
-    await expect(electronic).toBeEnabled();
-    await electronic.check();
-    await expect(electronic).toBeChecked();
+    // Con Facturación Electrónica activa, la venta normal inicia como Tiquete
+    // y cambia automáticamente a Factura cuando se agrega un receptor.
+    await expect(page.locator('#autoFiscalDocSummary')).toContainText(/Tiquete Electrónico/i);
+    await page.getByRole('button', { name: /Agregar receptor/i }).click();
+    await expect(page.locator('#autoFiscalDocSummary')).toContainText(/Factura Electrónica/i);
 
     // Estos campos tienen IDs propios; el <label> visual no usa atributo "for".
     await expect(page.locator('#invoiceCheckoutFields')).toBeVisible();
@@ -117,6 +118,27 @@ test.describe('PUNTO YA CR - Facturación rápida v7.44', () => {
     expect(previewHtml).toMatch(/PRODUCTO FACTURA QA/i);
 
     esperarSinErrores(control);
+  });
+
+  test('la integración fiscal queda preparada sin generar ni transmitir comprobantes', async ({ request }) => {
+    const response = await request.get('/index.html');
+    expect(response.ok()).toBeTruthy();
+    const source = await response.text();
+
+    expect(source).toMatch(/fiscalTransmissionPaused/);
+    expect(source).toMatch(/Transmisión fiscal pausada durante la etapa de integración/);
+    expect(source).toMatch(/electronicInvoiceStatus:\s*\["electronic_ticket","electronic_invoice"\]\.includes\(saleMeta\.documentType\)\s*\?\s*"prepared"/);
+
+    // La función de emisión se conserva para la etapa futura, pero ninguna venta
+    // la llama automáticamente después de showReceipt().
+    const afterReceipt = source.split('showReceipt(sale);')[1]?.split('/* ===== receipts-sales.js ===== */')[0] || '';
+    expect(afterReceipt).not.toMatch(/emitElectronicInvoiceSandbox\s*\(/);
+
+    const panelResponse = await request.get('/panel.html');
+    expect(panelResponse.ok()).toBeTruthy();
+    const panelSource = await panelResponse.text();
+    expect(panelSource).not.toMatch(/id=["']testFiscalKey["']/);
+    expect(panelSource).toMatch(/generación de claves y consecutivos de prueba está pausada/i);
   });
 
   test('el IVA fiscal respeta precio con IVA incluido o precio antes de IVA', async ({ page }) => {
