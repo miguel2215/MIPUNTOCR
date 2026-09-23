@@ -212,3 +212,16 @@ test.describe('PUNTO YA CR - Consulta pública fiscal v7.59', () => {
     expect(source).not.toMatch(/hacienda-sign-submit|hacienda-submit-signed|hacienda-generate-key/);
   });
 });
+
+test.describe('PUNTO YA CR - Entrega fiscal por correo v7.59', () => {
+  test('el POS prepara PDF y usa una función autenticada sin activar emisión Hacienda', async ({ request }) => {
+    const response = await request.get('/index.html');
+    expect(response.ok()).toBeTruthy();
+    const source = await response.text();
+    expect(source).toMatch(/Enviar por correo/);
+    expect(source).toMatch(/createElectronicInvoicePdf\(sale\)/);
+    expect(source).toMatch(/fiscal-send-email/);
+    expect(source).toMatch(/fiscalEmailSentAt/);
+    expect(source).not.toMatch(/RESEND_API_KEY\s*=\s*["']re_/);
+  });
+});

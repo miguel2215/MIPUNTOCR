@@ -3050,6 +3050,9 @@ function cloudSaleNotesPayload(sale) {
     fiscalTechnicalError: sale.fiscalTechnicalError || "",
     fiscalReviewRequestedAt: sale.fiscalReviewRequestedAt || "",
     fiscalPublicToken: sale.fiscalPublicToken || "",
+    fiscalEmailSentAt: sale.fiscalEmailSentAt || "",
+    fiscalEmailLastTo: sale.fiscalEmailLastTo || "",
+    fiscalEmailProviderId: sale.fiscalEmailProviderId || "",
     invoiceCustomer: sale.invoiceCustomer || null,
     grossSubtotal: Number(sale.grossSubtotal||0),
     itemDiscountTotal: Number(sale.itemDiscountTotal||0),
@@ -3634,6 +3637,9 @@ async function cloudMergeOperationsRemote(remote) {
       fiscalTransmissionPaused: remoteSaleMeta.fiscalTransmissionPaused ?? existing?.fiscalTransmissionPaused ?? false,
       fiscalPreparedAt: remoteSaleMeta.fiscalPreparedAt || existing?.fiscalPreparedAt || "",
       fiscalPublicToken: remoteSaleMeta.fiscalPublicToken || existing?.fiscalPublicToken || "",
+      fiscalEmailSentAt: remoteSaleMeta.fiscalEmailSentAt || existing?.fiscalEmailSentAt || "",
+      fiscalEmailLastTo: remoteSaleMeta.fiscalEmailLastTo || existing?.fiscalEmailLastTo || "",
+      fiscalEmailProviderId: remoteSaleMeta.fiscalEmailProviderId || existing?.fiscalEmailProviderId || "",
       fiscalClave: remoteSaleMeta.fiscalClave || existing?.fiscalClave || "",
       fiscalConsecutivo: remoteSaleMeta.fiscalConsecutivo || existing?.fiscalConsecutivo || "",
       fiscalEnvironment: remoteSaleMeta.fiscalEnvironment || existing?.fiscalEnvironment || "",
@@ -5441,7 +5447,7 @@ function showReceipt(sale) {
   const fiscalStateNow=String(sale.electronicInvoiceStatus||"").toLowerCase();
   const fiscalRefreshAction = "";
   const fiscalReviewAction = isElectronicSale(sale) && ["rechazado","error"].includes(fiscalStateNow) ? (sale.fiscalReviewRequestedAt ? `<button class="btn ghost" disabled>Enviado a revisión</button>` : `<button class="btn primary" onclick="requestFiscalReview('${sale.id}')">Enviar a revisión</button>`) : "";
-  modal(`<div class="ticket"><div class="ticket-business"><h3>${esc(state.settings.businessName)}</h3><div class="muted">${receiptTypeLabel(sale)}</div><div class="muted">Comprobante #${sale.number} · ${dateTime(sale.createdAt)}</div></div>${voidBanner}<div class="divider"></div>${context}${c ? `<div class="ticket-line"><span>Cliente</span><strong>${esc(c.name)}</strong></div>` : ""}${sale.employeeName ? `<div class="ticket-line"><span>Atendió</span><strong>${esc(sale.employeeName)}${sale.employeeCode ? ` · CR${esc(sale.employeeCode)}` : ""}</strong></div>` : ""}${invoiceRequestTicketHtml(sale)}${sale.items.map(i => `<div class="ticket-line"><span>${i.qty} × ${esc(i.name)}${i.variant ? ` · ${esc(i.variant)}` : ""}${Number(i.itemDiscount||0)+Number(i.saleDiscountShare||0)>0?`<small class="discount-note"> · desc. ${money(Number(i.itemDiscount||0)+Number(i.saleDiscountShare||0))}</small>`:""}</span><span>${money(saleItemNetTotal(i))}</span></div>`).join("")}${Number(sale.expressFee||0)>0 ? `<div class="ticket-line"><span>Express</span><span>${money(sale.expressFee)}</span></div>` : ""}${sale.note ? `<div class="panel" style="box-shadow:none;margin-top:10px"><span class="muted">Nota</span><div>${esc(sale.note)}</div></div>` : ""}${Number(sale.discountTotal||0)>0?`<div class="ticket-line"><span>Descuentos</span><strong>−${money(sale.discountTotal)}</strong></div>`:""}${Number(sale.exchangeCredit||0)>0?`<div class="ticket-line"><span>Crédito por cambio #${esc(sale.exchangeSourceSaleNumber||"")}</span><strong>−${money(sale.exchangeCredit)}</strong></div>`:""}${retailReturnHistoryHtml(sale)}<div class="divider"></div>${sale.tax > 0 ? `<div class="ticket-line"><span>Impuesto</span><span>${money(sale.tax)}</span></div>` : ""}<div class="ticket-line ticket-total"><span>Total</span><span>${money(sale.total)}</span></div><div class="ticket-line"><span>Pago</span><span>${esc(sale.method)}</span></div>${sale.change > 0 ? `<div class="ticket-line"><span>Vuelto</span><span>${money(sale.change)}</span></div>` : ""}${sale.method === "Crédito" && !sale.voided ? `<div class="panel" style="box-shadow:none;margin-top:10px;background:#fff5dc"><strong>Saldo pendiente: ${money(sale.total)}</strong></div>` : ""}<div class="mpcr-powered"><span>PUNTO YA CR</span><img class="brand-powered-logo" src="${BRAND.horizontal}" alt="PUNTO YA CR"></div><div class="divider"></div><div class="toolbar"><button class="btn primary" onclick="sharePdf('${sale.id}')">Compartir PDF</button>${isElectronicSale(sale)&&sale.invoiceCustomer?.email?`<button class="btn ghost" onclick="prepareFiscalEmail('${sale.id}')">Enviar al cliente</button>`:""}<button class="btn ghost" onclick="printReceipt('${sale.id}')">Imprimir comprobante</button>${fiscalRefreshAction}${fiscalReviewAction}${tableClean}${retailReturnAction}${adminActions}<button class="btn ghost" onclick="closeModal();go('sale')">Nueva venta</button><button class="btn" onclick="closeModal();go('home')">Inicio</button></div></div>`);
+  modal(`<div class="ticket"><div class="ticket-business"><h3>${esc(state.settings.businessName)}</h3><div class="muted">${receiptTypeLabel(sale)}</div><div class="muted">Comprobante #${sale.number} · ${dateTime(sale.createdAt)}</div></div>${voidBanner}<div class="divider"></div>${context}${c ? `<div class="ticket-line"><span>Cliente</span><strong>${esc(c.name)}</strong></div>` : ""}${sale.employeeName ? `<div class="ticket-line"><span>Atendió</span><strong>${esc(sale.employeeName)}${sale.employeeCode ? ` · CR${esc(sale.employeeCode)}` : ""}</strong></div>` : ""}${invoiceRequestTicketHtml(sale)}${sale.items.map(i => `<div class="ticket-line"><span>${i.qty} × ${esc(i.name)}${i.variant ? ` · ${esc(i.variant)}` : ""}${Number(i.itemDiscount||0)+Number(i.saleDiscountShare||0)>0?`<small class="discount-note"> · desc. ${money(Number(i.itemDiscount||0)+Number(i.saleDiscountShare||0))}</small>`:""}</span><span>${money(saleItemNetTotal(i))}</span></div>`).join("")}${Number(sale.expressFee||0)>0 ? `<div class="ticket-line"><span>Express</span><span>${money(sale.expressFee)}</span></div>` : ""}${sale.note ? `<div class="panel" style="box-shadow:none;margin-top:10px"><span class="muted">Nota</span><div>${esc(sale.note)}</div></div>` : ""}${Number(sale.discountTotal||0)>0?`<div class="ticket-line"><span>Descuentos</span><strong>−${money(sale.discountTotal)}</strong></div>`:""}${Number(sale.exchangeCredit||0)>0?`<div class="ticket-line"><span>Crédito por cambio #${esc(sale.exchangeSourceSaleNumber||"")}</span><strong>−${money(sale.exchangeCredit)}</strong></div>`:""}${retailReturnHistoryHtml(sale)}<div class="divider"></div>${sale.tax > 0 ? `<div class="ticket-line"><span>Impuesto</span><span>${money(sale.tax)}</span></div>` : ""}<div class="ticket-line ticket-total"><span>Total</span><span>${money(sale.total)}</span></div><div class="ticket-line"><span>Pago</span><span>${esc(sale.method)}</span></div>${sale.change > 0 ? `<div class="ticket-line"><span>Vuelto</span><span>${money(sale.change)}</span></div>` : ""}${sale.method === "Crédito" && !sale.voided ? `<div class="panel" style="box-shadow:none;margin-top:10px;background:#fff5dc"><strong>Saldo pendiente: ${money(sale.total)}</strong></div>` : ""}<div class="mpcr-powered"><span>PUNTO YA CR</span><img class="brand-powered-logo" src="${BRAND.horizontal}" alt="PUNTO YA CR"></div><div class="divider"></div><div class="toolbar"><button class="btn primary" onclick="sharePdf('${sale.id}')">Compartir PDF</button>${isElectronicSale(sale)?`<button class="btn ghost" onclick="prepareFiscalEmail('${sale.id}')">Enviar por correo</button>`:""}<button class="btn ghost" onclick="printReceipt('${sale.id}')">Imprimir comprobante</button>${fiscalRefreshAction}${fiscalReviewAction}${tableClean}${retailReturnAction}${adminActions}<button class="btn ghost" onclick="closeModal();go('sale')">Nueva venta</button><button class="btn" onclick="closeModal();go('home')">Inicio</button></div></div>`);
 }
 function loadExternalScript(src, id) {
   return new Promise((resolve, reject) => {
@@ -5509,24 +5515,33 @@ async function createElectronicInvoicePdf(sale) {
     return pdf.output("blob");
   } finally { el.remove(); }
 }
-window.prepareFiscalEmail = async id => {
+window.prepareFiscalEmail = id => {
   const sale=state.sales.find(x=>x.id===id); if(!sale||!isElectronicSale(sale)) return;
-  const email=String(sale.invoiceCustomer?.email||"").trim();
-  if(!email) return toast("Agrega un correo al receptor para enviar el documento.");
-  // Sin proveedor de correo configurado no se transmite nada automáticamente.
-  // Preparamos el PDF real y, cuando existan XML fiscales aceptados, el backend
-  // podrá adjuntarlos sin cambiar el flujo del POS.
+  const current=String(sale.invoiceCustomer?.email||sale.fiscalEmailLastTo||"").trim();
+  modal(`<h3>Enviar comprobante por correo</h3><p class="muted">PUNTO YA CR preparará el PDF fiscal y adjuntará los XML cuando ya estén disponibles.</p><div class="field"><label>Correo del cliente</label><input id="fiscalSendEmail" type="email" inputmode="email" autocomplete="email" value="${esc(current)}" placeholder="cliente@correo.com"></div><div class="fiscal-note">${sale.electronicInvoiceStatus==="accepted"?"El comprobante está aceptado. Se incluirán los XML disponibles.":"El comprobante todavía no tiene XML aceptados. Se enviará el PDF y el enlace seguro de consulta."}</div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="sendFiscalEmail('${sale.id}')">Enviar correo</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+};
+function blobToBase64(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||"").split(",")[1]||"");r.onerror=()=>reject(r.error||new Error("No fue posible leer el PDF."));r.readAsDataURL(blob);});}
+window.sendFiscalEmail = async id => {
+  const sale=state.sales.find(x=>x.id===id); if(!sale||!isElectronicSale(sale)) return;
+  const email=String($("#fiscalSendEmail")?.value||"").trim().toLowerCase();
+  if(!/^\S+@\S+\.\S+$/.test(email)) return toast("Escribe un correo válido.");
+  if(!sale.cloudId) return toast("Sincroniza la venta con la nube antes de enviarla por correo.");
   try{
-    toast("Preparando documento para el cliente…");
-    const blob=await createElectronicInvoicePdf(sale);
-    const file=new File([blob],`factura-${sale.number}.pdf`,{type:"application/pdf"});
-    if(navigator.share&&navigator.canShare?.({files:[file]})){
-      await navigator.share({title:`${receiptTypeLabel(sale)} #${sale.number}`,text:`Para: ${email}`,files:[file]});
-      return;
-    }
-    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);
-    toast("PDF preparado. El envío automático con PDF + XML se habilitará al conectar el proveedor de correo y la consulta pública.");
-  }catch(e){console.error(e);toast("No se pudo preparar el documento para el cliente.");}
+    const button=document.querySelector('.modal .btn.primary'); if(button){button.disabled=true;button.textContent="Preparando…";}
+    const pdfBlob=await createElectronicInvoicePdf(sale);
+    if(pdfBlob.size>7_000_000) throw new Error("El PDF es demasiado grande para enviarlo por correo.");
+    const pdfBase64=await blobToBase64(pdfBlob);
+    const result=await fiscalInvoke("fiscal-send-email",{business_id:mpCloudBusiness?.id||"",sale_id:sale.cloudId,recipient:email,pdf_base64:pdfBase64,public_url:fiscalPublicUrl(sale)});
+    sale.fiscalEmailSentAt=result.sent_at||new Date().toISOString(); sale.fiscalEmailLastTo=email; sale.fiscalEmailProviderId=result.email_id||"";
+    await put("sales",sale);
+    try{await cloudSaveSaleFromApp(sale);}catch(syncError){console.error("Sync correo fiscal:",syncError);}
+    closeModal(); toast(result.xml_attached?"Correo enviado con PDF y XML.":"Correo enviado con PDF. Los XML se adjuntarán cuando estén disponibles.");
+  }catch(e){
+    console.error(e);
+    const msg=fiscalFunctionError(e,"No fue posible enviar el correo.");
+    if(/RESEND_API_KEY|FISCAL_EMAIL_FROM|proveedor de correo|correo transaccional/i.test(msg)) modal(`<h3>Falta conectar el correo transaccional</h3><p>El flujo ya está preparado, pero todavía no hay un proveedor de correo configurado.</p><p class="muted">Configura los secretos <strong>RESEND_API_KEY</strong> y <strong>FISCAL_EMAIL_FROM</strong> en Supabase Edge Functions. No pongas estas claves dentro del ZIP.</p><button class="btn primary full" onclick="closeModal()">Entendido</button>`);
+    else toast(msg);
+  }
 };
 
 window.sharePdf = async id => {
