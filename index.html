@@ -5055,22 +5055,49 @@ async function emitElectronicInvoiceSandbox(sale) {
   sale.fiscalEnvironment="sandbox";
   sale.fiscalDocumentId=sent.fiscal_document_id||"";
   sale.fiscalSentAt=new Date().toISOString();
-  try{
-    await new Promise(r=>setTimeout(r,1200));
-    const check=await fiscalInvoke("hacienda-check-status",{business_id:businessId,environment:"sandbox",clave:sale.fiscalClave});
-    const st=String(check.fiscal_status||check.result?.["ind-estado"]||"").toLowerCase();
-    if(st){ sale.electronicInvoiceStatus=st; if(["aceptado","rechazado","error"].includes(st)) sale.fiscalResponseAt=new Date().toISOString(); }
-  }catch(e){ console.warn("Consulta inicial Hacienda:",e); }
+  // El cobro termina aquí: Hacienda ya recibió el comprobante. La validación final
+  // se consulta de forma asíncrona para no mantener la caja esperando.
+  sale.electronicInvoiceStatus="sent";
   return sent;
 }
 
-async function refreshElectronicInvoiceStatus(saleId, { reopen = true } = {}) {
+const fiscalPollTimers=new Map();
+function scheduleFiscalStatusChecks(saleId){
+  if(fiscalPollTimers.has(saleId)) return;
+  const delays=[2500,7000,15000,30000,60000];
+  let n=0;
+  const run=async()=>{
+    const sale=state.sales.find(x=>x.id===saleId);
+    if(!sale || ["aceptado","rechazado","error"].includes(String(sale.electronicInvoiceStatus||"").toLowerCase())){ fiscalPollTimers.delete(saleId); return; }
+    try{ await refreshElectronicInvoiceStatus(saleId,{reopen:false,silent:true}); }catch(_){}
+    n++;
+    if(n<delays.length){ const t=setTimeout(run,delays[n]); fiscalPollTimers.set(saleId,t); } else fiscalPollTimers.delete(saleId);
+  };
+  const t=setTimeout(run,delays[0]); fiscalPollTimers.set(saleId,t);
+}
+
+async function requestFiscalReview(saleId){
+  const sale=state.sales.find(x=>x.id===saleId);
+  if(!sale) return toast("No encontramos esta venta.");
+  if(sale.fiscalReviewRequestedAt) return toast("Esta factura ya fue enviada a revisión.");
+  if(!navigator.onLine) return toast("Necesitas Internet para enviar la revisión.");
+  try{
+    const r=await fiscalInvoke("hacienda-request-review",{business_id:mpCloudBusiness.id,sale_id:sale.id,clave:sale.fiscalClave||"",consecutivo:sale.fiscalConsecutivo||"",fiscal_status:sale.electronicInvoiceStatus||"error",reason:sale.fiscalRejectionDetail||sale.fiscalTechnicalError||"El comprobante requiere revisión fiscal."});
+    sale.fiscalReviewRequestedAt=r.requested_at||new Date().toISOString();
+    await put("sales",sale);
+    toast("Enviado a revisión. No necesitas hacer nada más por ahora.");
+    closeModal(); showReceipt(sale);
+  }catch(e){ toast(`No se pudo enviar a revisión: ${fiscalFunctionError(e)}`); }
+}
+window.requestFiscalReview=requestFiscalReview;
+
+async function refreshElectronicInvoiceStatus(saleId, { reopen = true, silent = false } = {}) {
   const sale=state.sales.find(x=>x.id===saleId);
   if(!sale || !isElectronicSale(sale) || !sale.fiscalClave) return toast("Esta factura todavía no tiene una clave fiscal para consultar.");
   if(!navigator.onLine) return toast("Necesitas Internet para consultar Hacienda.");
   if(!state.settings.cloudLinked || !mpCloudBusiness?.id) return toast("Conecta el negocio con la nube para consultar Hacienda.");
   try {
-    toast("Consultando estado en Hacienda...");
+    if(!silent) toast("Consultando estado en Hacienda...");
     const check=await fiscalInvoke("hacienda-check-status",{business_id:mpCloudBusiness.id,environment:"sandbox",clave:sale.fiscalClave});
     const st=String(check.fiscal_status||check.result?.["ind-estado"]||"").toLowerCase();
     sale.fiscalLastCheckedAt=new Date().toISOString();
@@ -5078,23 +5105,23 @@ async function refreshElectronicInvoiceStatus(saleId, { reopen = true } = {}) {
       sale.electronicInvoiceStatus=st && st!=="pendiente" ? st : "sent";
       sale.fiscalTemporaryStatus=Number(check.hacienda_status||0)||null;
       await put("sales",sale);
-      toast(check.hacienda_status?`Hacienda no respondió (${check.hacienda_status}). La factura sigue pendiente.`:"La factura sigue pendiente en Hacienda.");
+      if(!silent) toast(check.hacienda_status?`Hacienda no respondió (${check.hacienda_status}). La factura sigue pendiente.`:"La factura sigue pendiente en Hacienda.");
     } else if(st) {
       sale.electronicInvoiceStatus=st;
       sale.fiscalTemporaryStatus=null;
       if(["aceptado","rechazado","error"].includes(st)) sale.fiscalResponseAt=new Date().toISOString();
       await put("sales",sale);
       if(st==="rechazado" || st==="error") sale.fiscalRejectionDetail=String(check.rejection_detail||"").trim();
-      toast(st==="aceptado"?"Factura aceptada por Hacienda.":st==="rechazado"?(sale.fiscalRejectionDetail?`Factura rechazada: ${sale.fiscalRejectionDetail.slice(0,180)}`:"Factura rechazada por Hacienda. Revisa el motivo fiscal."):`Estado Hacienda: ${st}.`);
+      if(!silent) toast(st==="aceptado"?"Factura aceptada por Hacienda.":st==="rechazado"?"La factura requiere revisión fiscal.":`Estado Hacienda: ${st}.`);
     } else {
       await put("sales",sale);
-      toast("Hacienda respondió sin un estado definitivo. La factura sigue pendiente.");
+      if(!silent) toast("Hacienda respondió sin un estado definitivo. La factura sigue pendiente.");
     }
     if(reopen){ closeModal(); showReceipt(sale); }
     return check;
   } catch(e) {
     console.error("Consulta Hacienda:",e);
-    toast(`No se pudo consultar Hacienda: ${fiscalFunctionError(e)}`);
+    if(!silent) toast(`No se pudo consultar Hacienda: ${fiscalFunctionError(e)}`);
   }
 }
 window.refreshElectronicInvoiceStatus = refreshElectronicInvoiceStatus;
@@ -5177,13 +5204,17 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
       await emitElectronicInvoiceSandbox(sale);
     } catch (error) {
       console.error("Emisión sandbox:",error);
-      if(btn){btn.disabled=false;btn.textContent=btn.dataset.oldText||"Confirmar cobro";}
-      return modal(`<h3>No se registró la venta</h3><p><strong>La prueba fiscal no pudo completarse.</strong></p><p class="muted">${esc(error?.message||String(error))}</p><div class="fiscal-note"><strong>Seguro:</strong> la emisión está forzada a SANDBOX. No se envió nada a producción y PUNTO YA CR no descontó inventario ni guardó esta venta.</div><div class="toolbar"><button class="btn primary" onclick="closeModal()">Corregir y volver</button></div>`);
+      sale.electronicInvoiceStatus="error";
+      sale.fiscalTechnicalError=String(error?.message||error||"Error fiscal").slice(0,800);
+      sale.fiscalNeedsReview=true;
+      // La venta continúa: un fallo fiscal no debe detener la caja. El dueño puede
+      // enviar el caso a revisión desde el comprobante, sin ver XML ni códigos técnicos.
     }
   }
   cloudQueueAuditEvent(sale,"create","sale",null,{number:sale.number,total:sale.total,method:sale.method,businessType:sale.businessType,clientId:sale.clientId||null,orderType:sale.orderType,table:sale.table||null});
   await put("sales", sale);
   state.sales.push(sale);
+  if(isElectronicSale(sale) && sale.fiscalClave && !["aceptado","rechazado","error"].includes(String(sale.electronicInvoiceStatus||"").toLowerCase())) scheduleFiscalStatusChecks(sale.id);
   if (!isServices()) {
     for (const item of sale.items) {
       const p = currentProducts().find(x => x.id === item.id);
@@ -5352,8 +5383,10 @@ function showReceipt(sale) {
     ? `<button class="btn danger" onclick="askHideSale('${sale.id}')">Eliminar de Mis ventas</button>`
     : (saleReturnEntries(sale).length?"":`<button class="btn danger" onclick="askVoidSale('${sale.id}')">Anular comprobante</button>`)) : "";
   const retailReturnAction = sale.businessType==="products" && !sale.voided ? `<button class="btn ghost" onclick="openRetailReturn('${sale.id}')">Cambio / devolución</button>` : "";
-  const fiscalRefreshAction = isElectronicSale(sale) && sale.fiscalClave && !["aceptado","rechazado","error"].includes(String(sale.electronicInvoiceStatus||"").toLowerCase()) ? `<button class="btn ghost" onclick="refreshElectronicInvoiceStatus('${sale.id}')">Actualizar estado en Hacienda</button>` : "";
-  modal(`<div class="ticket"><div class="ticket-business"><h3>${esc(state.settings.businessName)}</h3><div class="muted">${receiptTypeLabel(sale)}</div><div class="muted">Comprobante #${sale.number} · ${dateTime(sale.createdAt)}</div></div>${voidBanner}<div class="divider"></div>${context}${c ? `<div class="ticket-line"><span>Cliente</span><strong>${esc(c.name)}</strong></div>` : ""}${sale.employeeName ? `<div class="ticket-line"><span>Atendió</span><strong>${esc(sale.employeeName)}${sale.employeeCode ? ` · CR${esc(sale.employeeCode)}` : ""}</strong></div>` : ""}${invoiceRequestTicketHtml(sale)}${sale.items.map(i => `<div class="ticket-line"><span>${i.qty} × ${esc(i.name)}${i.variant ? ` · ${esc(i.variant)}` : ""}${Number(i.itemDiscount||0)+Number(i.saleDiscountShare||0)>0?`<small class="discount-note"> · desc. ${money(Number(i.itemDiscount||0)+Number(i.saleDiscountShare||0))}</small>`:""}</span><span>${money(saleItemNetTotal(i))}</span></div>`).join("")}${Number(sale.expressFee||0)>0 ? `<div class="ticket-line"><span>Express</span><span>${money(sale.expressFee)}</span></div>` : ""}${sale.note ? `<div class="panel" style="box-shadow:none;margin-top:10px"><span class="muted">Nota</span><div>${esc(sale.note)}</div></div>` : ""}${Number(sale.discountTotal||0)>0?`<div class="ticket-line"><span>Descuentos</span><strong>−${money(sale.discountTotal)}</strong></div>`:""}${Number(sale.exchangeCredit||0)>0?`<div class="ticket-line"><span>Crédito por cambio #${esc(sale.exchangeSourceSaleNumber||"")}</span><strong>−${money(sale.exchangeCredit)}</strong></div>`:""}${retailReturnHistoryHtml(sale)}<div class="divider"></div>${sale.tax > 0 ? `<div class="ticket-line"><span>Impuesto</span><span>${money(sale.tax)}</span></div>` : ""}<div class="ticket-line ticket-total"><span>Total</span><span>${money(sale.total)}</span></div><div class="ticket-line"><span>Pago</span><span>${esc(sale.method)}</span></div>${sale.change > 0 ? `<div class="ticket-line"><span>Vuelto</span><span>${money(sale.change)}</span></div>` : ""}${sale.method === "Crédito" && !sale.voided ? `<div class="panel" style="box-shadow:none;margin-top:10px;background:#fff5dc"><strong>Saldo pendiente: ${money(sale.total)}</strong></div>` : ""}<div class="mpcr-powered"><span>PUNTO YA CR</span><img class="brand-powered-logo" src="${BRAND.horizontal}" alt="PUNTO YA CR"></div><div class="divider"></div><div class="toolbar"><button class="btn primary" onclick="sharePdf('${sale.id}')">Compartir PDF</button><button class="btn ghost" onclick="printReceipt('${sale.id}')">Imprimir comprobante</button>${fiscalRefreshAction}${tableClean}${retailReturnAction}${adminActions}<button class="btn ghost" onclick="closeModal();go('sale')">Nueva venta</button><button class="btn" onclick="closeModal();go('home')">Inicio</button></div></div>`);
+  const fiscalStateNow=String(sale.electronicInvoiceStatus||"").toLowerCase();
+  const fiscalRefreshAction = isElectronicSale(sale) && sale.fiscalClave && !["aceptado","rechazado","error"].includes(fiscalStateNow) ? `<button class="btn ghost" onclick="refreshElectronicInvoiceStatus('${sale.id}')">Actualizar estado</button>` : "";
+  const fiscalReviewAction = isElectronicSale(sale) && ["rechazado","error"].includes(fiscalStateNow) ? (sale.fiscalReviewRequestedAt ? `<button class="btn ghost" disabled>Enviado a revisión</button>` : `<button class="btn primary" onclick="requestFiscalReview('${sale.id}')">Enviar a revisión</button>`) : "";
+  modal(`<div class="ticket"><div class="ticket-business"><h3>${esc(state.settings.businessName)}</h3><div class="muted">${receiptTypeLabel(sale)}</div><div class="muted">Comprobante #${sale.number} · ${dateTime(sale.createdAt)}</div></div>${voidBanner}<div class="divider"></div>${context}${c ? `<div class="ticket-line"><span>Cliente</span><strong>${esc(c.name)}</strong></div>` : ""}${sale.employeeName ? `<div class="ticket-line"><span>Atendió</span><strong>${esc(sale.employeeName)}${sale.employeeCode ? ` · CR${esc(sale.employeeCode)}` : ""}</strong></div>` : ""}${invoiceRequestTicketHtml(sale)}${sale.items.map(i => `<div class="ticket-line"><span>${i.qty} × ${esc(i.name)}${i.variant ? ` · ${esc(i.variant)}` : ""}${Number(i.itemDiscount||0)+Number(i.saleDiscountShare||0)>0?`<small class="discount-note"> · desc. ${money(Number(i.itemDiscount||0)+Number(i.saleDiscountShare||0))}</small>`:""}</span><span>${money(saleItemNetTotal(i))}</span></div>`).join("")}${Number(sale.expressFee||0)>0 ? `<div class="ticket-line"><span>Express</span><span>${money(sale.expressFee)}</span></div>` : ""}${sale.note ? `<div class="panel" style="box-shadow:none;margin-top:10px"><span class="muted">Nota</span><div>${esc(sale.note)}</div></div>` : ""}${Number(sale.discountTotal||0)>0?`<div class="ticket-line"><span>Descuentos</span><strong>−${money(sale.discountTotal)}</strong></div>`:""}${Number(sale.exchangeCredit||0)>0?`<div class="ticket-line"><span>Crédito por cambio #${esc(sale.exchangeSourceSaleNumber||"")}</span><strong>−${money(sale.exchangeCredit)}</strong></div>`:""}${retailReturnHistoryHtml(sale)}<div class="divider"></div>${sale.tax > 0 ? `<div class="ticket-line"><span>Impuesto</span><span>${money(sale.tax)}</span></div>` : ""}<div class="ticket-line ticket-total"><span>Total</span><span>${money(sale.total)}</span></div><div class="ticket-line"><span>Pago</span><span>${esc(sale.method)}</span></div>${sale.change > 0 ? `<div class="ticket-line"><span>Vuelto</span><span>${money(sale.change)}</span></div>` : ""}${sale.method === "Crédito" && !sale.voided ? `<div class="panel" style="box-shadow:none;margin-top:10px;background:#fff5dc"><strong>Saldo pendiente: ${money(sale.total)}</strong></div>` : ""}<div class="mpcr-powered"><span>PUNTO YA CR</span><img class="brand-powered-logo" src="${BRAND.horizontal}" alt="PUNTO YA CR"></div><div class="divider"></div><div class="toolbar"><button class="btn primary" onclick="sharePdf('${sale.id}')">Compartir PDF</button><button class="btn ghost" onclick="printReceipt('${sale.id}')">Imprimir comprobante</button>${fiscalRefreshAction}${fiscalReviewAction}${tableClean}${retailReturnAction}${adminActions}<button class="btn ghost" onclick="closeModal();go('sale')">Nueva venta</button><button class="btn" onclick="closeModal();go('home')">Inicio</button></div></div>`);
 }
 function loadExternalScript(src, id) {
   return new Promise((resolve, reject) => {
