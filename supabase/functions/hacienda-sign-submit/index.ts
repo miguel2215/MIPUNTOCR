@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
     const response = await fetch(`${token.config.apiBase}/recepcion`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token.accessToken}`,
+        Authorization: `bearer ${token.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
