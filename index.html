@@ -4987,8 +4987,28 @@ function fiscalFunctionError(error, fallback="No fue posible completar la prueba
 async function fiscalInvoke(name, body) {
   if(!mpCloud) throw new Error("No hay conexión con la nube.");
   const {data,error}=await mpCloud.functions.invoke(name,{body});
-  if(error) throw new Error(fiscalFunctionError(error));
-  if(data?.error) throw new Error(typeof data.detail==="string"&&data.detail?`${data.error}: ${data.detail}`:data.error);
+  if(error){
+    let detail="";
+    try{
+      const ctx=error?.context;
+      if(ctx && typeof ctx.clone==="function"){
+        const r=ctx.clone();
+        const j=await r.json();
+        detail=j?.detail||j?.error||"";
+        if(j?.hacienda_status) detail=`Hacienda ${j.hacienda_status}: ${detail}`;
+      }
+    }catch(_){
+      try{
+        const ctx=error?.context;
+        if(ctx && typeof ctx.clone==="function") detail=await ctx.clone().text();
+      }catch(__){}
+    }
+    throw new Error(detail||fiscalFunctionError(error));
+  }
+  if(data?.error){
+    const prefix=data?.hacienda_status?`Hacienda ${data.hacienda_status}: `:"";
+    throw new Error(prefix+(typeof data.detail==="string"&&data.detail?data.detail:data.error));
+  }
   return data||{};
 }
 async function emitElectronicInvoiceSandbox(sale) {
