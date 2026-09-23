@@ -4881,7 +4881,7 @@ function checkoutDocumentHtml() {
   if (activities.length && !saleMeta.invoiceLookupActivities?.length) saleMeta.invoiceLookupActivities = activities;
   const detailsVisible = !!(defaultName || savedId);
   const selectedActivity = saved.activityCode || client?.economicActivityCode || "";
-  return `<div class="checkout-document"><div class="row-head"><strong>Comprobante</strong><span class="pro-mini-pill">PRO</span></div><div class="checkout-document-options"><label class="doc-choice"><input type="radio" name="checkoutDocument" value="receipt" ${selected?"":"checked"} onchange="setCheckoutDocumentType('receipt')"><span>Recibo normal</span></label><label class="doc-choice ${pro?"":"locked"}"><input type="radio" name="checkoutDocument" value="electronic_invoice" ${selected?"checked":""} ${enabled?"":"disabled"} onchange="setCheckoutDocumentType('electronic_invoice')"><span>${pro?"Factura electrónica":"Factura electrónica · PRO 🔒"}</span></label></div>${enabled?`<div id="invoiceCheckoutFields" class="invoice-fields" style="display:${selected?"block":"none"}"><div class="field"><label>Cédula / identificación del cliente</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input id="invoiceCustomerId" inputmode="numeric" value="${esc(savedId)}" placeholder="Escribe la identificación" onkeydown="if(event.key==='Enter'){event.preventDefault();lookupInvoiceTaxpayer()}"><button class="btn primary" type="button" onclick="lookupInvoiceTaxpayer()">Buscar</button></div><small class="muted">PUNTO YA CR busca primero clientes guardados y después consulta Hacienda.</small></div><div id="invoiceLookupStatus" class="invoice-lookup-status" style="display:none"></div><div id="invoiceCustomerDetails" style="display:${detailsVisible?"block":"none"}"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end"><div class="field"><label>Nombre / razón social</label><input id="invoiceCustomerName" value="${esc(defaultName)}" autocomplete="name"></div><div style="padding-bottom:14px"><small class="muted">Tipo</small><div id="invoiceCustomerIdTypeLabel" style="font-weight:900;margin-top:4px">${esc(fiscalIdLabel(saved.idType || client?.identificationType || ""))}</div></div></div><input id="invoiceCustomerIdType" type="hidden" value="${esc(saved.idType || client?.identificationType || "")}"><div id="invoiceManualIdType" class="field" style="display:none"><label>Tipo de identificación (solo ingreso manual)</label><select onchange="setInvoiceManualIdType(this.value)"><option value="01">Cédula física</option><option value="02">Cédula jurídica</option><option value="03">DIMEX</option><option value="04">NITE</option></select></div><div class="field"><label>Actividad económica</label><select id="invoiceCustomerActivity">${invoiceActivityOptions(activities, selectedActivity)}</select><small class="muted">Si Hacienda reporta varias actividades, selecciona la que corresponde a esta factura.</small></div><div class="form-grid"><div class="field"><label>Correo</label><input id="invoiceCustomerEmail" type="email" inputmode="email" value="${esc(saved.email || client?.fiscalEmail || client?.email || "")}" placeholder="cliente@correo.com"></div><div class="field"><label>Teléfono (opcional)</label><input id="invoiceCustomerPhone" value="${esc(saved.phone || client?.phone || "")}" inputmode="tel"></div></div><div class="toolbar"><button class="btn ghost" type="button" onclick="previewInvoiceBeforeSale()">Vista previa</button></div></div><div class="toolbar" style="margin-top:8px"><button class="btn ghost" type="button" onclick="openInvoiceManualEntry()">Ingresar datos manualmente</button></div><div class="invoice-pending-note">Los datos del receptor se guardarán para próximas compras. La emisión oficial seguirá marcada como pendiente hasta que el XML 4.4 sea firmado, enviado y aceptado por Hacienda.</div></div>`:(pro?`<div class="invoice-pending-note">Factura electrónica está incluida en Pro, pero primero debes activarla y completar los datos fiscales del negocio. <button class="linkish" type="button" onclick="closeModal();go('fiscal')">Configurar</button></div>`:`<div class="invoice-pending-note">Factura electrónica está disponible con PUNTO YA CR Pro. El recibo normal sigue disponible en Gratis. <button class="linkish" type="button" onclick="closeModal();openProPlans()">Conocer Pro</button></div>`)}</div>`;
+  return `<div class="checkout-document"><div class="row-head"><strong>Comprobante</strong><span class="pro-mini-pill">PRO</span></div><div class="checkout-document-options"><label class="doc-choice"><input type="radio" name="checkoutDocument" value="receipt" ${selected?"":"checked"} onchange="setCheckoutDocumentType('receipt')"><span>Recibo normal</span></label><label class="doc-choice ${pro?"":"locked"}"><input type="radio" name="checkoutDocument" value="electronic_invoice" ${selected?"checked":""} ${enabled?"":"disabled"} onchange="setCheckoutDocumentType('electronic_invoice')"><span>${pro?"Factura electrónica":"Factura electrónica · PRO 🔒"}</span></label></div>${enabled?`<div id="invoiceCheckoutFields" class="invoice-fields" style="display:${selected?"block":"none"}"><div class="field"><label>Cédula / identificación del cliente</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input id="invoiceCustomerId" inputmode="numeric" value="${esc(savedId)}" placeholder="Escribe la identificación" onkeydown="if(event.key==='Enter'){event.preventDefault();lookupInvoiceTaxpayer()}"><button class="btn primary" type="button" onclick="lookupInvoiceTaxpayer()">Buscar</button></div><small class="muted">PUNTO YA CR busca primero clientes guardados y después consulta Hacienda.</small></div><div id="invoiceLookupStatus" class="invoice-lookup-status" style="display:none"></div><div id="invoiceCustomerDetails" style="display:${detailsVisible?"block":"none"}"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end"><div class="field"><label>Nombre / razón social</label><input id="invoiceCustomerName" value="${esc(defaultName)}" autocomplete="name"></div><div style="padding-bottom:14px"><small class="muted">Tipo</small><div id="invoiceCustomerIdTypeLabel" style="font-weight:900;margin-top:4px">${esc(fiscalIdLabel(saved.idType || client?.identificationType || ""))}</div></div></div><input id="invoiceCustomerIdType" type="hidden" value="${esc(saved.idType || client?.identificationType || "")}"><div id="invoiceManualIdType" class="field" style="display:none"><label>Tipo de identificación (solo ingreso manual)</label><select onchange="setInvoiceManualIdType(this.value)"><option value="01">Cédula física</option><option value="02">Cédula jurídica</option><option value="03">DIMEX</option><option value="04">NITE</option></select></div><div class="field"><label>Actividad económica</label><select id="invoiceCustomerActivity">${invoiceActivityOptions(activities, selectedActivity)}</select><small class="muted">Si Hacienda reporta varias actividades, selecciona la que corresponde a esta factura.</small></div><div class="form-grid"><div class="field"><label>Correo</label><input id="invoiceCustomerEmail" type="email" inputmode="email" value="${esc(saved.email || client?.fiscalEmail || client?.email || "")}" placeholder="cliente@correo.com"></div><div class="field"><label>Teléfono (opcional)</label><input id="invoiceCustomerPhone" value="${esc(saved.phone || client?.phone || "")}" inputmode="tel"></div></div><div class="toolbar"><button class="btn ghost" type="button" onclick="previewInvoiceBeforeSale()">Vista previa</button></div></div><div class="toolbar" style="margin-top:8px"><button class="btn ghost" type="button" onclick="openInvoiceManualEntry()">Ingresar datos manualmente</button></div><div class="invoice-pending-note">Los datos del receptor se guardarán para próximas compras. PRUEBA HACIENDA · SANDBOX. Al confirmar, PUNTO YA CR construirá el XML 4.4, lo firmará y lo enviará únicamente al ambiente de pruebas. Producción permanece bloqueada.</div></div>`:(pro?`<div class="invoice-pending-note">Factura electrónica está incluida en Pro, pero primero debes activarla y completar los datos fiscales del negocio. <button class="linkish" type="button" onclick="closeModal();go('fiscal')">Configurar</button></div>`:`<div class="invoice-pending-note">Factura electrónica está disponible con PUNTO YA CR Pro. El recibo normal sigue disponible en Gratis. <button class="linkish" type="button" onclick="closeModal();openProPlans()">Conocer Pro</button></div>`)}</div>`;
 }
 window.setCheckoutDocumentType = kind => {
   if (kind === "electronic_invoice") {
@@ -4962,6 +4962,80 @@ window.saveClientForCredit = async () => {
   await put("clients", c); state.clients.push(c); saleMeta.clientId = c.id; closeModal(); pay("credit");
 };
 
+
+function fiscalSandboxPaymentCode(method) {
+  const m=String(method||"").toLowerCase();
+  if(m.includes("efect")) return "01";
+  if(m.includes("tarjeta")) return "02";
+  if(m.includes("sinpe")) return "06";
+  return String(state.settings.fiscalDefaultPayment||"01");
+}
+function fiscalSandboxConditionCode(method) {
+  return /cr[eé]dito/i.test(String(method||"")) ? "02" : "01";
+}
+function fiscalProvinceCode(value) {
+  const raw=String(value||"").trim();
+  if(/^[1-7]$/.test(raw)) return raw;
+  const k=raw.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  return ({"san jose":"1","alajuela":"2","cartago":"3","heredia":"4","guanacaste":"5","puntarenas":"6","limon":"7"})[k]||raw;
+}
+function fiscalFunctionError(error, fallback="No fue posible completar la prueba fiscal.") {
+  const ctx=error?.context;
+  const detail=ctx?.body?.detail||ctx?.body?.error||error?.message||fallback;
+  return typeof detail==="string"?detail:JSON.stringify(detail);
+}
+async function fiscalInvoke(name, body) {
+  if(!mpCloud) throw new Error("No hay conexión con la nube.");
+  const {data,error}=await mpCloud.functions.invoke(name,{body});
+  if(error) throw new Error(fiscalFunctionError(error));
+  if(data?.error) throw new Error(typeof data.detail==="string"&&data.detail?`${data.error}: ${data.detail}`:data.error);
+  return data||{};
+}
+async function emitElectronicInvoiceSandbox(sale) {
+  if(!isElectronicSale(sale)) return null;
+  if(!navigator.onLine) throw new Error("La prueba de Factura Electrónica requiere Internet.");
+  if(!state.settings.cloudLinked || !mpCloudBusiness?.id) throw new Error("Conecta el negocio con la nube antes de emitir la prueba fiscal.");
+  if(role!=="owner") throw new Error("Durante las pruebas de Hacienda, la emisión está habilitada únicamente para el dueño del negocio.");
+  const businessId=mpCloudBusiness.id;
+  const s=state.settings;
+  const receiver=sale.invoiceCustomer||{};
+  const key=await fiscalInvoke("hacienda-generate-key",{
+    business_id:businessId,branch_code:String(s.fiscalBranchCode||"001").padStart(3,"0"),terminal_code:String(s.fiscalTerminalCode||"00001").padStart(5,"0"),document_type:"01",situation:"1",emitter_id_type:String(s.fiscalIdType||"01"),emitter_id_number:String(s.fiscalId||""),issue_date:sale.createdAt
+  });
+  sale.fiscalClave=key.clave||"";
+  sale.fiscalConsecutivo=key.consecutivo||"";
+  sale.electronicInvoiceStatus="building";
+  const lines=(sale.items||[]).map(i=>{
+    const qty=Math.max(0,Number(i.qty||0));
+    const base=Math.max(0,Number(i.fiscalSubtotalBeforeTax||0));
+    return {cabys:String(i.cabys||""),quantity:qty,unit_price:qty?base/qty:0,detail:String(i.name||"Producto")+(i.variant?` · ${i.variant}`:""),kind:sale.businessType==="services"?"service":"goods",unit:sale.businessType==="services"?"Sp":"Unid",discount_amount:0,tax_rate:Number(i.fiscalTaxRate||0)};
+  });
+  const xml=await fiscalInvoke("hacienda-build-xml",{
+    business_id:businessId,clave:sale.fiscalClave,consecutivo:sale.fiscalConsecutivo,issue_date:sale.createdAt,
+    provider_systems:String(s.fiscalId||""),issuer_activity:String(s.fiscalEconomicActivityCode||""),receiver_activity:String(receiver.activityCode||""),
+    issuer:{name:String(s.fiscalLegalName||s.businessName||""),id_type:String(s.fiscalIdType||"01"),id_number:String(s.fiscalId||""),email:String(s.fiscalEmail||s.email||""),location:{province:fiscalProvinceCode(s.fiscalProvince),canton:String(s.fiscalCanton||""),district:String(s.fiscalDistrict||""),other_signs:String(s.fiscalOtherSigns||"")}},
+    receiver:{name:String(receiver.name||""),id_type:String(receiver.idType||"01"),id_number:String(receiver.id||""),email:String(receiver.email||"")},
+    sale_condition:fiscalSandboxConditionCode(sale.method),credit_days:fiscalSandboxConditionCode(sale.method)==="02"?String(s.fiscalCreditDays||"1"):"",payment_method:fiscalSandboxPaymentCode(sale.method),lines
+  });
+  sale.electronicInvoiceStatus="signing";
+  const sent=await fiscalInvoke("hacienda-sign-submit",{
+    business_id:businessId,environment:"sandbox",sale_id:sale.id,clave:sale.fiscalClave,consecutivo:sale.fiscalConsecutivo,fecha:xml.fecha||sale.createdAt,xml:xml.xml,
+    emisor:{tipoIdentificacion:String(s.fiscalIdType||"01"),numeroIdentificacion:String(s.fiscalId||"").replace(/\D/g,"")},
+    receptor:{tipoIdentificacion:String(receiver.idType||"01"),numeroIdentificacion:String(receiver.id||"").replace(/\D/g,"")}
+  });
+  sale.electronicInvoiceStatus="sent";
+  sale.fiscalEnvironment="sandbox";
+  sale.fiscalDocumentId=sent.fiscal_document_id||"";
+  sale.fiscalSentAt=new Date().toISOString();
+  try{
+    await new Promise(r=>setTimeout(r,1200));
+    const check=await fiscalInvoke("hacienda-check-status",{business_id:businessId,environment:"sandbox",clave:sale.fiscalClave});
+    const st=String(check.fiscal_status||check.result?.["ind-estado"]||"").toLowerCase();
+    if(st){ sale.electronicInvoiceStatus=st; if(["aceptado","rechazado","error"].includes(st)) sale.fiscalResponseAt=new Date().toISOString(); }
+  }catch(e){ console.warn("Consulta inicial Hacienda:",e); }
+  return sent;
+}
+
 async function saveSale(method, reference = "", clientId = "", received = null) {
   const fiscalIssues=fiscalCartIssues(cart);
   if (fiscalIssues.length) {
@@ -5033,6 +5107,17 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
     employeeName: role === "employee" ? (state.settings.memberDisplayName || "Empleado") : (state.settings.ownerName || "Dueño"),
     employeeCode: role === "employee" ? Number(state.settings.employeeCode || 0) : null
   };
+  if (isElectronicSale(sale)) {
+    const btn=document.querySelector('.modal .btn.primary');
+    if(btn){btn.disabled=true;btn.dataset.oldText=btn.textContent;btn.textContent="Enviando prueba a Hacienda…";}
+    try {
+      await emitElectronicInvoiceSandbox(sale);
+    } catch (error) {
+      console.error("Emisión sandbox:",error);
+      if(btn){btn.disabled=false;btn.textContent=btn.dataset.oldText||"Confirmar cobro";}
+      return modal(`<h3>No se registró la venta</h3><p><strong>La prueba fiscal no pudo completarse.</strong></p><p class="muted">${esc(error?.message||String(error))}</p><div class="fiscal-note"><strong>Seguro:</strong> la emisión está forzada a SANDBOX. No se envió nada a producción y PUNTO YA CR no descontó inventario ni guardó esta venta.</div><div class="toolbar"><button class="btn primary" onclick="closeModal()">Corregir y volver</button></div>`);
+    }
+  }
   cloudQueueAuditEvent(sale,"create","sale",null,{number:sale.number,total:sale.total,method:sale.method,businessType:sale.businessType,clientId:sale.clientId||null,orderType:sale.orderType,table:sale.table||null});
   await put("sales", sale);
   state.sales.push(sale);
@@ -5110,7 +5195,8 @@ function electronicStatusLabel(sale) {
   const status = String(sale?.electronicInvoiceStatus || "").toLowerCase();
   if (["accepted","aceptado"].includes(status)) return "Aceptado por Hacienda";
   if (["rejected","rechazado"].includes(status)) return "Rechazado por Hacienda";
-  if (["sent","submitted","processing","pending_response"].includes(status)) return "Enviado · pendiente de respuesta";
+  if (["building","signing"].includes(status)) return "Preparando prueba fiscal · SANDBOX";
+  if (["sent","submitted","processing","pending_response","recibido","procesando"].includes(status)) return "Enviado a Hacienda · SANDBOX · pendiente de respuesta";
   return "Pendiente de emisión oficial";
 }
 function receiptTypeLabel(sale) {
