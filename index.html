@@ -5467,7 +5467,7 @@ window.productForm = (id, presetCategory="") => {
   const retailFields = isProducts() ? `<div class="field"><label>Costo de compra</label><input id="pCost" type="number" min="0" value="${Number(p?.cost||0)}" oninput="${live}"></div><div class="field"><label>Código de barras / SKU</label><input id="pBarcode" value="${esc(p?.barcode||p?.sku||"")}" placeholder="Escanea o escribe el código" autocomplete="off"></div>` : `<input id="pCost" type="hidden" value="0"><input id="pBarcode" type="hidden" value="">`;
   const serviceFields = isServices() ? `<div class="field"><label>Comisión sugerida</label><input id="pServiceFee" type="number" min="0" value="${Number(p?.serviceFee||0)}"></div>` : `<input id="pServiceFee" type="hidden" value="0">`;
   const fiscalEnabled = isProPlan() && state.settings.fiscalUsesEInvoice;
-  const fiscalFields = fiscalEnabled ? `<div class="field" style="grid-column:1/-1"><label>Clasificación fiscal</label><div style="display:flex;gap:8px"><input id="pCabysSearch" value="${esc(p?.name||"")}" placeholder="Describe lo que vendes" autocomplete="off"><button type="button" class="btn ghost" onclick="searchOfficialCabys()">Sugerir</button></div><small class="cabys-note">PUNTO YA CR interpreta el producto, prioriza su familia y te muestra pocas opciones oficiales. Si reconoce un nombre más claro, también te lo sugerirá.</small><div id="pCabysResults" style="display:grid;gap:8px;margin-top:8px"></div></div><div class="field" style="grid-column:1/-1"><label>Clasificación seleccionada</label><input id="pCabys" type="hidden" value="${esc(p?.cabys||"")}"><input id="pCabysDescription" type="hidden" value="${esc(p?.cabysDescription||"")}"><div id="pCabysSelectedNote" class="fiscal-note">${p?.cabysDescription?`<strong>${esc(p.cabysDescription)}</strong><div class="muted" style="margin-top:4px">Código fiscal ${esc(p.cabys||"")}</div>`:p?.cabys?`<strong>Clasificación fiscal guardada</strong><div class="muted" style="margin-top:4px">Código ${esc(p.cabys)}</div>`:"Todavía no has seleccionado la clasificación fiscal."}</div></div><div class="field"><label>IVA del artículo / servicio</label><select id="pFiscalTaxRate" onchange="updateProductTaxPreview()"><option value="0" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===0?"selected":""}>0%</option><option value="1" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===1?"selected":""}>1%</option><option value="2" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===2?"selected":""}>2%</option><option value="4" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===4?"selected":""}>4%</option><option value="13" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===13?"selected":""}>13%</option></select></div><div class="field" style="grid-column:1/-1"><div id="pTaxPreview" class="fiscal-note"></div></div>` : `<input id="pCabys" type="hidden" value="${esc(p?.cabys||"")}"><input id="pFiscalTaxRate" type="hidden" value="${Number(p?.fiscalTaxRate??0)}">`;
+  const fiscalFields = fiscalEnabled ? `<div class="field" style="grid-column:1/-1"><label>Clasificación fiscal</label><div style="display:flex;gap:8px"><input id="pCabysSearch" value="${esc(p?.name||"")}" placeholder="Describe lo que vendes" autocomplete="off"><button type="button" class="btn ghost" onclick="searchOfficialCabys()">Sugerir</button></div><small class="cabys-note">PUNTO YA CR clasifica desde su base local de Restaurante y Retail. Si no existe una coincidencia segura, te indicará contactar a soporte.</small><div id="pCabysResults" style="display:grid;gap:8px;margin-top:8px"></div></div><div class="field" style="grid-column:1/-1"><label>Clasificación seleccionada</label><input id="pCabys" type="hidden" value="${esc(p?.cabys||"")}"><input id="pCabysDescription" type="hidden" value="${esc(p?.cabysDescription||"")}"><div id="pCabysSelectedNote" class="fiscal-note">${p?.cabysDescription?`<strong>${esc(p.cabysDescription)}</strong><div class="muted" style="margin-top:4px">Código fiscal ${esc(p.cabys||"")}</div>`:p?.cabys?`<strong>Clasificación fiscal guardada</strong><div class="muted" style="margin-top:4px">Código ${esc(p.cabys)}</div>`:"Todavía no has seleccionado la clasificación fiscal."}</div></div><div class="field"><label>IVA del artículo / servicio</label><select id="pFiscalTaxRate" onchange="updateProductTaxPreview()"><option value="0" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===0?"selected":""}>0%</option><option value="1" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===1?"selected":""}>1%</option><option value="2" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===2?"selected":""}>2%</option><option value="4" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===4?"selected":""}>4%</option><option value="13" ${Number(p?.fiscalTaxRate??state.settings.fiscalDefaultTaxRate??13)===13?"selected":""}>13%</option></select></div><div class="field" style="grid-column:1/-1"><div id="pTaxPreview" class="fiscal-note"></div></div>` : `<input id="pCabys" type="hidden" value="${esc(p?.cabys||"")}"><input id="pFiscalTaxRate" type="hidden" value="${Number(p?.fiscalTaxRate??0)}">`;
   const preview=isProducts()?`<div id="pFinancialPreview" class="product-financial-preview"></div>`:"";
   modal(`<h3>${p?"Editar":"Nuevo"} ${isServices()?"servicio":"producto"}</h3><div class="form-grid"><div class="field"><label>Nombre</label><input id="pName" value="${esc(p?.name||"")}"></div><div class="field"><label>${isServices()?"Monto sugerido":"Precio"}</label><input id="pPrice" type="number" min="0" value="${Number(p?.price||0)}" oninput="${isProducts()?live+';':''}updateProductTaxPreview()"></div>${isProducts()?`<div class="field"><label>Categoría</label>${p?`<select id="pCategory">${[...new Set([...(productCategories()),p.category||"Otros"])].map(c=>`<option value="${esc(c)}" ${c===(p.category||"Otros")?"selected":""}>${esc(c)}</option>`).join("")}</select>`:`<input id="pCategory" value="${esc(presetCategory||"")}" readonly><small class="muted">La categoría se eligió antes de abrir este formulario.</small>`}</div>`:`<div class="field"><label>Categoría</label><input id="pCategory" value="${esc(p?.category||presetCategory||"")}" placeholder="${isServices()?"Ej. Agua, Luz, Remesas":"Ej. Bebidas"}"></div>`}${retailFields}${stockField}${variantField}${serviceFields}${fiscalFields}</div>${preview}<div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveProduct('${p?.id||""}')">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
   setTimeout(()=>{ if(isProducts()) updateProductFinancialPreview(id||""); updateProductTaxPreview(); },0);
@@ -5583,51 +5583,28 @@ window.searchOfficialCabys = async () => {
   if(q.length<3)return toast("Escribe lo que vendes con al menos 3 caracteres.");
   const category=String($("#pCategory")?.value||"").trim();
   const hint=pycrFiscalHint(q,category);
-  if(hint){
-    box.innerHTML=`<div class="fiscal-note" id="pSuggestedName" data-name="${esc(hint.name)}"><strong>PUNTO YA CR entendió: ${esc(hint.name)}</strong><div class="muted" style="margin-top:4px">Buscaremos primero dentro de la familia fiscal relacionada, no en todo el catálogo.</div>${pycrNorm($("#pName")?.value)!==pycrNorm(hint.name)?`<button type="button" class="btn ghost" style="margin-top:8px" onclick="useSuggestedProductName()">Usar nombre sugerido: ${esc(hint.name)}</button>`:""}</div><div class="muted">Buscando clasificaciones oficiales…</div>`;
-  }else box.innerHTML=`<div class="muted">Buscando clasificaciones oficiales…</div>`;
-  try{
-    const queries=hint?[...hint.queries]:[q,category];
-    if(!hint&&isFood())queries.push("suministro de comida");
-    const uniqueQueries=[...new Set(queries.map(x=>String(x||"").trim()).filter(x=>x.length>=3))].slice(0,4);
-    const batches=[];
-    if(hint?.exactCabys){
-      if(!mpCloud) throw new Error("La conexión segura con PUNTO YA CR no está disponible.");
-      const { data: exactData, error: exactError } = await mpCloud.functions.invoke("hacienda-cabys-lookup", { body: { codigo: hint.exactCabys } });
-      if(exactError) throw new Error(exactError.message || "No se pudo validar el CAByS.");
-      if(exactData?.error) throw new Error(exactData.error);
-      if(exactData) batches.push(exactData);
-    }
-    for(const term of uniqueQueries){
-      if(!mpCloud) throw new Error("La conexión segura con PUNTO YA CR no está disponible.");
-      const { data: cabysData, error: cabysError } = await mpCloud.functions.invoke("hacienda-cabys-lookup", { body: { q: term, top: 30 } });
-      if(cabysError) throw new Error(cabysError.message || "No se pudo consultar la clasificación fiscal.");
-      if(cabysData?.error) throw new Error(cabysData.error);
-      if(cabysData) batches.push(cabysData);
-    }
-    const flattenData=data=>{const arrays=[];const seen=new Set();const walk=v=>{if(!v||typeof v!=="object"||seen.has(v))return;seen.add(v);if(Array.isArray(v)){arrays.push(v);v.forEach(walk);}else Object.values(v).forEach(walk);};walk(data);return Array.isArray(data)?data:(arrays.find(a=>a.some(x=>x&&typeof x==="object"))||[]);};
-    const pick=(o,names)=>{for(const k of names){if(o?.[k]!=null&&String(o[k]).trim())return String(o[k]).trim();}return "";};
-    const words=pycrNorm(`${q} ${category}`).split(" ").filter(w=>w.length>=3);
-    const map=new Map();
-    batches.flatMap(flattenData).forEach(o=>{
-      const code=pick(o,["codigo","code","cabys","codigoCabys","codigo_cabys"]);
-      const description=pick(o,["descripcion","description","detalle","nombre","descripcionBienServicio","descripcion_bien_servicio"]);
-      if(!/^\d{13}$/.test(code)||!description)return;
-      const d=pycrNorm(description);
-      const intentHits=hint?hint.must.filter(w=>d.includes(pycrNorm(w))).length:0;
-      const excluded=hint?.exclude?.some(w=>d.includes(pycrNorm(w)));
-      if(excluded)return;
-      if(hint&&intentHits===0&&code!==hint.exactCabys)return; // evita sugerencias fuera de la familia detectada
-      let score=intentHits*12+(code===hint?.exactCabys?100:0);
-      score+=words.reduce((n,w)=>n+(d.includes(w)?3:0),0);
-      if(d.includes(pycrNorm(q)))score+=10;
-      const prev=map.get(code);if(!prev||score>prev.score)map.set(code,{code,description,score});
-    });
-    const items=[...map.values()].sort((a,b)=>b.score-a.score||a.description.localeCompare(b.description)).slice(0,4);
-    const intro=hint?`<div class="fiscal-note" id="pSuggestedName" data-name="${esc(hint.name)}"><strong>Sugerencia de PUNTO YA CR: ${esc(hint.name)}</strong><div class="muted" style="margin-top:4px">Confirma cuál descripción oficial se parece más a lo que vendes.</div>${pycrNorm($("#pName")?.value)!==pycrNorm(hint.name)?`<button type="button" class="btn ghost" style="margin-top:8px" onclick="useSuggestedProductName()">Usar este nombre</button>`:""}</div>`:"";
-    if(!items.length){box.innerHTML=intro+`<div class="fiscal-note"><strong>No vamos a adivinar el CAByS.</strong><div class="muted" style="margin-top:4px">No encontramos una coincidencia suficientemente segura. Describe el producto con otras palabras o usa “Buscar otra clasificación”.</div></div><button type="button" class="btn ghost" onclick="document.querySelector('#pCabysSearch')?.focus()">Buscar otra clasificación</button>`;return;}
-    box.innerHTML=intro+`<div class="cabys-note"><strong>Opciones oficiales más cercanas:</strong></div>`+items.map((x,i)=>`<button type="button" class="btn ghost" style="text-align:left;white-space:normal" onclick="selectOfficialCabys('${x.code}',decodeURIComponent('${enc(x.description)}'))"><strong>${i+1}. ${esc(x.description)}</strong><br><span class="muted">Código fiscal ${esc(x.code)}</span></button>`).join("")+`<button type="button" class="btn ghost" onclick="document.querySelector('#pCabysSearch')?.focus()">Ninguna de estas · buscar otra clasificación</button>`;
-  }catch(e){console.error(e);box.innerHTML=`<div class="fiscal-note"><strong>No se pudo consultar Hacienda.</strong><div class="muted" style="margin-top:4px">${esc(e?.message||"Intenta de nuevo.")}</div></div>`;}
+
+  // LOCAL-FIRST: no consulta Hacienda desde el botón Sugerir.
+  // Solo usamos códigos incorporados y verificados en la base local.
+  if(hint?.exactCabys){
+    const localDescriptions={
+      "2449001000000":"Bebidas gaseosas azucaradas, edulcoradas o aromatizadas"
+    };
+    const description=localDescriptions[hint.exactCabys]||hint.name;
+    box.innerHTML=`<div class="fiscal-note" id="pSuggestedName" data-name="${esc(hint.name)}"><strong>PUNTO YA CR entendió: ${esc(hint.name)}</strong><div class="muted" style="margin-top:4px">Clasificación encontrada en la base local. No fue necesario consultar Hacienda.</div>${pycrNorm($("#pName")?.value)!==pycrNorm(hint.name)?`<button type="button" class="btn ghost" style="margin-top:8px" onclick="useSuggestedProductName()">Usar nombre sugerido: ${esc(hint.name)}</button>`:""}</div><button type="button" class="btn ghost" style="text-align:left;white-space:normal" onclick="selectOfficialCabys('${hint.exactCabys}',decodeURIComponent('${enc(description)}'))"><strong>${esc(description)}</strong><br><span class="muted">Código fiscal ${esc(hint.exactCabys)} · Base local PUNTO YA CR</span></button>`;
+    return;
+  }
+
+  const understood=hint?`<div class="fiscal-note" id="pSuggestedName" data-name="${esc(hint.name)}"><strong>PUNTO YA CR entendió: ${esc(hint.name)}</strong><div class="muted" style="margin-top:4px">Reconocimos la familia, pero todavía no tenemos un CAByS local validado para asignarlo con seguridad.</div>${pycrNorm($("#pName")?.value)!==pycrNorm(hint.name)?`<button type="button" class="btn ghost" style="margin-top:8px" onclick="useSuggestedProductName()">Usar nombre sugerido: ${esc(hint.name)}</button>`:""}</div>`:"";
+  box.innerHTML=understood+`<div class="fiscal-note"><strong>No vamos a adivinar el CAByS.</strong><div class="muted" style="margin-top:4px">Este producto todavía no está disponible en la base local de Restaurante y Retail. Contacta a soporte para que revisemos la clasificación correcta.</div></div><button type="button" class="btn ghost" onclick="copyCabysSupportRequest()">Contactar soporte · copiar producto</button>`;
+};
+
+window.copyCabysSupportRequest=async()=>{
+  const product=String($("#pCabysSearch")?.value||$("#pName")?.value||"").trim();
+  const category=String($("#pCategory")?.value||"").trim();
+  const msg=`PUNTO YA CR · Solicitud de clasificación CAByS\nProducto: ${product||"Sin nombre"}\nCategoría: ${category||"Sin categoría"}`;
+  try{await navigator.clipboard.writeText(msg);toast("Solicitud copiada. Envíala a soporte de PUNTO YA CR.");}
+  catch(e){toast("Contacta a soporte e indica el producto: "+(product||"sin nombre"));}
 };
 
 window.selectOfficialCabys=(code,description)=>{
