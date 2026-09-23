@@ -63,7 +63,40 @@ Deno.serve(async (req) => {
     const text = await response.text();
     let result: unknown = text;
     try { result = JSON.parse(text); } catch {}
-    if (!response.ok) return json({ error: `Hacienda ${response.status}`, detail: result }, response.status);
+    const errorCause = response.headers.get('X-Error-Cause') || '';
+    if (!response.ok) {
+      console.error('Hacienda consulta de estado falló', {
+        environment,
+        hacienda_status: response.status,
+        error_cause: errorCause,
+        response_text: text,
+        clave: String(clave),
+      });
+      return json({ error: `Hacienda ${response.status}`, detail: result }, response.status);
+    }
+
+    const fiscalState = String((result as any)?.['ind-estado'] || '').toLowerCase();
+    const responseXml = decodeBase64Utf8((result as any)?.['respuesta-xml']);
+    if (fiscalState === 'rechazado' || fiscalState === 'error') {
+      // Diagnóstico SANDBOX: registra la respuesta fiscal de Hacienda, pero nunca
+      // credenciales, access_token, P12 ni PIN. El XML de respuesta es el mensaje
+      // oficial de Hacienda y permite identificar la validación exacta que falló.
+      console.error('Hacienda estado fiscal terminal', {
+        environment,
+        hacienda_status: response.status,
+        fiscal_status: fiscalState,
+        error_cause: errorCause,
+        respuesta_xml: responseXml || '',
+        clave: String(clave),
+      });
+    } else {
+      console.log('Hacienda estado fiscal', {
+        environment,
+        hacienda_status: response.status,
+        fiscal_status: fiscalState || 'sin_estado',
+        clave: String(clave),
+      });
+    }
 
     let storage: Record<string, unknown> = { stored: false };
     try {
