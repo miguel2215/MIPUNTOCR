@@ -5011,11 +5011,13 @@ async function fiscalInvoke(name, body) {
   }
   return data||{};
 }
+const FISCAL_ACTIVITY_CROSSWALK={"6201.0":"722003"};
 function fiscalXmlActivityCode(value) {
   const raw=String(value||"").trim();
-  const m=raw.match(/^(\d{4})\.(\d)$/);
-  if(m) return `${m[1]}${m[2]}0`;
-  return raw.replace(/\D/g,"");
+  if(FISCAL_ACTIVITY_CROSSWALK[raw]) return FISCAL_ACTIVITY_CROSSWALK[raw];
+  const digits=raw.replace(/\D/g,"");
+  if(/^\d{6}$/.test(digits)) return digits;
+  throw new Error(`La actividad ${raw||"sin código"} necesita su código tributario RUT de 6 dígitos para facturación electrónica.`);
 }
 async function emitElectronicInvoiceSandbox(sale) {
   if(!isElectronicSale(sale)) return null;
