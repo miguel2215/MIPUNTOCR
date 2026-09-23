@@ -7919,7 +7919,23 @@ persistRetailOps=async function(){
 printSimpleDocument=function(title,bodyHtml){
   const mm=thermalWidth(),bodyMm=thermalBodyWidth(),w=window.open('','_blank','width=520,height=760');
   if(!w)return toast('Permite ventanas emergentes para imprimir.');
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:${mm}mm auto;margin:4mm}body{font-family:Arial,sans-serif;width:${bodyMm}mm;margin:0 auto;color:#111;font-size:${mm===58?10:12}px}.center{text-align:center}.logo{display:block;max-width:${mm===58?38:54}mm;max-height:22mm;margin:0 auto 6px;object-fit:contain}.line{display:flex;justify-content:space-between;gap:8px;padding:4px 0}.line span:first-child{min-width:0;overflow-wrap:anywhere}.total{font-size:${mm===58?14:16}px;font-weight:700}h1{font-size:${mm===58?15:18}px;text-align:center;margin:0 0 4px}h2{font-size:${mm===58?12:14}px;text-align:center;margin:0 0 10px}hr{border:0;border-top:1px dashed #888;margin:9px 0}img{max-width:100%;height:auto}</style></head><body><div class="center"><img class="logo" src="${esc(businessDocumentLogo())}"><h1>${esc(state.settings.businessName||'PUNTO YA CR')}</h1></div><h2>${esc(title)}</h2>${bodyHtml}<hr><p class="center" style="font-size:9px;color:#555">PUNTO YA CR · Tu negocio, más simple</p><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script></body></html>`);
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:${mm}mm auto;margin:4mm}body{font-family:Arial,sans-serif;width:${bodyMm}mm;margin:0 auto;color:#111;font-size:${mm===58?10:12}px}.center{text-align:center}.logo{display:block;max-width:${mm===58?38:54}mm;max-height:22mm;margin:0 auto 6px;object-fit:contain}.line{display:flex;justify-content:space-between;gap:8px;padding:4px 0}.line span:first-child{min-width:0;overflow-wrap:anywhere}.total{font-size:${mm===58?14:16}px;font-weight:700}h1{font-size:${mm===58?15:18}px;text-align:center;margin:0 0 4px}h2{font-size:${mm===58?12:14}px;text-align:center;margin:0 0 10px}hr{border:0;border-top:1px dashed #888;margin:9px 0}img{max-width:100%;height:auto}
+
+/* v5 · Productos + categorías fijas + directorio PRO de proveedores */
+.pycr-product-section{border:1px solid var(--line);background:#fff;border-radius:20px;padding:15px;margin:0 0 12px}
+.pycr-product-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.pycr-product-section-title strong{font-size:17px}.pycr-product-section-title small{color:var(--muted)}
+.pycr-fiscal-card{border:1px solid #cfe6df;background:linear-gradient(180deg,#f8fffc,#f3fbf8);border-radius:20px;padding:15px;margin-top:4px}
+.pycr-fiscal-card .field{margin-bottom:10px}.pycr-fiscal-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}
+.pycr-fiscal-head strong{font-size:17px}.pycr-fiscal-head small{display:block;color:var(--muted);margin-top:3px}.pycr-fiscal-tag{display:inline-flex;align-items:center;border-radius:999px;padding:6px 9px;background:#dff7e8;color:#246641;font-size:11px;font-weight:900;white-space:nowrap}
+.pycr-tax-inline{margin-top:7px;border-radius:13px;background:#f4f7f6;padding:10px 12px;font-size:12px;color:#405765;line-height:1.45}.pycr-tax-inline strong{color:var(--text)}
+.pycr-category-context{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:7px}.pycr-category-chip{display:inline-flex;border-radius:999px;background:#edf7f4;color:var(--primary-dark);padding:5px 8px;font-size:11px;font-weight:850}
+.pycr-modal-actions{position:sticky;bottom:calc(-26px - env(safe-area-inset-bottom));z-index:4;background:linear-gradient(180deg,rgba(255,255,255,.82),#fff 28%);padding:16px 0 calc(5px + env(safe-area-inset-bottom));margin-top:8px}
+.pycr-modal-actions .btn.primary{flex:1}.pycr-fixed-note{border:1px dashed #c6d8d3;background:#f9fcfb;border-radius:15px;padding:11px 12px;color:#536b79;font-size:12px;line-height:1.45}
+.pycr-supplier-grid{display:grid;gap:10px;margin-top:12px}.pycr-supplier-card{border:1px solid var(--line);border-radius:18px;background:#fff;padding:14px}.pycr-supplier-card h4{margin:0;font-size:18px}.pycr-supplier-card p{margin:6px 0;color:var(--muted);line-height:1.4;font-size:13px}.pycr-supplier-tags{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}.pycr-supplier-tag{border-radius:999px;background:#f0f5f3;color:#405765;padding:5px 8px;font-size:10px;font-weight:800}.pycr-verified{display:inline-flex;align-items:center;gap:5px;border-radius:999px;background:#e4f6ea;color:#2f6f45;padding:5px 8px;font-size:10px;font-weight:900}.pycr-supplier-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.pycr-supplier-actions .btn{padding:9px 11px;font-size:11px}.pycr-pro-lock{border:1px dashed #b8cbc7;background:#fbfdfc;border-radius:18px;padding:15px}.pycr-category-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:55vh;overflow:auto;padding-right:2px}.pycr-category-picker .type-choice{text-align:left;min-height:76px}.pycr-category-picker .type-choice small{display:block;margin-top:5px;color:var(--muted)}
+@media(min-width:700px){.pycr-category-picker{grid-template-columns:repeat(3,minmax(0,1fr))}.pycr-product-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pycr-product-two>.field{margin-bottom:0}}
+@media(max-width:520px){.pycr-category-picker{grid-template-columns:1fr}.pycr-supplier-actions .btn{flex:1 1 calc(50% - 7px)}}
+</style></head><body><div class="center"><img class="logo" src="${esc(businessDocumentLogo())}"><h1>${esc(state.settings.businessName||'PUNTO YA CR')}</h1></div><h2>${esc(title)}</h2>${bodyHtml}<hr><p class="center" style="font-size:9px;color:#555">PUNTO YA CR · Tu negocio, más simple</p><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script></body></html>`);
   w.document.close();
 };
 
@@ -8098,6 +8114,238 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   window.finishPycStartupSplash?.();
 });
 
+
+
+/* =========================
+   PUNTO YA CR · v5
+   Productos más simples, categorías fijas A-Z y Proveedores PRO.
+   Se monta sobre v4 sin tocar SQL ni Edge Functions.
+========================= */
+(() => {
+  const V5_RETAIL_CATEGORIES=[
+    'Accesorios','Alimentos','Bebé','Bebidas','Bolsos y carteras','Calzado','Celulares','Cocina','Computación','Cosmética','Cuidado personal','Electrónica','Electrodomésticos','Hogar','Joyería','Juguetes','Lácteos','Limpieza','Mascotas','Panadería','Papelería','Perfumería','Relojes','Ropa','Snacks','Tablets'
+  ].sort((a,b)=>a.localeCompare(b,'es'));
+  const V5_FOOD_CATEGORIES=[
+    'Acompañamientos','Bebidas','Café y té','Carnes','Comida preparada','Entradas','Lácteos','Mariscos','Panadería','Pastas y arroz','Pescados','Postres y repostería','Snacks'
+  ].sort((a,b)=>a.localeCompare(b,'es'));
+  window.PYCR_FIXED_PRODUCT_CATEGORIES={retail:V5_RETAIL_CATEGORIES,food:V5_FOOD_CATEGORIES};
+  function v5FixedCategories(){return isFood()?V5_FOOD_CATEGORIES:(isProducts()?V5_RETAIL_CATEGORIES:[]);}
+  function v5AllVisibleCategories(){
+    return [...new Set(currentProducts().map(p=>p.category?.trim()||'Otros'))].sort((a,b)=>a.localeCompare(b,'es'));
+  }
+  productCategories=function(){return v5AllVisibleCategories();};
+  function v5CategoryOptions(selected='',includeLegacy=true){
+    const fixed=v5FixedCategories();
+    const values=[...fixed];
+    if(includeLegacy&&selected&&!values.includes(selected))values.push(selected);
+    return values.sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<option value="${esc(c)}" ${c===selected?'selected':''}>${esc(c)}${!fixed.includes(c)?' · categoría anterior':''}</option>`).join('');
+  }
+
+  const v4RenderProducts=renderProducts;
+  renderProducts=function(){
+    if(isServices())return v4RenderProducts();
+    const singular='producto';
+    const used=[...new Set(currentProducts().map(p=>p.category?.trim()||'Otros'))].sort((a,b)=>a.localeCompare(b,'es'));
+    const html=used.length?used.map(c=>{
+      const items=currentProducts().filter(p=>(p.category?.trim()||'Otros')===c);
+      const units=items.reduce((n,p)=>n+Math.max(0,Number(p.stock||0)),0);
+      const invested=isProducts()?items.reduce((n,p)=>n+Math.max(0,Number(p.stock||0))*Math.max(0,Number(p.cost||0)),0):0;
+      return `<button class="product-category-card" onclick="openProductCategory(decodeURIComponent('${enc(c)}'))"><span><strong>${esc(c)}</strong><small>${items.length} ${items.length===1?'producto':'productos'} · ${units} uds${isProducts()?` · ${money(invested)} mercadería`:''}</small></span><b>›</b></button>`;
+    }).join(''):`<div class="empty">Aún no hay productos. Toca “Nuevo producto” y elige una categoría.</div>`;
+    const finance=isProducts()?retailInventorySummaryHtml(finishRetailInventoryStats(retailInventoryStats()),'Valor de mi mercadería'):'';
+    const proLabel=isProPlan()?'Encontrar proveedores · PRO':'Encontrar proveedores · PRO 🔒';
+    $('#app').innerHTML=shell(`<section class="screen-title"><h2>Productos</h2><p>Categorías fijas de PUNTO YA CR, ordenadas de A a Z. También ayudan a precisar la clasificación fiscal cuando tienes PRO + Factura electrónica.</p></section><div class="toolbar"><button class="btn primary" onclick="openNewProductCategoryPicker()">Nuevo producto</button><button class="btn ghost" onclick="openProSupplierDirectory()">${proLabel}</button>${isProducts()?`<button class="btn ghost" onclick="go('purchases')">Compras / Reposición</button>`:''}</div><div class="pycr-fixed-note">Las categorías ya no se escriben manualmente. Así PUNTO YA CR puede entender mejor qué vendes y reducir resultados CAByS que no corresponden.</div>${finance}<div class="product-category-grid" style="margin-top:14px">${html}</div>`,'more');
+  };
+
+  window.openNewProductCategoryPicker=()=>{
+    if(isServices())return productForm('');
+    const cats=v5FixedCategories();
+    modal(`<h3>¿En qué categoría?</h3><p class="muted">Selecciona una categoría fija. Están ordenadas de A a Z.</p><div class="pycr-category-picker">${cats.map(c=>`<button class="type-choice" onclick="openProductFormForCategory(decodeURIComponent('${enc(c)}'))"><strong>${esc(c)}</strong><small>${currentProducts().filter(p=>(p.category?.trim()||'Otros')===c).length} productos</small></button>`).join('')}</div><div class="toolbar" style="margin-top:14px"><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+  };
+  window.newRetailCategory=()=>toast('Las categorías ahora son fijas para mejorar la organización y la precisión CAByS.');
+  window.continueNewRetailCategory=()=>openNewProductCategoryPicker();
+
+  const v4ProductForm=window.productForm;
+  window.productForm=(id,presetCategory='')=>{
+    if(isServices())return v4ProductForm(id,presetCategory);
+    const p=id?currentProducts().find(x=>x.id===id):null;
+    const fixedNow=v5FixedCategories();
+    const currentCategory=p?.category||(fixedNow.includes(presetCategory)?presetCategory:(fixedNow[0]||'Otros'));
+    const live=id?`updateProductFinancialPreview('${id}')`:`updateProductFinancialPreview('')`;
+    const fiscalEnabled=isProPlan()&&state.settings.fiscalUsesEInvoice;
+    const included=state.settings.fiscalPricesIncludeTax!==false;
+    const priceLabel=fiscalEnabled&&included?'Precio final':'Precio';
+    const retailExtra=isProducts()?`<div class="pycr-product-section"><div class="pycr-product-section-title"><strong>Inventario y compra</strong><small>Opcional al crear</small></div><div class="pycr-product-two"><div class="field"><label>Costo de compra</label><input id="pCost" type="number" min="0" value="${Number(p?.cost||0)}" oninput="${live}"></div><div class="field"><label>Código de barras / SKU</label><input id="pBarcode" value="${esc(p?.barcode||p?.sku||'')}" placeholder="Escanea o escribe el código" autocomplete="off"></div></div><div class="pycr-product-two"><div class="field"><label>Stock</label><input id="pStock" type="number" min="0" value="${Number(p?.stock||0)}" oninput="${live}"></div><div class="field"><label>Stock mínimo</label><input id="pMinStock" type="number" min="0" value="${Number(p?.minStock||0)}"></div></div><div class="field"><label>Variantes opcionales</label><input id="pVariants" value="${esc(p?.variants?.join(', ')||'')}" placeholder="Ej. 50ml, 100ml o S, M, L"></div></div>`:
+      `<input id="pCost" type="hidden" value="0"><input id="pBarcode" type="hidden" value=""><input id="pVariants" type="hidden" value=""><div class="pycr-product-section"><div class="pycr-product-section-title"><strong>Inventario</strong><small>Control básico</small></div><div class="pycr-product-two"><div class="field"><label>Stock</label><input id="pStock" type="number" min="0" value="${Number(p?.stock||0)}"></div><div class="field"><label>Stock mínimo</label><input id="pMinStock" type="number" min="0" value="${Number(p?.minStock||0)}"></div></div></div>`;
+    const fiscal=fiscalEnabled?`<div class="pycr-fiscal-card"><div class="pycr-fiscal-head"><div><strong>Clasificación fiscal</strong><small>Solo porque tienes PRO + Factura electrónica activa.</small></div><span class="pycr-fiscal-tag">PRO</span></div><div class="field"><label>¿Qué vendes?</label><div style="display:flex;gap:8px"><input id="pCabysSearch" value="${esc(p?.name||'')}" placeholder="Ej. Fanta 600ml" autocomplete="off"><button type="button" class="btn primary" onclick="searchOfficialCabys()">Sugerir</button></div><div class="pycr-category-context"><span class="pycr-category-chip">Categoría: <span id="pCabysCategoryLabel" style="margin-left:4px">${esc(currentCategory)}</span></span><small class="muted">La categoría reduce resultados que no corresponden.</small></div><div id="pCabysResults" style="display:grid;gap:8px;margin-top:8px"></div></div><input id="pCabys" type="hidden" value="${esc(p?.cabys||'')}"><input id="pCabysDescription" type="hidden" value="${esc(p?.cabysDescription||'')}"><input id="pFiscalTaxRate" type="hidden" value="${Number(p?.fiscalTaxRate??0)}"><div id="pCabysSelectedNote" class="fiscal-note">${p?.cabysDescription?`<strong>${esc(p.cabysDescription)}</strong><div class="muted" style="margin-top:4px">Código fiscal ${esc(p.cabys||'')} · IVA ${Number(p.fiscalTaxRate||0)}% automático</div>`:'Todavía no has seleccionado la clasificación fiscal.'}</div></div>`:
+      `<input id="pCabys" type="hidden" value="${esc(p?.cabys||'')}"><input id="pCabysDescription" type="hidden" value="${esc(p?.cabysDescription||'')}"><input id="pFiscalTaxRate" type="hidden" value="${Number(p?.fiscalTaxRate??0)}">`;
+    const preview=isProducts()?`<div id="pFinancialPreview" class="product-financial-preview"></div>`:'';
+    modal(`<h3>${p?'Editar':'Nuevo'} producto</h3><div class="pycr-product-section"><div class="pycr-product-section-title"><strong>Información principal</strong><small>Lo necesario para vender</small></div><div class="field"><label>Nombre comercial</label><input id="pName" value="${esc(p?.name||'')}" oninput="pycrSyncCabysSearch()" placeholder="Ej. FANTA 600ML"></div><div class="field"><label>${priceLabel}</label><input id="pPrice" type="number" min="0" value="${Number(p?.price||0)}" oninput="${isProducts()?live+';':''}updateProductTaxPreview()">${fiscalEnabled?`<div id="pTaxPreview" class="pycr-tax-inline"></div>`:''}</div><div class="field"><label>Categoría</label><select id="pCategory" onchange="pycrProductCategoryChanged(this.value)">${v5CategoryOptions(currentCategory,true)}</select><small class="muted">Categorías fijas de PUNTO YA CR · A-Z.</small></div></div>${retailExtra}${fiscal}${preview}<input id="pServiceFee" type="hidden" value="0"><div class="toolbar pycr-modal-actions"><button class="btn primary" onclick="saveProduct('${p?.id||''}')">Guardar producto</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+    setTimeout(()=>{if(isProducts())updateProductFinancialPreview(id||'');updateProductTaxPreview();},0);
+  };
+  window.pycrSyncCabysSearch=()=>{const n=$('#pName'),q=$('#pCabysSearch');if(n&&q&&(!q.dataset.touched||q.value===q.dataset.lastName)){q.value=n.value;q.dataset.lastName=n.value;}};
+  window.pycrProductCategoryChanged=value=>{const label=$('#pCabysCategoryLabel');if(label)label.textContent=value;const box=$('#pCabysResults');if(box)box.innerHTML='';};
+
+  const V5_CATEGORY_HINTS={
+    'accesorios':['accesorio','adaptador','cargador','cable','estuche','funda','protector','auricular','audifono'],
+    'alimentos':['alimento','comida','harina','cereal','arroz','pasta','azucar','galleta','salsa','aceite'],
+    'bebe':['bebe','infantil','panal','pañal','biberon','chupete'],
+    'bebidas':['bebida','agua','jugo','zumo','refresco','gaseosa','cafe','café','te','té','leche','energetica','isotonica'],
+    'bolsos y carteras':['bolso','cartera','maleta','mochila','equipaje'],
+    'calzado':['calzado','zapato','zapatilla','tenis','bota','sandalia'],
+    'celulares':['telefono','teléfono','celular','movil','móvil','smartphone'],
+    'cocina':['cocina','olla','sarten','sartén','cubierto','vajilla','vaso','taza','utensilio'],
+    'computacion':['computadora','ordenador','laptop','teclado','mouse','raton','ratón','impresora','monitor'],
+    'cosmetica':['cosmetico','cosmético','maquillaje','labial','rimel','rímel','base','polvo'],
+    'cuidado personal':['higiene','cabello','champu','champú','jabon','jabón','desodorante','afeitar','crema dental'],
+    'electronica':['electronico','electrónico','audio','video','televisor','parlante','camara','cámara'],
+    'electrodomesticos':['electrodomestico','electrodoméstico','refrigerador','lavadora','microondas','licuadora','cafetera'],
+    'hogar':['hogar','mueble','decoracion','decoración','cortina','almohada','sabana','sábana'],
+    'joyeria':['joya','joyería','anillo','cadena','collar','pulsera','arete'],
+    'juguetes':['juguete','juego','muñeca','muneca','pelota'],
+    'lacteos':['lacteo','lácteo','leche','queso','yogur','yogurt','mantequilla'],
+    'limpieza':['limpieza','detergente','desinfectante','cloro','jabon','jabón','escoba','esponja'],
+    'mascotas':['perro','gato','mascota','animal','alimento para animales','correa'],
+    'panaderia':['pan','panaderia','panadería','galleta','reposteria','repostería'],
+    'papeleria':['papel','cuaderno','lapiz','lápiz','lapicero','boligrafo','bolígrafo','folder','carpeta'],
+    'perfumeria':['perfume','colonia','fragancia'],
+    'relojes':['reloj','relojería'],
+    'ropa':['ropa','prenda','camiseta','camisa','pantalon','pantalón','vestido','falda','blusa','chaqueta','abrigo'],
+    'snacks':['snack','papas','galleta','confite','dulce','chocolate','palomita'],
+    'tablets':['tablet','tableta electronica','tableta electrónica'],
+    'acompanamientos':['papas','acompañamiento','ensalada','guarnicion','guarnición'],
+    'cafe y te':['cafe','café','te','té','espresso','latte','capuccino','cappuccino'],
+    'carnes':['carne','res','cerdo','pollo','bistec','churrasco'],
+    'comida preparada':['suministro de comida','restaurante','comida','plato'],
+    'entradas':['entrada','aperitivo','entremes','entremés'],
+    'mariscos':['marisco','camaron','camarón','langosta','molusco'],
+    'pastas y arroz':['pasta','arroz','fideo','espagueti','spaghetti','lasana','lasaña'],
+    'pescados':['pescado','atun','atún','salmon','salmón','tilapia'],
+    'postres y reposteria':['postre','reposteria','repostería','pastel','queque','helado','torta']
+  };
+  function v5CategoryHints(category){return V5_CATEGORY_HINTS[pycrNorm(category)]||[];}
+  function v5RowCategoryAffinity(row,category){
+    const hints=v5CategoryHints(category);if(!hints.length)return 0;
+    const text=pycrNorm(`${row[1]||''} ${row[3]||''}`);
+    return hints.reduce((n,h)=>n+(text.includes(pycrNorm(h))?1:0),0);
+  }
+  function v5SearchLocal(q,limit=3,category=''){
+    const toks=pycrTokens(q);if(!toks.length)return [];
+    const hints=v5CategoryHints(category),scored=[];
+    for(const row of PYCR_CABYS_LOCAL){
+      const desc=pycrNorm(row[1]||''),inc=pycrNorm(row[3]||''),exc=pycrNorm(row[4]||'');
+      const affinity=v5RowCategoryAffinity(row,category);
+      if(hints.length&&affinity===0)continue;
+      const descRoots=new Set(pycrTokens(desc)),incRoots=new Set(pycrTokens(inc)),excRoots=new Set(pycrTokens(exc));
+      let matched=0,score=affinity*4,excludedHits=0;
+      for(const t of toks){
+        if(descRoots.has(t)){matched++;score+=8;}
+        else if(incRoots.has(t)){matched++;score+=4;}
+        if(excRoots.has(t)&&!descRoots.has(t)&&!incRoots.has(t))excludedHits++;
+      }
+      if(!matched)continue;
+      const coverage=matched/toks.length;
+      if(coverage<0.45&&matched<2)continue;
+      score+=Math.round(coverage*12)-excludedHits*10;
+      if(pycrNorm(row[1])===pycrNorm(q))score+=30;
+      if(score>0)scored.push([score,row]);
+    }
+    scored.sort((a,b)=>b[0]-a[0]||a[1][1].length-b[1][1].length);
+    const out=[],seen=new Set();
+    for(const [,row] of scored){if(!seen.has(row[0])){seen.add(row[0]);out.push(row);}if(out.length>=limit)break;}
+    return out;
+  }
+  pycrSearchLocal=function(q,limit=3){return v5SearchLocal(q,limit,$('#pCategory')?.value||'');};
+
+  const v4ResolveKnown=pycrResolveKnownConcept;
+  pycrResolveKnownConcept=function(text){
+    const n=pycrNorm(text);
+    if(isFood()){
+      if(pycrAnyTerm(n,['chocolate caliente']))return pycrDirect('6340001000300','Chocolate caliente preparado');
+      if(pycrAnyTerm(n,['limonada','jugo natural','jugo de naranja','fresco natural','refresco natural']))return pycrDirect('6340002020200','Bebida natural preparada en agua');
+      if(pycrAnyTerm(n,['batido','smoothie','milkshake']))return pycrChoices('Bebida preparada',[{code:'6340002020200',label:'Preparada en agua'},{code:'6340002020300',label:'Preparada en leche'}]);
+    }
+    return v4ResolveKnown(text);
+  };
+
+  window.searchOfficialCabys=()=>{
+    const input=$('#pCabysSearch'),box=$('#pCabysResults');if(!input||!box)return;
+    const q=String(input.value||$('#pName')?.value||'').trim();if(q.length<3)return toast('Escribe lo que vendes con al menos 3 caracteres.');
+    const category=String($('#pCategory')?.value||'').trim();
+    const known=pycrResolveKnownConcept(q);
+    if(known){if(known.kind==='direct')pycrRenderDirect(box,known);else pycrRenderChoices(box,known);return;}
+    const expanded=pycrAliasQuery(q);
+    let results=[];
+    if(expanded)results=v5SearchLocal(expanded,3,category);
+    if(!results.length)results=v5SearchLocal(q,3,category);
+    if(!results.length){box.innerHTML=pycrSupportHtml();return;}
+    const top=results[0],second=results[1];
+    const clearSingle=results.length===1||(!second&&top)||false;
+    box.innerHTML=clearSingle?`<div class="fiscal-note"><strong>PUNTO YA CR encontró una clasificación dentro de ${esc(category||'la categoría elegida')}.</strong><div class="muted" style="margin-top:4px">Confirma la sugerencia fiscal.</div></div>`:`<div class="fiscal-note"><strong>Encontramos ${results.length} posibilidades dentro de ${esc(category||'la categoría elegida')}.</strong><div class="muted" style="margin-top:4px">Mostramos solo las más cercanas.</div></div>`;
+    box.innerHTML+=results.map(r=>{const [code,desc,rate,inc,exc]=r;const extra=inc?`<div class="muted" style="margin-top:5px"><strong>Incluye:</strong> ${esc(inc).slice(0,160)}</div>`:'';const excluded=exc?`<div class="muted" style="margin-top:5px"><strong>No incluye:</strong> ${esc(exc).slice(0,160)}</div>`:'';return `<button type="button" class="btn ghost" style="text-align:left;white-space:normal" onclick="selectOfficialCabys('${code}',decodeURIComponent('${enc(desc)}'))"><strong>${esc(desc)}</strong><br><span class="muted">Código fiscal ${code} · IVA ${rate}%</span>${extra}${excluded}</button>`;}).join('');
+  };
+
+  window.updateProductTaxPreview=()=>{
+    const box=$('#pTaxPreview');if(!box)return;
+    const price=Math.max(0,Number($('#pPrice')?.value||0));
+    const rate=Math.max(0,Number($('#pFiscalTaxRate')?.value||0));
+    const cabys=String($('#pCabys')?.value||'');
+    const included=state.settings.fiscalPricesIncludeTax!==false;
+    let base=price,tax=0,total=price;
+    if(rate>0){if(included){base=price/(1+rate/100);tax=price-base;}else{tax=price*rate/100;total=price+tax;}}
+    if(!cabys){box.innerHTML=`<strong>Precio comercial: ${money(price)}</strong><br><span>El IVA se calculará automáticamente cuando confirmes el CAByS.</span>`;return;}
+    box.innerHTML=included?`<strong>${money(total)} final · IVA ${rate}% incluido</strong><br><span>Base ${money(base)} + IVA ${money(tax)}. No se vuelve a sumar al cobrar.</span>`:`<strong>${money(base)} + IVA ${rate}%</strong><br><span>IVA ${money(tax)} · Total al cliente ${money(total)}.</span>`;
+  };
+
+  const v4SelectOfficialCabys=window.selectOfficialCabys;
+  window.selectOfficialCabys=(code,description)=>{v4SelectOfficialCabys(code,description);updateProductTaxPreview();};
+
+  const PYCR_PRO_SUPPLIERS=[
+    {id:'mayca',name:'Mayca Food Service',summary:'Distribución para restaurantes, hoteles, sodas, pizzerías, panaderías y otros negocios gastronómicos.',categories:['Alimentos','Bebidas','Carnes','Lácteos','Limpieza','Panadería','Pescados y mariscos'],phone:'41004200',email:'serviciocliente@mayca.com',website:'https://www.mayca.com/contact',coverage:'Cobertura nacional',checked:'22/09/2026'},
+    {id:'dospinos',name:'Dos Pinos · Abastecidos',summary:'Canal comercial para productos lácteos, bebidas, helados, alimentos y otras líneas de Dos Pinos.',categories:['Alimentos','Bebidas','Lácteos','Snacks'],phone:'25082525',whatsapp:'50686067260',email:'abastecidos@dospinos.com',website:'https://abastecidos.dospinos.com/Abastecidos/',coverage:'Costa Rica',checked:'22/09/2026'},
+    {id:'cocacolafemsa',name:'Coca-Cola FEMSA Costa Rica',summary:'Portafolio de bebidas Coca-Cola y canal digital para clientes de negocio mediante Juntos+.',categories:['Bebidas'],phone:'8017436773',whatsapp:'50670700005',website:'https://coca-colafemsa.com/sobre-nosotros/presencia-internacional.html',coverage:'Costa Rica',checked:'22/09/2026'},
+    {id:'fifco',name:'FIFCO · Bebidas Costa Rica',summary:'Productor y distribuidor de bebidas con canal de TeleVentas y atención para clientes comerciales.',categories:['Bebidas'],phone:'8003432627',website:'https://www.fifco.com/presentamos-800-fifcocr/',coverage:'Costa Rica',checked:'22/09/2026'},
+    {id:'intcomex',name:'Intcomex Costa Rica',summary:'Distribuidor mayorista de tecnología con operación y centro de distribución en Costa Rica.',categories:['Accesorios','Celulares','Computación','Electrónica','Tablets'],phone:'41007200',email:'info.cr@intcomex.com',website:'https://www.intcomex.com/cobertura/',coverage:'Costa Rica',checked:'22/09/2026'}
+  ];
+  window.PYCR_PRO_SUPPLIERS=PYCR_PRO_SUPPLIERS;
+  function v5SupplierCategoryOptions(){return [...new Set(PYCR_PRO_SUPPLIERS.flatMap(s=>s.categories))].sort((a,b)=>a.localeCompare(b,'es'));}
+  function v5SupplierRows(q='',category=''){
+    const nq=pycrNorm(q);return PYCR_PRO_SUPPLIERS.filter(s=>{
+      const hay=pycrNorm(`${s.name} ${s.summary} ${s.categories.join(' ')}`);
+      return (!nq||hay.includes(nq))&&(!category||s.categories.includes(category));
+    });
+  }
+  window.renderProSupplierResults=()=>{
+    const box=$('#pycrSupplierResults');if(!box)return;
+    const q=$('#pycrSupplierSearch')?.value||'',cat=$('#pycrSupplierCategory')?.value||'',rows=v5SupplierRows(q,cat);
+    box.innerHTML=rows.length?rows.map(s=>`<div class="pycr-supplier-card"><div class="row-head"><div><h4>${esc(s.name)}</h4><div class="muted" style="font-size:12px;margin-top:3px">${esc(s.coverage)}</div></div><span class="pycr-verified">✓ Datos revisados</span></div><p>${esc(s.summary)}</p><div class="pycr-supplier-tags">${s.categories.map(c=>`<span class="pycr-supplier-tag">${esc(c)}</span>`).join('')}</div><div class="muted" style="font-size:11px">Información pública revisada: ${esc(s.checked)}</div><div class="pycr-supplier-actions">${s.whatsapp?`<button class="btn primary" onclick="contactProSupplier('${s.id}','whatsapp')">WhatsApp</button>`:''}${s.phone?`<button class="btn ghost" onclick="contactProSupplier('${s.id}','phone')">Llamar</button>`:''}${s.email?`<button class="btn ghost" onclick="contactProSupplier('${s.id}','email')">Correo</button>`:''}<button class="btn ghost" onclick="contactProSupplier('${s.id}','web')">Sitio oficial</button></div></div>`).join(''):`<div class="empty">No encontramos proveedores con ese filtro.</div>`;
+  };
+  window.openProSupplierDirectory=()=>{
+    if(!isProPlan())return modal(`<h3>Encontrar proveedores · PRO</h3><div class="pycr-pro-lock"><strong>Directorio de proveedores para tu negocio</strong><p class="muted">Con PRO puedes conocer proveedores, ver qué categorías manejan y abrir sus canales oficiales de contacto.</p><button class="btn primary" onclick="closeModal();openProPlans()">Conocer PRO</button></div><div class="toolbar"><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
+    const cats=v5SupplierCategoryOptions();
+    modal(`<h3>Encontrar proveedores · PRO</h3><p class="muted">Directorio inicial de proveedores con datos públicos revisados. PUNTO YA CR no realiza pedidos ni comparte tus datos automáticamente.</p><div class="field"><input id="pycrSupplierSearch" placeholder="Buscar proveedor o producto" oninput="renderProSupplierResults()"></div><div class="field"><label>Categoría</label><select id="pycrSupplierCategory" onchange="renderProSupplierResults()"><option value="">Todas</option>${cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div><div id="pycrSupplierResults" class="pycr-supplier-grid"></div><div class="toolbar"><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
+    setTimeout(renderProSupplierResults,0);
+  };
+  window.contactProSupplier=async(id,channel)=>{
+    const s=PYCR_PRO_SUPPLIERS.find(x=>x.id===id);if(!s)return;
+    let url='';
+    if(channel==='whatsapp'&&s.whatsapp)url=`https://wa.me/${String(s.whatsapp).replace(/\D/g,'')}`;
+    else if(channel==='phone'&&s.phone)url=`tel:${s.phone}`;
+    else if(channel==='email'&&s.email)url=`mailto:${s.email}`;
+    else if(channel==='web')url=s.website;
+    if(!url)return toast('Ese canal no está disponible.');
+    try{if(isNativeApp())await nativeOpenExternal(url);else if(/^https?:/.test(url))window.open(url,'_blank','noopener,noreferrer');else window.location.href=url;}catch(e){console.error(e);toast('No se pudo abrir el contacto.');}
+  };
+
+  const v4RenderRetailPurchases=renderRetailPurchases;
+  renderRetailPurchases=function(){
+    const result=v4RenderRetailPurchases();
+    if(!isProducts())return result;
+    const toolbar=document.querySelector('.screen-title + .toolbar');
+    if(toolbar&&!toolbar.querySelector('[data-pycr-pro-suppliers]'))toolbar.insertAdjacentHTML('beforeend',`<button class="btn ghost" data-pycr-pro-suppliers onclick="openProSupplierDirectory()">Encontrar proveedores · PRO${isProPlan()?'':' 🔒'}</button>`);
+    return result;
+  };
+})();
 </script>
 </body>
 </html>
