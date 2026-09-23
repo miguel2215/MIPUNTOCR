@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Consulta de comprobante · PUNTO YA CR</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#16323d;background:#f4f7f6}*{box-sizing:border-box}body{margin:0}.wrap{max-width:860px;margin:auto;padding:28px 18px 48px}.top{text-align:center;margin-bottom:22px}.brand{font-weight:900;letter-spacing:.03em;font-size:24px}.tag{color:#587078;margin-top:4px}.card{background:#fff;border:1px solid #dce5e2;border-radius:22px;padding:22px;box-shadow:0 12px 36px rgba(22,50,61,.08);margin:14px 0}.status{display:inline-flex;border-radius:999px;padding:7px 11px;background:#eef6f3;font-size:13px;font-weight:800}.error{background:#fff1f1;color:#842b2b}.muted{color:#678087}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #edf1f0}.row:last-child{border-bottom:0}.items{width:100%;border-collapse:collapse}.items th,.items td{text-align:left;padding:10px 6px;border-bottom:1px solid #edf1f0}.items td:last-child,.items th:last-child{text-align:right}.total{font-size:20px;font-weight:900}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.btn{appearance:none;border:1px solid #cfdad7;background:#fff;border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer;color:#16323d}.btn.primary{background:#16323d;color:#fff;border-color:#16323d}.hidden{display:none}.key{word-break:break-all;font-size:12px}@media(max-width:650px){.grid{grid-template-columns:1fr}.card{padding:17px}.items th:nth-child(3),.items td:nth-child(3){display:none}}
+@media print{body{background:#fff}.wrap{padding:0;max-width:none}.actions,.top .tag{display:none}.card{box-shadow:none;border:0;padding:10px}}
+</style>
+</head>
+<body><main class="wrap"><header class="top"><div class="brand">PUNTO YA CR</div><div class="tag">Consulta de factura/comprobante electrónico</div></header><div id="app" class="card"><strong>Consultando comprobante…</strong><p class="muted">Verificando el enlace seguro.</p></div></main>
+<script>
+const SUPABASE_URL='https://uspycwpztzkenwsevvrp.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_gRxzhxgEe3WnqSfA-fn6_w_nOtQ7sDy';
+const $=s=>document.querySelector(s); const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>new Intl.NumberFormat('es-CR',{style:'currency',currency:'CRC',maximumFractionDigits:2}).format(Number(n||0));
+function token(){return new URLSearchParams(location.hash.replace(/^#/,'' )).get('token')||''}
+function b64ToBlob(b64,type='application/xml'){const bin=atob(b64),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type})}
+function downloadBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000)}
+function fileName(r,suffix){const n=r.consecutivo||r.number||'comprobante';return `${String(r.document_label||'comprobante').toLowerCase().replace(/\s+/g,'-')}-${n}-${suffix}`}
+async function load(){
+ const id=new URL(location.href).searchParams.get('id')||'', t=token();
+ if(!id||!t) throw new Error('El enlace está incompleto o vencido.');
+ const res=await fetch(`${SUPABASE_URL}/functions/v1/fiscal-public-receipt`,{method:'POST',headers:{'Content-Type':'application/json','apikey':PUBLISHABLE_KEY,'Authorization':`Bearer ${PUBLISHABLE_KEY}`},body:JSON.stringify({id,token:t})});
+ const out=await res.json().catch(()=>({})); if(!res.ok||!out?.receipt) throw new Error(out?.error||'No fue posible consultar el comprobante.'); return out.receipt;
+}
+function render(r){
+ const receptor=r.receiver?.name?`<section class="card"><h3>Receptor</h3><div class="row"><span>Nombre / razón social</span><b>${esc(r.receiver.name)}</b></div>${r.receiver.id?`<div class="row"><span>Identificación</span><b>${esc(r.receiver.id)}</b></div>`:''}${r.receiver.email?`<div class="row"><span>Correo</span><b>${esc(r.receiver.email)}</b></div>`:''}</section>`:'';
+ const rows=(r.items||[]).map(i=>`<tr><td>${esc(i.name)}${i.variant?`<div class="muted">${esc(i.variant)}</div>`:''}${i.cabys?`<div class="muted">CAByS ${esc(i.cabys)}</div>`:''}</td><td>${Number(i.qty||0)}</td><td>${money(i.unit_price)}</td><td>${money(i.total)}</td></tr>`).join('');
+ $('#app').outerHTML=`<div id="app"><section class="card"><div class="status">${esc(r.status_label)}</div><h1>${esc(r.document_label)}</h1><div class="grid"><div><div class="muted">Emisor</div><strong>${esc(r.emitter?.name||'')}</strong>${r.emitter?.id?`<div>${esc(r.emitter.id)}</div>`:''}</div><div><div class="muted">Fecha</div><strong>${esc(new Date(r.created_at).toLocaleString('es-CR'))}</strong></div></div>${r.consecutivo?`<div class="row"><span>Consecutivo</span><b>${esc(r.consecutivo)}</b></div>`:''}${r.clave?`<div class="row"><span>Clave</span><b class="key">${esc(r.clave)}</b></div>`:''}</section>${receptor}<section class="card"><h3>Detalle</h3><table class="items"><thead><tr><th>Producto / servicio</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><div class="row"><span>Subtotal</span><b>${money(r.subtotal)}</b></div><div class="row"><span>Impuestos</span><b>${money(r.tax)}</b></div><div class="row total"><span>Total</span><span>${money(r.total)}</span></div><div class="actions"><button class="btn primary" onclick="window.print()">Guardar / imprimir PDF</button>${r.files?.signed_xml_base64?`<button class="btn" id="xmlDoc">Descargar XML</button>`:''}${r.files?.response_xml_base64?`<button class="btn" id="xmlResp">Descargar respuesta Hacienda</button>`:''}</div></section><section class="card"><strong>Consulta segura PUNTO YA CR</strong><p class="muted">Este enlace permite consultar únicamente este comprobante. No da acceso a otras ventas ni a la cuenta del negocio.</p></section></div>`;
+ if(r.files?.signed_xml_base64) $('#xmlDoc').onclick=()=>downloadBlob(b64ToBlob(r.files.signed_xml_base64),fileName(r,'comprobante.xml'));
+ if(r.files?.response_xml_base64) $('#xmlResp').onclick=()=>downloadBlob(b64ToBlob(r.files.response_xml_base64),fileName(r,'respuesta-hacienda.xml'));
+}
+load().then(render).catch(e=>{$('#app').innerHTML=`<div class="status error">No disponible</div><h2>No pudimos abrir este comprobante</h2><p>${esc(e.message)}</p><p class="muted">Verifica que abriste el enlace completo desde el QR original.</p>`});
+</script></body></html>

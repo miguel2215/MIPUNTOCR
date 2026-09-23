@@ -188,3 +188,27 @@ test.describe('PUNTO YA CR - Facturación rápida v7.44', () => {
     expect(source).not.toMatch(/Obtener PRO anual/i);
   });
 });
+
+test.describe('PUNTO YA CR - Consulta pública fiscal v7.59', () => {
+  test('el QR usa un token aleatorio y no expone el token como query param', async ({ request }) => {
+    const response = await request.get('/index.html');
+    expect(response.ok()).toBeTruthy();
+    const source = await response.text();
+    expect(source).toMatch(/function fiscalPublicToken\(\)/);
+    expect(source).toMatch(/crypto\.getRandomValues/);
+    expect(source).toMatch(/fiscalPublicToken:/);
+    expect(source).toMatch(/consulta-comprobante\.html/);
+    expect(source).toMatch(/u\.hash=`token=/);
+    expect(source).not.toMatch(/u\.searchParams\.set\(["']token["']/);
+  });
+
+  test('la consulta pública existe y usa el endpoint dedicado sin emitir a Hacienda', async ({ request }) => {
+    const response = await request.get('/consulta-comprobante.html');
+    expect(response.ok()).toBeTruthy();
+    const source = await response.text();
+    expect(source).toMatch(/fiscal-public-receipt/);
+    expect(source).toMatch(/Consulta segura PUNTO YA CR/);
+    expect(source).toMatch(/Descargar XML/);
+    expect(source).not.toMatch(/hacienda-sign-submit|hacienda-submit-signed|hacienda-generate-key/);
+  });
+});

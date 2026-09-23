@@ -3049,6 +3049,7 @@ function cloudSaleNotesPayload(sale) {
     fiscalRejectionDetail: sale.fiscalRejectionDetail || "",
     fiscalTechnicalError: sale.fiscalTechnicalError || "",
     fiscalReviewRequestedAt: sale.fiscalReviewRequestedAt || "",
+    fiscalPublicToken: sale.fiscalPublicToken || "",
     invoiceCustomer: sale.invoiceCustomer || null,
     grossSubtotal: Number(sale.grossSubtotal||0),
     itemDiscountTotal: Number(sale.itemDiscountTotal||0),
@@ -3632,6 +3633,7 @@ async function cloudMergeOperationsRemote(remote) {
       electronicInvoiceStatus: remoteSaleMeta.electronicInvoiceStatus || existing?.electronicInvoiceStatus || "",
       fiscalTransmissionPaused: remoteSaleMeta.fiscalTransmissionPaused ?? existing?.fiscalTransmissionPaused ?? false,
       fiscalPreparedAt: remoteSaleMeta.fiscalPreparedAt || existing?.fiscalPreparedAt || "",
+      fiscalPublicToken: remoteSaleMeta.fiscalPublicToken || existing?.fiscalPublicToken || "",
       fiscalClave: remoteSaleMeta.fiscalClave || existing?.fiscalClave || "",
       fiscalConsecutivo: remoteSaleMeta.fiscalConsecutivo || existing?.fiscalConsecutivo || "",
       fiscalEnvironment: remoteSaleMeta.fiscalEnvironment || existing?.fiscalEnvironment || "",
@@ -5226,6 +5228,8 @@ async function saveSale(method, reference = "", clientId = "", received = null) 
     fiscalResponseAt: "",
     invoiceCustomer: saleMeta.documentType === "electronic_invoice" ? { ...(saleMeta.invoiceCustomer || {}) } : null,
     fiscalTransmissionPaused: ["electronic_ticket","electronic_invoice"].includes(saleMeta.documentType),
+    fiscalPublicToken: ["electronic_ticket","electronic_invoice"].includes(saleMeta.documentType) ? fiscalPublicToken() : "",
+    cloudId: ["electronic_ticket","electronic_invoice"].includes(saleMeta.documentType) ? cloudUuid() : undefined,
     exchangeCredit: Number(t.exchangeCreditApplied||0),
     exchangeSourceSaleId: saleMeta.exchangeSourceSaleId||"",
     exchangeSourceSaleNumber: saleMeta.exchangeSourceSaleNumber||"",
@@ -5328,6 +5332,10 @@ function electronicStatusLabel(sale) {
   if (["error"].includes(status)) return sale?.fiscalReviewRequestedAt ? "Enviado a revisión" : "Requiere revisión";
   return isElectronicSale(sale) ? "Preparado" : "";
 }
+function fiscalPublicToken() {
+  const bytes=new Uint8Array(24); crypto.getRandomValues(bytes);
+  return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+}
 function receiptTypeLabel(sale) {
   if (isElectronicTicket(sale)) return "TIQUETE ELECTRÓNICO";
   if (isElectronicSale(sale)) return "FACTURA ELECTRÓNICA";
@@ -5336,15 +5344,18 @@ function receiptTypeLabel(sale) {
   return "COMPROBANTE DE VENTA";
 }
 function fiscalPublicLookupUrl(sale) {
-  const u=new URL("/consulta-comprobante", location.origin);
-  if (sale?.fiscalClave) u.searchParams.set("clave",sale.fiscalClave);
-  else u.searchParams.set("ref",`${state.settings.cloudBusinessId||state.settings.businessId||"local"}-${sale?.id||sale?.number||""}`);
+  if(!sale?.cloudId || !sale?.fiscalPublicToken) return "";
+  const u=new URL("/consulta-comprobante.html", location.origin);
+  u.searchParams.set("id",sale.cloudId);
+  u.hash=`token=${sale.fiscalPublicToken}`;
   return u.href;
 }
-function fiscalQrImageUrl(sale, size=220) { return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(fiscalPublicLookupUrl(sale))}`; }
+function fiscalQrImageUrl(sale, size=220) { const url=fiscalPublicLookupUrl(sale); return url?`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}`:""; }
 function fiscalQrHtml(sale,{compact=false}={}) {
   if(!isElectronicSale(sale)) return "";
-  return `<div class="fiscal-qr-block" style="text-align:center;margin-top:${compact?10:18}px;padding-top:${compact?8:14}px;border-top:1px dashed #b9c7c3"><strong style="display:block;font-size:${compact?10:11}px">Consulta tu factura/comprobante electrónico aquí</strong><img src="${esc(fiscalQrImageUrl(sale,compact?150:220))}" alt="QR de consulta" style="width:${compact?30:38}mm;max-width:145px;height:auto;margin:7px auto 3px;display:block"><small style="display:block;color:#536B79;word-break:break-all">${esc(fiscalPublicLookupUrl(sale))}</small></div>`;
+  const url=fiscalPublicLookupUrl(sale);
+  if(!url) return `<div class="fiscal-qr-block" style="text-align:center;margin-top:${compact?10:18}px;padding-top:${compact?8:14}px;border-top:1px dashed #b9c7c3"><strong style="display:block;font-size:${compact?10:11}px">Consulta tu factura/comprobante electrónico aquí</strong><small style="display:block;color:#536B79;margin-top:6px">El enlace estará disponible al sincronizar esta venta con la nube.</small></div>`;
+  return `<div class="fiscal-qr-block" style="text-align:center;margin-top:${compact?10:18}px;padding-top:${compact?8:14}px;border-top:1px dashed #b9c7c3"><strong style="display:block;font-size:${compact?10:11}px">Consulta tu factura/comprobante electrónico aquí</strong><img src="${esc(fiscalQrImageUrl(sale,compact?150:220))}" alt="QR de consulta" style="width:${compact?30:38}mm;max-width:145px;height:auto;margin:7px auto 3px;display:block"><small style="display:block;color:#536B79;word-break:break-all">${esc(url)}</small></div>`;
 }
 function invoiceRequestTicketHtml(sale) {
   if (!isElectronicSale(sale)) return "";
