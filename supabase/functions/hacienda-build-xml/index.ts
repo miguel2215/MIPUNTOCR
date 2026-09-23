@@ -19,7 +19,19 @@ function dec(value: unknown, digits = 5) { return n(value).toFixed(digits); }
 function money(value: unknown) { return dec(value, 5); }
 function text(value: unknown, max: number) { return String(value ?? '').trim().slice(0, max); }
 function digits(value: unknown) { return String(value ?? '').replace(/\D+/g, ''); }
-function cleanActivity(value: unknown) { return String(value ?? '').replace(/[^0-9A-Za-z]/g, '').slice(0, 6); }
+// CodigoActividad* en FE 4.4 usa el código tributario de 6 dígitos del RUT,
+// no el CAECR/CIIU4 mostrado como 6201.0. Correspondencia oficial Hacienda.
+const ACTIVITY_CROSSWALK: Record<string,string> = {
+  '6201.0': '722003',
+};
+function cleanActivity(value: unknown) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (ACTIVITY_CROSSWALK[raw]) return ACTIVITY_CROSSWALK[raw];
+  const onlyDigits = raw.replace(/\D+/g, '');
+  if (/^\d{6}$/.test(onlyDigits)) return onlyDigits;
+  throw new Error(`La actividad ${raw} es CAECR/CIIU4 y no tiene configurado su código tributario RUT de 6 dígitos.`);
+}
 function cleanCabys(value: unknown) { return digits(value).slice(0, 13); }
 function taxRateCode(rate: number) {
   if (rate === 0) return '01';
@@ -67,7 +79,7 @@ function personXml(tag: 'Emisor'|'Receptor', person: any, requireLocation = fals
   return xml;
 }
 
-type BuiltLine = { xml:string; base:number; tax:number; total:number; discount:number; kind:'service'|'goods'; taxed:boolean };
+type BuiltLine = { xml:string; base:number; tax:number; total:number; discount:number; kind:'service'|'goods'; taxed:boolean; taxCode:string; taxRateCode:string };
 function buildLine(raw:any, index:number): BuiltLine {
   const qty = n(raw?.quantity ?? 0);
   const unitPrice = n(raw?.unit_price ?? 0);
@@ -77,7 +89,8 @@ function buildLine(raw:any, index:number): BuiltLine {
   if (!/^\d{13}$/.test(cabys)) throw new Error(`Línea ${index}: CAByS debe tener 13 dígitos.`);
   const detail = text(raw?.detail, 200);
   if (!detail) throw new Error(`Línea ${index}: falta el detalle.`);
-  const kind:'service'|'goods' = raw?.kind === 'service' ? 'service' : 'goods';
+  // Hacienda clasifica servicio/mercancía por Categoría 1 del CAByS: 5-9 servicio; 0-4 mercancía.
+  const kind:'service'|'goods' = /^[5-9]/.test(cabys) ? 'service' : 'goods';
   const unit = text(raw?.unit || (kind === 'service' ? 'Sp' : 'Unid'), 20);
   const gross = qty * unitPrice;
   const discount = Math.max(0, n(raw?.discount_amount ?? 0));
@@ -99,7 +112,7 @@ function buildLine(raw:any, index:number): BuiltLine {
   xml += `<SubTotal>${money(subtotal)}</SubTotal><BaseImponible>${money(subtotal)}</BaseImponible>`;
   xml += `<Impuesto><Codigo>01</Codigo><CodigoTarifaIVA>${taxRateCode(rate)}</CodigoTarifaIVA><Tarifa>${dec(rate,2)}</Tarifa><Monto>${money(tax)}</Monto></Impuesto>`;
   xml += `<ImpuestoAsumidoEmisorFabrica>0.00000</ImpuestoAsumidoEmisorFabrica><ImpuestoNeto>${money(tax)}</ImpuestoNeto><MontoTotalLinea>${money(total)}</MontoTotalLinea></LineaDetalle>`;
-  return { xml, base:subtotal, tax, total, discount, kind, taxed };
+  return { xml, base:subtotal, tax, total, discount, kind, taxed, taxCode:'01', taxRateCode:taxRateCode(rate) };
 }
 
 Deno.serve(async (req) => {
@@ -123,6 +136,8 @@ Deno.serve(async (req) => {
     const issuerActivity = cleanActivity(body.issuer_activity);
     const receiverActivity = cleanActivity(body.receiver_activity);
     if (!issuerActivity) return json({ error:'Falta la actividad económica del emisor.' },400);
+    if (!/^\d{6}$/.test(issuerActivity)) return json({ error:'La actividad económica del emisor debe corresponder a un código RUT de 6 dígitos (código tributario del RUT, no CAECR/CIIU4).' },400);
+    if (receiverActivity && !/^\d{6}$/.test(receiverActivity)) return json({ error:'La actividad económica del receptor debe corresponder a un código RUT de 6 dígitos.' },400);
 
     const condition = String(body.sale_condition || '01');
     if (!SALE_CONDITIONS.has(condition)) return json({ error:'Condición de venta no válida para FE 4.4.' },400);
@@ -149,6 +164,13 @@ Deno.serve(async (req) => {
     const totalDiscount = sum(x=>x.discount);
     const totalNet = sum(x=>x.base);
     const totalTax = sum(x=>x.tax);
+    const taxGroups = new Map<string,{code:string,rateCode:string,total:number}>();
+    for (const line of lines.filter(x=>x.taxed)) {
+      const key = `${line.taxCode}|${line.taxRateCode}`;
+      const prev = taxGroups.get(key) || { code:line.taxCode, rateCode:line.taxRateCode, total:0 };
+      prev.total += line.tax;
+      taxGroups.set(key, prev);
+    }
     const totalDocument = sum(x=>x.total);
 
     const payment = String(body.payment_method || '01');
@@ -174,7 +196,11 @@ Deno.serve(async (req) => {
     if (goodsExempt) xml += `<TotalMercanciasExentas>${money(goodsExempt)}</TotalMercanciasExentas>`;
     if (totalTaxed) xml += `<TotalGravado>${money(totalTaxed)}</TotalGravado>`;
     if (totalExempt) xml += `<TotalExento>${money(totalExempt)}</TotalExento>`;
-    xml += `<TotalVenta>${money(totalSale)}</TotalVenta><TotalDescuentos>${money(totalDiscount)}</TotalDescuentos><TotalVentaNeta>${money(totalNet)}</TotalVentaNeta><TotalImpuesto>${money(totalTax)}</TotalImpuesto>`;
+    xml += `<TotalVenta>${money(totalSale)}</TotalVenta><TotalDescuentos>${money(totalDiscount)}</TotalDescuentos><TotalVentaNeta>${money(totalNet)}</TotalVentaNeta>`;
+    for (const group of taxGroups.values()) {
+      xml += `<TotalDesgloseImpuesto><Codigo>${group.code}</Codigo><CodigoTarifaIVA>${group.rateCode}</CodigoTarifaIVA><TotalMontoImpuesto>${money(group.total)}</TotalMontoImpuesto></TotalDesgloseImpuesto>`;
+    }
+    if (totalTax > 0) xml += `<TotalImpuesto>${money(totalTax)}</TotalImpuesto>`;
     xml += `<TotalImpAsumEmisorFabrica>0.00000</TotalImpAsumEmisorFabrica><TotalIVADevuelto>0.00000</TotalIVADevuelto><TotalOtrosCargos>0.00000</TotalOtrosCargos>`;
     xml += `<MedioPago><TipoMedioPago>${payment}</TipoMedioPago>${payment==='99'?`<MedioPagoOtros>${esc(paymentOther)}</MedioPagoOtros>`:''}<TotalMedioPago>${money(totalDocument)}</TotalMedioPago></MedioPago>`;
     xml += `<TotalComprobante>${money(totalDocument)}</TotalComprobante></ResumenFactura></FacturaElectronica>`;
