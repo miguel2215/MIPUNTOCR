@@ -9415,5 +9415,112 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   };
 })();
 </script>
+
+<style id="pycr-mobile-v4-official">
+@media(max-width:699px){
+  /* Escala móvil aprobada: más cómoda sin perder densidad */
+  .shell{padding-left:14px!important;padding-right:14px!important;padding-bottom:calc(176px + env(safe-area-inset-bottom))!important}
+  .topbar{margin-left:-14px!important;margin-right:-14px!important;padding:10px 14px 11px!important}
+  .app-compact .brand-icon{width:40px!important;height:40px!important;flex-basis:40px!important}
+  .app-compact .brand h1{font-size:19px!important;max-width:38vw!important}
+  .app-compact .brand p{font-size:11px!important}
+  .app-compact .badge,.app-compact .lock-top-btn{min-height:36px!important;font-size:11.5px!important}
+
+  /* Inicio: misma composición aprobada, escala real de iPhone */
+  .mobile-home-v3{gap:12px!important;padding-top:3px!important}
+  .mobile-home-v3 .m3-search{height:44px!important;border-radius:13px!important;padding:0 13px!important;font-size:13px!important;gap:9px!important}
+  .mobile-home-v3 .m3-search .py-icon{width:18px!important;height:18px!important}
+  .m3-kpis{gap:9px!important}
+  .m3-kpi{min-height:92px!important;border-radius:14px!important;padding:12px 13px!important}
+  .m3-kpi span{font-size:11.5px!important}.m3-kpi strong{font-size:25px!important;margin-top:7px!important}.m3-kpi small{font-size:10.5px!important;margin-top:6px!important}
+  .m3-section-title{font-size:14px!important;margin-top:3px!important}
+  .m3-quick-grid{gap:9px!important}.m3-quick{min-height:68px!important;border-radius:14px!important;padding:11px 12px!important;gap:10px!important}
+  .m3-quick .ico{width:34px!important;height:34px!important;border-radius:10px!important}.m3-quick .ico .py-icon{width:20px!important;height:20px!important}.m3-quick strong{font-size:13px!important}
+
+  /* Bottom nav flotante tipo cápsula */
+  .bottom-nav{left:16px!important;right:16px!important;bottom:calc(10px + env(safe-area-inset-bottom))!important;min-height:66px!important;padding:7px 9px!important;border:0!important;border-radius:28px!important;background:#0F172A!important;box-shadow:0 16px 36px rgba(15,23,42,.28)!important;overflow:visible!important}
+  .bottom-nav button{min-height:52px!important;border-radius:21px!important;padding:0!important;color:rgba(255,255,255,.68)!important;display:grid!important;place-items:center!important;background:transparent!important}
+  .bottom-nav button.active{background:#EAF8F1!important;color:#0E9A5A!important;box-shadow:0 4px 14px rgba(18,183,106,.12)!important}
+  .bottom-nav .mobile-nav-icon{display:grid!important;place-items:center!important;width:100%!important;height:100%!important}
+  .bottom-nav .mobile-nav-icon .py-icon{width:24px!important;height:24px!important;stroke-width:2!important}
+  .bottom-nav .mobile-nav-label{display:none!important}
+
+  /* Nueva venta: modal premium aprobado */
+  .modal-backdrop:has(.sale-context-modal){align-items:center!important;padding:18px!important}
+  .sale-context-modal{width:100%!important;max-width:430px!important;margin:0!important;border-radius:24px!important;padding:18px!important;align-self:auto!important;max-height:none!important}
+  .sale-context-modal:before{display:none!important}
+  .sale-context-head{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:12px!important}
+  .sale-context-head small{font-size:11px!important;letter-spacing:.09em!important}.sale-context-head h3{font-size:24px!important;line-height:1.08!important;margin:5px 0 5px!important}.sale-context-head p{font-size:13px!important;line-height:1.35!important}
+  .sale-context-close{width:38px!important;height:38px!important;border-radius:12px!important;background:#F8FAFC!important;border:1px solid #E2E8F0!important;display:grid!important;place-items:center!important;color:#64748B!important}
+  .sale-context-grid{gap:10px!important;margin-top:16px!important}
+  .sale-context-grid button{min-height:124px!important;border-radius:16px!important;padding:14px!important}
+  .sale-context-grid .sale-context-icon{width:38px!important;height:38px!important;border-radius:11px!important}.sale-context-grid .sale-context-icon .py-icon{width:20px!important;height:20px!important}
+  .sale-context-grid strong{font-size:15px!important;margin-top:10px!important}.sale-context-grid small{font-size:11.5px!important;line-height:1.25!important;margin-top:4px!important;color:#64748B!important}
+
+  /* VENDER V4: POS móvil, sin fotos */
+  .m4-sale{padding-top:2px}.m4-sale-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:2px 0 12px}.m4-sale-head h2{font-size:28px;line-height:1;margin:0;color:#0F172A;letter-spacing:-.6px}.m4-sale-head p{font-size:12px;color:#64748B;margin:6px 0 0}.m4-sale-head .m4-cart-mini{width:44px;height:44px;border:0;border-radius:14px;background:#EAF8F1;color:#0E9A5A;display:grid;place-items:center;position:relative}.m4-sale-head .m4-cart-mini .py-icon{width:22px;height:22px}.m4-sale-head .m4-cart-mini b{position:absolute;right:-4px;top:-5px;min-width:19px;height:19px;border-radius:999px;background:#12B76A;color:white;font-size:10px;display:grid;place-items:center;padding:0 4px}
+  .m4-context{display:flex;align-items:center;justify-content:space-between;gap:10px;border-radius:14px;padding:10px 12px;background:#FFF7E8;margin-bottom:11px}.m4-context span{font-size:13px;font-weight:800;color:#92400E}.m4-context button{border:0;background:transparent;color:#2563EB;font-size:12px;font-weight:800;padding:5px}
+  .m4-search{height:48px;border:1px solid #E2E8F0;border-radius:14px;background:#fff;display:flex;align-items:center;gap:9px;padding:0 13px;margin-bottom:11px}.m4-search .py-icon{width:18px;height:18px;color:#94A3B8}.m4-search input{border:0!important;outline:0!important;width:100%;font-size:14px!important;background:transparent!important;padding:0!important}
+  .m4-cats{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 0 12px}.m4-cats::-webkit-scrollbar{display:none}.m4-cat{flex:0 0 auto;min-height:40px;border:1px solid #E2E8F0;background:#fff;color:#475569;border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:750}.m4-cat.active{background:#0F172A;color:#fff;border-color:#0F172A}
+  .m4-products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-content:start}.m4-product{position:relative;min-height:128px;border:1px solid #E2E8F0;background:#fff;border-radius:17px;padding:14px;text-align:left;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 5px 16px rgba(15,23,42,.035)}.m4-product:active{transform:scale(.985);border-color:#A7E5C7}.m4-product .m4-product-icon{width:35px;height:35px;border-radius:11px;background:#F1F5F9;color:#64748B;display:grid;place-items:center;margin-bottom:11px}.m4-product .m4-product-icon .py-icon{width:19px;height:19px}.m4-product strong{font-size:14px;line-height:1.18;color:#0F172A;padding-right:30px;display:block}.m4-product .m4-price{font-size:14px;font-weight:800;color:#0E9A5A;margin-top:auto;padding-top:12px}.m4-product .m4-add{position:absolute;right:10px;bottom:10px;width:32px;height:32px;border-radius:10px;background:#12B76A;color:white;display:grid;place-items:center;font-size:23px;font-weight:400;line-height:1}.m4-product em{font-size:10px;font-style:normal;color:#EF4444;margin-top:4px}.m4-empty{grid-column:1/-1;padding:28px 14px;text-align:center;color:#64748B;background:#fff;border:1px dashed #CBD5E1;border-radius:16px}
+  .m4-orderbar{position:fixed;z-index:21;left:14px;right:14px;bottom:calc(88px + env(safe-area-inset-bottom));height:66px;border-radius:20px;background:#fff;border:1px solid #E2E8F0;box-shadow:0 14px 34px rgba(15,23,42,.18);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 9px 9px 14px}.m4-orderbar .m4-ordercopy small{display:block;font-size:10.5px;color:#64748B;margin-bottom:3px}.m4-orderbar .m4-ordercopy strong{font-size:19px;color:#0F172A}.m4-orderbar button{min-width:118px;height:48px;border:0;border-radius:15px;background:#12B76A;color:white;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:7px}.m4-orderbar button:disabled{opacity:.45}.m4-orderbar button .py-icon{width:18px;height:18px}
+
+  /* Carrito / cobro */
+  .mobile-cart-modal{width:100%!important;max-height:92dvh!important;border-radius:26px 26px 0 0!important;padding:20px 16px calc(22px + env(safe-area-inset-bottom))!important}
+  .mobile-cart-modal .mobile-cart-sheet{display:grid;gap:12px}.mobile-cart-modal h3{font-size:25px!important;letter-spacing:-.4px!important;margin:0!important}
+  .mobile-cart-context{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:12px}.mobile-cart-context span{color:#0E9A5A;display:grid}.mobile-cart-context .py-icon{width:16px;height:16px}.mobile-cart-context button{border:0;background:#EAF8F1;color:#0E9A5A;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:800}
+  .mobile-cart-list{display:grid;gap:8px;max-height:34dvh;overflow:auto}.mobile-cart-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:15px;padding:11px 12px}.mobile-cart-copy strong{font-size:14px}.mobile-cart-copy small{display:block;color:#64748B;font-size:11px;margin-top:4px}.mobile-cart-price{display:grid;justify-items:end;gap:7px}.mobile-cart-price b{font-size:13px}.mobile-cart-row .qty button{width:31px!important;height:31px!important;border-radius:10px!important}.mobile-cart-row .qty strong{font-size:13px}
+  .m4-cart-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m4-cart-actions button{min-height:42px;border-radius:12px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-size:12px;font-weight:750}.m4-cart-actions button.primary-soft{background:#EAF8F1;border-color:#C7EDD9;color:#0E9A5A}
+  .mobile-note-button{min-height:44px!important;border-radius:12px!important;font-size:12px!important}.mobile-cart-totals{border-top:1px solid #E2E8F0;padding-top:10px;display:grid;gap:7px}.mobile-cart-totals>div{display:flex;justify-content:space-between;font-size:12px;color:#64748B}.mobile-cart-totals .grand{font-size:20px;color:#0F172A;font-weight:800;margin-top:3px}
+  .mobile-pay-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important}.mobile-pay-grid button{min-height:62px!important;border:0!important;border-radius:15px!important;padding:10px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;font-size:13px!important;font-weight:800!important}.mobile-pay-grid button .py-icon{width:21px;height:21px}.mobile-pay-grid .pay-cash{background:#EAF8F1!important;color:#0E9A5A!important}.mobile-pay-grid .pay-sinpe{background:#EDF5FF!important;color:#2563EB!important}.mobile-pay-grid .pay-card{background:#F4EDFF!important;color:#7C3AED!important}.mobile-pay-grid .pay-credit{background:#FFF5E6!important;color:#D97706!important}
+}
+@media(max-width:380px){
+  .m4-products{gap:8px}.m4-product{min-height:122px;padding:12px}.m4-product strong{font-size:13px}.m4-orderbar{left:10px;right:10px}.bottom-nav{left:12px!important;right:12px!important}
+}
+</style>
+
+
+<script id="pycr-mobile-v4-official-js">
+(function(){
+  function isMobileV4(){return window.matchMedia&&window.matchMedia('(max-width:699px)').matches&&!isDesktopPOS();}
+  function m4CategoryIcon(i){return i%4===0?'grid':i%4===1?'cash':i%4===2?'box':'store';}
+  function renderMobileV4FoodSale(){
+    if(!canSell()){screen='cash';return renderCash();}
+    const productsAll=currentProducts();
+    const categories=['Todos',...[...new Set(productsAll.map(p=>p.category?.trim()||'Otros'))]];
+    if(!quickCategory||!categories.includes(quickCategory))quickCategory='Todos';
+    const visible=quickCategory==='Todos'?productsAll:productsAll.filter(p=>(p.category?.trim()||'Otros')===quickCategory);
+    const t=currentSaleTotals();
+    const qtyCount=cart.reduce((a,i)=>a+Number(i.qty||0),0);
+    const catHtml=categories.map(c=>`<button class="m4-cat ${quickCategory===c?'active':''}" onclick="quickCategory=decodeURIComponent('${enc(c)}');renderSale()">${esc(c)}</button>`).join('');
+    const productHtml=visible.map((p,i)=>`<button class="m4-product" data-mobile-food-product="1" data-search="${esc((p.name+' '+(p.category||'')).toLowerCase())}" onclick="pickProduct('${p.id}')"><span class="m4-product-icon">${pyIcon(m4CategoryIcon(i))}</span><strong>${esc(p.name)}</strong>${Number(p.stock||0)<=Number(p.minStock||-1)?'<em>Stock bajo</em>':''}<span class="m4-price">${money(p.price)}</span><span class="m4-add">+</span></button>`).join('')||'<div class="m4-empty">No hay productos en esta categoría.</div>';
+    const context=desktopSaleContextLabel();
+    const html=`<section class="m4-sale">
+      <div class="m4-sale-head"><div><h2>Vender</h2><p>Selecciona productos para agregar al pedido.</p></div><button class="m4-cart-mini" onclick="openMobileFoodCart()" aria-label="Abrir pedido">${pyIcon('cart')}<b>${qtyCount}</b></button></div>
+      <div class="m4-context"><span>${esc(context)}</span><button onclick="openSaleContextChooser()">Cambiar</button></div>
+      <div class="m4-search">${pyIcon('search')}<input placeholder="Buscar productos..." oninput="filterMobileFoodProducts(this.value)"></div>
+      <div class="m4-cats">${catHtml}</div>
+      <div class="m4-products">${productHtml}</div>
+    </section>
+    <div class="m4-orderbar"><div class="m4-ordercopy"><small>Pedido actual · ${qtyCount} ${qtyCount===1?'artículo':'artículos'}</small><strong>${money(t.total)}</strong></div><button ${cart.length?'onclick="openMobileFoodCart()"':'disabled'}>${pyIcon('cart')}Ver pedido</button></div>`;
+    $('#app').innerHTML=shell(html,'sale');
+    if(pendingMobileSaleContextChoice){pendingMobileSaleContextChoice=false;setTimeout(()=>{if(screen==='sale'&&isMobileV4()&&isFood())openSaleContextChooser();},0);}
+  }
+  const previousRenderSaleV4=renderSale;
+  renderSale=function(){if(isMobileV4()&&isFood())return renderMobileV4FoodSale();return previousRenderSaleV4();};
+
+  const previousCartV4=window.openMobileFoodCart;
+  window.openMobileFoodCart=function(){
+    if(!(isMobileV4()&&isFood()))return previousCartV4?.();
+    const t=currentSaleTotals();
+    const rows=cart.length?cart.map(i=>`<div class="mobile-cart-row"><div class="mobile-cart-copy"><strong>${esc(i.name)}</strong><small>${i.qty} × ${money(i.price)}</small></div><div class="mobile-cart-price"><div class="qty"><button onclick="qty('${i.cartId}',-1);closeModal();openMobileFoodCart()">−</button><strong>${i.qty}</strong><button onclick="qty('${i.cartId}',1);closeModal();openMobileFoodCart()">+</button></div><b>${money(Number(i.price||0)*Number(i.qty||0))}</b></div></div>`).join(''):'<div class="empty">Agrega productos para comenzar.</div>';
+    const client=saleMeta.clientId?clientName(saleMeta.clientId):'Cliente / receptor opcional';
+    const tableActions=saleMeta.orderType==='Mesa'?`<button class="primary-soft" onclick="closeModal();saveTableAccount()">Guardar mesa</button><button onclick="closeModal();previewCurrentPrebill()">Precuenta</button>`:'';
+    modal(`<div class="mobile-cart-sheet"><div class="category-modal-header"><div><h3>Pedido actual</h3><div class="mobile-cart-context"><span>${pyIcon('table')}</span><strong>${esc(desktopSaleContextLabel())}</strong><button onclick="closeModal();openSaleContextChooser()">Cambiar</button></div></div><button class="modal-close" onclick="closeModal()">${pyIcon('x')}</button></div><div class="mobile-cart-list">${rows}</div><div class="m4-cart-actions"><button class="primary-soft" onclick="selectSaleClient()">${esc(client)}</button><button onclick="editSaleNote()">${saleMeta.note?'Nota ✓':'Agregar nota'}</button>${tableActions}</div><div class="mobile-cart-totals">${saleMeta.orderType==='Express'&&Number(saleMeta.expressFee||0)>0?`<div><span>Domicilio</span><b>${money(saleMeta.expressFee)}</b></div>`:''}${state.settings.taxMode!=='exempt'?`<div><span>Impuestos</span><b>${money(t.tax)}</b></div>`:''}<div><span>Subtotal</span><b>${money(t.subtotal)}</b></div><div class="grand"><span>Total</span><b>${money(t.total)}</b></div></div><div class="mobile-pay-grid"><button class="pay-cash" ${cart.length?'onclick="pay(\'cash\')"':'disabled'}>${pyIcon('cash')}<span>Efectivo</span></button><button class="pay-sinpe" ${cart.length?'onclick="pay(\'sinpe\')"':'disabled'}>${pyIcon('phone')}<span>SINPE</span></button><button class="pay-card" ${cart.length?'onclick="pay(\'card\')"':'disabled'}>${pyIcon('card')}<span>Tarjeta</span></button><button class="pay-credit" ${cart.length?'onclick="pay(\'credit\')"':'disabled'}>${pyIcon('users')}<span>Crédito</span></button></div></div>`);
+    document.querySelector('#modalRoot .modal')?.classList.add('mobile-cart-modal');
+  };
+})();
+</script>
+
 </body>
 </html>
