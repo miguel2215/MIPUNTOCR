@@ -8549,7 +8549,73 @@ window.unlock = async () => {
   else if (status) status.textContent = "Código incorrecto.";
   lockPinBuffer = ""; drawLockPin();
 };
-function modal(html) { closeModal(); const e = document.createElement("div"); e.id = "modalRoot"; e.className = "modal-backdrop"; e.innerHTML = `<div class="modal">${html}</div>`; e.onclick = ev => { if (ev.target === e) closeModal(); }; document.body.appendChild(e); }
+function pyInitSwipeToClose(root){
+  if(!root || !window.matchMedia?.("(max-width: 699px)").matches) return;
+  const sheet=root.querySelector(".modal");
+  if(!sheet) return;
+
+  if(!sheet.querySelector(":scope > .py-swipe-handle")){
+    const handle=document.createElement("div");
+    handle.className="py-swipe-handle";
+    handle.setAttribute("aria-hidden","true");
+    sheet.prepend(handle);
+  }
+
+  const controls=[...sheet.querySelectorAll("input,textarea,select")];
+  const initial=new Map(controls.map(el=>[el, el.type==="checkbox"||el.type==="radio" ? String(el.checked) : String(el.value??"")]));
+  let dirty=false;
+  const markDirty=ev=>{
+    const el=ev.target;
+    if(!initial.has(el)) return;
+    const now=el.type==="checkbox"||el.type==="radio" ? String(el.checked) : String(el.value??"");
+    if(now!==initial.get(el)) dirty=true;
+  };
+  controls.forEach(el=>{el.addEventListener("input",markDirty,{passive:true});el.addEventListener("change",markDirty,{passive:true});});
+
+  let startY=0,lastY=0,startT=0,dragging=false,startedFromHandle=false;
+  const reset=()=>{sheet.classList.remove("py-sheet-dragging");sheet.style.transform="";sheet.style.transition="";root.style.backgroundColor="";};
+  const canStart=(target)=>{
+    if(target.closest("input,textarea,select,button,a,[contenteditable=true]")) return false;
+    const handle=target.closest(".py-swipe-handle");
+    if(handle) return true;
+    return sheet.scrollTop<=1;
+  };
+  sheet.addEventListener("touchstart",ev=>{
+    if(ev.touches.length!==1 || !canStart(ev.target)) return;
+    startY=lastY=ev.touches[0].clientY;startT=Date.now();dragging=true;startedFromHandle=!!ev.target.closest(".py-swipe-handle");
+    sheet.classList.add("py-sheet-dragging");sheet.style.transition="none";
+  },{passive:true});
+  sheet.addEventListener("touchmove",ev=>{
+    if(!dragging || ev.touches.length!==1) return;
+    const y=ev.touches[0].clientY; const dy=Math.max(0,y-startY); lastY=y;
+    if(dy<=0) return;
+    if(!startedFromHandle && sheet.scrollTop>1){dragging=false;reset();return;}
+    ev.preventDefault();
+    const eased=Math.min(dy, window.innerHeight*.62);
+    sheet.style.transform=`translate3d(0,${eased}px,0)`;
+    const alpha=Math.max(.16,.42-(eased/window.innerHeight)*.28);
+    root.style.backgroundColor=`rgba(15,23,42,${alpha})`;
+  },{passive:false});
+  sheet.addEventListener("touchend",()=>{
+    if(!dragging){reset();return;}
+    dragging=false;
+    const dy=Math.max(0,lastY-startY);const dt=Math.max(1,Date.now()-startT);const velocity=dy/dt;
+    const shouldClose=dy>110 || velocity>.65;
+    if(!shouldClose){
+      sheet.style.transition="transform .22s cubic-bezier(.2,.8,.2,1)";sheet.style.transform="translate3d(0,0,0)";
+      setTimeout(reset,230);return;
+    }
+    if(dirty && !window.confirm("Hay cambios sin guardar. ¿Cerrar sin guardar?")){
+      sheet.style.transition="transform .22s cubic-bezier(.2,.8,.2,1)";sheet.style.transform="translate3d(0,0,0)";setTimeout(reset,230);return;
+    }
+    sheet.style.transition="transform .18s ease-out";sheet.style.transform="translate3d(0,105%,0)";
+    root.style.transition="background-color .18s ease-out";root.style.backgroundColor="rgba(15,23,42,0)";
+    setTimeout(()=>window.closeModal?.(),170);
+  },{passive:true});
+  sheet.addEventListener("touchcancel",reset,{passive:true});
+}
+
+function modal(html) { closeModal(); const e = document.createElement("div"); e.id = "modalRoot"; e.className = "modal-backdrop"; e.innerHTML = `<div class="modal">${html}</div>`; e.onclick = ev => { if (ev.target === e) closeModal(); }; document.body.appendChild(e); pyInitSwipeToClose(e); }
 window.closeModal = () => $("#modalRoot")?.remove();
 function toast(text) { const old = document.querySelector(".toast"); old?.remove(); const e = document.createElement("div"); e.className = "toast"; e.textContent = text; document.body.appendChild(e); setTimeout(() => e.remove(), 2400); }
 
@@ -10096,6 +10162,14 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   #app{padding-bottom:calc(124px + env(safe-area-inset-bottom))!important}
   .bottom-nav{bottom:calc(10px + env(safe-area-inset-bottom))!important}
   #modalRoot .modal{padding-bottom:max(18px,calc(14px + env(safe-area-inset-bottom)))!important}
+}
+
+/* PUNTO YA CR · gesto móvil global para bottom sheets */
+@media (max-width:699px){
+  #modalRoot .modal{will-change:transform;touch-action:pan-y;}
+  #modalRoot .modal>.py-swipe-handle{width:46px;height:5px;border-radius:999px;background:#CBD5E1;margin:-4px auto 14px;flex:0 0 auto;cursor:grab;}
+  #modalRoot .modal.py-sheet-dragging>.py-swipe-handle{background:#94A3B8;cursor:grabbing;}
+  #modalRoot.modal-backdrop{transition:background-color .18s ease-out;}
 }
 </style>
 
