@@ -4646,7 +4646,7 @@ function renderHome() {
   if (usesOrdersTablesCash()) addQuick("orders","Pedidos","orders","orange");
   if (isFood()) addQuick("tables","Mesas","table","navy");
   addQuick("clients", isServices()?"Clientes":"Clientes", "users", "blue");
-  addQuick("sales","Reportes","chart","green");
+  addQuick("sales","Mis ventas","chart","green");
   const quickHtml=quick.slice(0,6).map(q=>`<button class="mobile-quick-card tone-${q.tone}" onclick="go('${q.target}')"><span class="mobile-quick-icon">${pyIcon(q.icon)}</span><strong>${q.label}</strong></button>`).join("");
   const html=`<section class="mobile-home-v2">
     <div class="mobile-home-search">${pyIcon("search")}<span>Buscar productos, clientes...</span></div>
@@ -6050,7 +6050,7 @@ function refreshSalesList() {
   if(el) el.innerHTML=groupedSalesHtml(filteredSalesForView());
 }
 function renderSales() {
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Mis ventas</h2><p>Agrupadas por día. Toca una venta para abrir su comprobante.</p></section><div class="toolbar"><button class="btn ghost" onclick="filterSales('today')">Hoy</button><button class="btn ghost" onclick="filterSales('yesterday')">Ayer</button><button class="btn ghost" onclick="filterSales('week')">Esta semana</button><button class="btn ghost" onclick="filterSales('all')">Todas las fechas</button></div><div class="toolbar"><button class="btn ${salesStatusMode==='active'?'primary':'ghost'}" onclick="filterSalesStatus('active')">Activas</button><button class="btn ${salesStatusMode==='voided'?'primary':'ghost'}" onclick="filterSalesStatus('voided')">Anuladas</button><button class="btn ${salesStatusMode==='all'?'primary':'ghost'}" onclick="filterSalesStatus('all')">Todas</button></div><div id="salesList" class="sales-scroll">${groupedSalesHtml(filteredSalesForView())}</div>`, isFood() ? "more" : "sales");
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Mis ventas</h2><p>Agrupadas por día. Toca una venta para abrir su comprobante.</p></section><div class="toolbar sales-date-filters"><button class="btn ghost" onclick="filterSales('today')">Hoy</button><button class="btn ghost" onclick="filterSales('yesterday')">Ayer</button><button class="btn ghost" onclick="filterSales('week')">Esta semana</button><button class="btn ghost" onclick="filterSales('all')">Todas las fechas</button></div><div class="toolbar sales-status-filters"><button class="btn ${salesStatusMode==='active'?'primary':'ghost'}" onclick="filterSalesStatus('active')">Activas</button><button class="btn ${salesStatusMode==='voided'?'primary':'ghost'}" onclick="filterSalesStatus('voided')">Anuladas</button><button class="btn ${salesStatusMode==='all'?'primary':'ghost'}" onclick="filterSalesStatus('all')">Todas</button></div><div id="salesList" class="sales-scroll">${groupedSalesHtml(filteredSalesForView())}</div>`, isFood() ? "more" : "sales");
 }
 window.filterSales = mode => { salesDateMode=mode; refreshSalesList(); };
 window.filterSalesStatus = mode => { salesStatusMode=mode; renderSales(); };
@@ -6493,7 +6493,7 @@ function renderTables(){
   if(!usesOrdersTablesCash()){screen="home";return renderHome();}
   const count=Math.max(0,Number(state.settings.tableCount||0));
   if(!count){$("#app").innerHTML=shell(`<section class="screen-title"><h2>Mesas</h2><p>Configura cuántas mesas utiliza el negocio.</p></section><div class="panel"><h3>Aún no hay mesas</h3><p class="muted">PUNTO YA CR las numerará automáticamente.</p><button class="btn primary" onclick="configureTables()">Configurar mesas</button></div>`,"more");return;}
-  const cards=Array.from({length:count},(_,i)=>i+1).map(n=>{const a=tableAccount(n);let status="Libre",detail="Toca para abrir cuenta";if(a?.status==="open"){status="Cuenta abierta";detail=`${money(tableItemsTotal(a.items))} · ${dateTime(a.openedAt)}`;}if(a?.status==="paid"){status="Pagada";detail=`${money(a.total||tableItemsTotal(a.items))} · pendiente de limpiar`;}return `<button class="table-card" onclick="openTable(${n})">${tableIconHtml(n)}<strong>Mesa ${n}</strong><small>${status}</small><small>${detail}</small></button>`;}).join("");
+  const cards=Array.from({length:count},(_,i)=>i+1).map(n=>{const a=tableAccount(n);let status="Libre",detail="Toca para abrir cuenta",statusClass="free";if(a?.status==="open"){status="Cuenta abierta";statusClass="open";detail=`${money(tableItemsTotal(a.items))} · ${dateTime(a.openedAt)}`;}if(a?.status==="paid"){status="Pagada";statusClass="paid";detail=`${money(a.total||tableItemsTotal(a.items))} · pendiente de limpiar`;}return `<button class="table-card table-status-${statusClass}" onclick="openTable(${n})">${tableIconHtml(n)}<strong>Mesa ${n}</strong><small>${status}</small><small>${detail}</small></button>`;}).join("");
   $("#app").innerHTML=shell(`<section class="screen-title"><h2>Mesas</h2><p>Cuentas abiertas por mesa hasta el momento del cobro.</p></section><div class="toolbar"><button class="btn ghost" onclick="configureTables()">Cantidad de mesas</button></div><div class="table-grid">${cards}</div>`,"more");
 }
 window.configureTables=()=>modal(`<h3>Configurar mesas</h3><p class="muted">El sistema las numerará automáticamente desde Mesa 1.</p><div class="field"><label>¿Cuántas mesas utiliza el negocio?</label><input id="tableCountInput" type="number" min="1" max="100" inputmode="numeric" value="${Number(state.settings.tableCount||0)||""}"></div><div class="toolbar"><button class="btn primary" onclick="saveTableCount()">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
@@ -9693,7 +9693,7 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
     if(usesOrdersTablesCash()) quick+=m3Quick('orders','Pedidos','orders','orange');
     if(isFood()) quick+=m3Quick('tables','Mesas','table','navy');
     quick+=m3Quick('clients','Clientes','users','blue');
-    quick+=m3Quick('sales','Reportes','chart','green');
+    quick+=m3Quick('sales','Mis ventas','chart','green');
     const html=`<section class="mobile-home-v3">
       <div class="m3-search">${pyIcon('search')}<span>Buscar productos, clientes...</span></div>
       <div class="m3-kpis">
@@ -9946,6 +9946,44 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
 
   /* Mantener contenido por encima de la barra flotante */
   #app{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
+}
+</style>
+
+<style id="pycr-mobile-v4-3-polish">
+@media(max-width:699px){
+  /* Mesas: estados semánticos suaves. */
+  #app .table-card.table-status-free{background:#F4FBF7!important;border-color:#CFEFDC!important}
+  #app .table-card.table-status-free .table-icon{color:#0E9A5A!important}
+  #app .table-card.table-status-free small:first-of-type{color:#0E9A5A!important;font-weight:800!important}
+  #app .table-card.table-status-open{background:#FFF8E8!important;border-color:#F4D58D!important}
+  #app .table-card.table-status-open .table-icon{color:#B7791F!important}
+  #app .table-card.table-status-open small:first-of-type{color:#9A6700!important;font-weight:800!important}
+  #app .table-card.table-status-paid{background:#F5F3FF!important;border-color:#DDD6FE!important}
+  #app .table-card.table-status-paid .table-icon{color:#7C3AED!important}
+  #app .table-card.table-status-paid small:first-of-type{color:#6D28D9!important;font-weight:800!important}
+
+  /* Mis ventas: filtros más compactos sin perder opciones. */
+  #app .sales-date-filters{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto!important;gap:6px!important;margin:7px 0 6px!important;padding:0 0 2px!important;scrollbar-width:none}
+  #app .sales-date-filters::-webkit-scrollbar{display:none}
+  #app .sales-date-filters .btn{min-height:38px!important;padding:7px 10px!important;border-radius:12px!important;font-size:11px!important;white-space:nowrap!important;flex:0 0 auto!important}
+  #app .sales-status-filters{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important;margin:6px 0 11px!important}
+  #app .sales-status-filters .btn{min-height:40px!important;padding:7px 8px!important;border-radius:12px!important;font-size:11px!important;width:100%!important}
+
+  /* Fiscal: mantiene toda la información, pero con jerarquía secundaria. */
+  #modalRoot .checkout-document{padding:12px!important;border-radius:17px!important;background:#FCFEFD!important}
+  #modalRoot .checkout-document .row-head>div>strong{font-size:14px!important;line-height:1.25!important}
+  #modalRoot .checkout-document .row-head .muted{font-size:10.5px!important}
+  #modalRoot .checkout-document .pro-mini-pill{font-size:9px!important;padding:5px 8px!important}
+  #modalRoot .checkout-document .sale-document-status{margin-top:10px!important;padding:11px!important}
+  #modalRoot .checkout-document .sale-document-status small{font-size:9px!important}
+  #modalRoot .checkout-document .sale-document-status strong{font-size:14px!important}
+  #modalRoot .checkout-document .sale-document-status span{font-size:10.5px!important;line-height:1.35!important}
+  #modalRoot .checkout-document .invoice-pending-note{font-size:10.5px!important;line-height:1.42!important;padding:10px 11px!important;border-radius:13px!important;margin-top:10px!important}
+
+  /* Safe areas: ninguna tarjeta debe quedar detrás de la navegación flotante. */
+  #app{padding-bottom:calc(124px + env(safe-area-inset-bottom))!important}
+  .bottom-nav{bottom:calc(10px + env(safe-area-inset-bottom))!important}
+  #modalRoot .modal{padding-bottom:max(18px,calc(14px + env(safe-area-inset-bottom)))!important}
 }
 </style>
 
