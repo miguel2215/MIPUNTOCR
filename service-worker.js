@@ -1,4 +1,4 @@
-const CACHE = 'punto-ya-cr-v7-59-fiscal-final';
+const CACHE = 'punto-ya-cr-v7-60-ui-final';
 
 const CORE = [
   './',

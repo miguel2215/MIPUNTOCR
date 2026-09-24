@@ -1183,6 +1183,117 @@ button {
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<style>
+/* =========================================================
+   v7.60 · UI RESPONSIVE FINAL · PC + MÓVIL
+   Capa visual únicamente. No modifica lógica de negocio.
+   ========================================================= */
+:root{--pycr-touch:46px;--pycr-mobile-gap:12px}
+@media (min-width:700px){
+  .topbar{align-items:center}
+  .screen-title h2{letter-spacing:-.55px}
+  .btn{min-height:42px}
+  .row-card,.panel,.big-card{transition:box-shadow .16s ease,border-color .16s ease,transform .16s ease}
+  .row-card.clickable:hover,.big-card:not(.disabled):hover{border-color:#c8d8d4;box-shadow:0 8px 24px rgba(22,43,56,.07)}
+}
+@media (max-width:699px){
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{font-size:15px;line-height:1.42;overflow-x:hidden}
+  .shell{padding:12px 12px calc(104px + env(safe-area-inset-bottom));max-width:100%}
+  .topbar{align-items:center;gap:8px;margin-bottom:18px;min-width:0}
+  .brand{min-width:0;flex:1}
+  .brand h1{font-size:24px;line-height:1.05;letter-spacing:-.7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brand p{font-size:13px;line-height:1.3;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .status-row{padding-top:0;gap:5px;flex:0 0 auto}
+  .status-row .badge{font-size:11px;padding:6px 8px}
+  .lock-top-btn{min-height:42px;padding:9px 11px;font-size:12px}
+  .screen-title{margin-bottom:12px}
+  .screen-title h2{font-size:24px!important;line-height:1.12;letter-spacing:-.55px;margin-bottom:4px}
+  .screen-title p{font-size:14px!important;line-height:1.42;margin-top:4px}
+  .panel,.row-card,.big-card,.kpi,.inventory-summary-card,.profit-card{border-radius:18px}
+  .panel,.row-card{padding:14px}
+  .big-card{min-height:88px;padding:15px 16px}
+  .big-card strong{font-size:17px;line-height:1.2}
+  .big-card small{font-size:12.5px;line-height:1.35;margin-top:4px}
+  .home-grid,.category-grid{gap:9px}
+  .kpi{padding:13px}
+  .kpi span,.inventory-summary-card span{font-size:12px}
+  .kpi strong,.inventory-summary-card strong{font-size:20px;margin-top:5px}
+  .toolbar{gap:7px;margin:8px 0}
+  .toolbar .btn{flex:1 1 auto}
+  .btn{min-height:var(--pycr-touch);border-radius:14px;padding:11px 14px;font-size:14px;line-height:1.2}
+  .btn.primary{font-weight:900}
+  .field{gap:5px;margin-bottom:10px}
+  .field label{font-size:13px;line-height:1.25}
+  .field input,.field select,.field textarea{min-height:var(--pycr-touch);border-radius:14px;padding:12px 13px;font-size:16px}
+  .field textarea{min-height:92px}
+  .setup-note,.muted,.inventory-summary-note,.product-money-line{font-size:12.5px;line-height:1.45}
+  .bottom-nav{left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));padding:6px;border-radius:22px;box-shadow:0 10px 30px rgba(22,43,56,.15)}
+  .bottom-nav button{min-height:49px;padding:9px 3px;font-size:12.5px;border-radius:17px;line-height:1.1}
+  .modal-backdrop{padding:6px 6px 0;align-items:flex-end;overscroll-behavior:contain}
+  .modal{width:100%;max-height:calc(100dvh - 8px);border-radius:24px 24px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));overscroll-behavior:contain}
+  .modal h3{font-size:23px;line-height:1.15;margin-bottom:10px;letter-spacing:-.35px}
+  .modal p{font-size:14px;line-height:1.45}
+  .modal-actions,.pycr-modal-actions{position:sticky!important;bottom:calc(-18px - env(safe-area-inset-bottom))!important;z-index:8;background:linear-gradient(180deg,rgba(255,255,255,.68),#fff 26%);margin:10px -2px 0;padding:14px 2px calc(8px + env(safe-area-inset-bottom));display:flex;gap:8px;flex-wrap:wrap}
+  .modal-actions .btn,.pycr-modal-actions .btn{min-height:48px}
+  .modal-actions .btn.primary,.pycr-modal-actions .btn.primary{flex:1 1 55%}
+  .pycr-sticky-modal-head{top:-18px;margin:-18px -16px 12px;padding:17px 16px 11px;gap:10px}
+  .pycr-sticky-modal-head h3{font-size:22px!important}
+  .pycr-sticky-modal-head p{font-size:12.5px}
+  .cash-quick-grid{gap:7px;margin:10px 0;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cash-chip{min-height:46px;border-radius:13px;padding:10px 4px;font-size:13px}
+  .change-card{padding:12px;border-radius:15px}
+  .checkout-document-options{gap:8px}
+  .checkout-document-option{padding:12px!important}
+  .checkout-document-option strong{font-size:14px}
+  .checkout-document-option small{font-size:12px;line-height:1.35}
+  .retail-product-grid{gap:8px}
+  .retail-product{min-height:86px;padding:11px;border-radius:16px}
+  .retail-product strong{font-size:14px;line-height:1.25}
+  .retail-product small{font-size:11.5px;line-height:1.25}
+  .retail-product span{font-size:14px;margin-top:6px}
+  .product-financial-preview{padding:12px;border-radius:16px}
+  .product-financial-preview .inventory-summary-grid{gap:7px}
+  .inventory-summary-grid{gap:8px;margin:10px 0}
+  .sales-day{margin-bottom:14px}
+  .sales-day-head{gap:8px;margin-bottom:7px}
+  .sales-day-head h3{font-size:16px;margin:0}
+  .sales-day-head span{font-size:12px}
+  .sales-day-head strong{font-size:15px}
+  .sales-day-list{display:grid;gap:7px}
+  .sales-day-list .row-card{padding:12px 13px;border-radius:16px}
+  .sales-day-list .row-head{gap:8px;align-items:flex-start}
+  .sales-day-list .row-head strong{font-size:13.5px;line-height:1.3}
+  .sales-day-list .muted{font-size:12px!important;line-height:1.35}
+  .tablewrap,.sales-scroll{max-width:100%;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  .tablewrap{border-radius:16px}
+  .table th,.table td{font-size:12.5px;padding:10px 9px}
+  .table th{font-size:10.5px}
+  .service-simple{padding:14px;border-radius:16px}
+  .service-simple strong{font-size:16px}
+  .service-simple small{font-size:12px}
+  .legal-card{padding:14px 15px;border-radius:17px}
+  .legal-card strong{font-size:15px}
+  .legal-card small{font-size:12.5px}
+  .plan-feature{padding:11px;border-radius:14px;font-size:14px}
+  .plan-feature small{font-size:12px}
+  .toast{bottom:calc(86px + env(safe-area-inset-bottom));font-size:13px;padding:10px 13px}
+}
+@media (max-width:390px){
+  .shell{padding-left:10px;padding-right:10px}
+  .brand h1{font-size:22px}
+  .screen-title h2{font-size:22px!important}
+  .bottom-nav{left:6px;right:6px}
+  .bottom-nav button{font-size:11.5px}
+  .cash-quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-height:620px) and (max-width:699px){
+  .modal{max-height:100dvh;border-radius:18px 18px 0 0}
+  .modal h3{font-size:21px}
+}
+
+</style>
 </head>
 <body>
 <div id="pycStartupSplash" role="status" aria-label="Abriendo PUNTO YA CR">
