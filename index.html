@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0BB79A">
+<meta name="theme-color" content="#12B76A">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="format-detection" content="telephone=no">
 <title>PUNTO YA CR</title>
@@ -1339,6 +1339,7 @@ let activeClientId = "";
 let quickCategory = "";
 let desktopSidebarExpandedInSale = false;
 let pendingDesktopSaleContextChoice = false;
+let pendingMobileSaleContextChoice = false;
 let authStep = "welcome";
 let setupDraft = {};
 let onboardingFormDirty = false;
@@ -1771,6 +1772,34 @@ function injectStyles() {
       .desktop-product-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
     }
 
+
+    /* PUNTO YA CR · Especificación Maestra UI · Bloque móvil */
+    @media(max-width:699px){
+      :root{--bg:#F8FAFC;--surface:#FFFFFF;--text:#0F172A;--muted:#64748B;--primary:#12B76A;--primary-dark:#0E9A5A;--primary-soft:#EAF8F1;--line:#E2E8F0;--radius:16px}
+      html,body{background:#F8FAFC;color:#0F172A;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+      .shell{max-width:none;padding:calc(10px + env(safe-area-inset-top)) 14px calc(104px + env(safe-area-inset-bottom));}
+      .topbar{position:sticky;top:0;margin:0 -14px 14px;padding:9px 14px 11px;background:rgba(248,250,252,.94);border-bottom:1px solid rgba(226,232,240,.86);backdrop-filter:blur(14px)}
+      .app-compact .brand-with-icon{gap:9px}.app-compact .brand-icon{width:36px;height:36px;border-radius:10px;flex:0 0 36px}.app-compact .brand h1{font-size:18px;font-weight:700;letter-spacing:-.25px;max-width:34vw}.app-compact .brand p{font-size:10px;font-weight:600;letter-spacing:.05em;color:#64748B;margin-top:2px}
+      .business-name-line{gap:5px;flex-wrap:nowrap}.pro-brand-badge{padding:4px 6px;font-size:9px;letter-spacing:.04em}.app-compact .status-row{gap:5px}.app-compact .badge,.app-compact .lock-top-btn{min-height:34px;padding:7px 9px;font-size:11px;border-radius:999px}
+      .screen-title{margin:4px 0 13px}.screen-title h2{font-size:24px;line-height:1.15;letter-spacing:-.45px;font-weight:700}.screen-title p{font-size:13px;line-height:1.4;margin-top:4px;color:#64748B}
+      .home-compact .screen-title{display:none}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.kpi{min-height:84px;border:1px solid #E2E8F0;border-radius:15px;padding:13px 14px;background:#fff;box-shadow:0 5px 16px rgba(15,23,42,.035)}.kpi .muted,.kpi>span{font-size:11px}.kpi strong{font-size:22px;margin-top:6px;color:#0E9A5A}
+      .home-grid{gap:9px}.big-card{min-height:82px;border:1px solid #E2E8F0;border-radius:15px;padding:14px 15px;background:#fff;box-shadow:0 5px 16px rgba(15,23,42,.035)}.big-card strong{font-size:16px;font-weight:700;line-height:1.2}.big-card small{font-size:11.5px;line-height:1.35;margin-top:4px;color:#64748B}.big-card.primary{background:#12B76A;border-color:#12B76A}.big-card.primary small{color:#EAF8F1}.card-arrow{font-size:30px}
+      .panel,.row-card,.inventory-summary-card,.profit-card{border-color:#E2E8F0;border-radius:16px;box-shadow:0 5px 16px rgba(15,23,42,.03)}.panel{padding:14px}.row-card{padding:14px}
+      .search{min-height:48px;border-radius:12px;border-color:#E2E8F0;padding:12px 13px;font-size:14px;margin-bottom:11px}.scan-btn{min-height:48px;border-radius:12px;padding:11px 12px;font-size:12px}
+      .category-grid{gap:8px}.category-card{border-color:#E2E8F0;border-radius:14px;padding:14px 42px 14px 14px}.category-name{font-size:15px}.category-count{font-size:11px;margin-top:4px}.category-arrow{right:14px;font-size:28px}
+      .cart-item{gap:10px;padding:11px 0}.cart-item strong{font-size:14px}.cart-item .muted{font-size:11px}.qty{gap:7px}.qty button{width:36px;height:36px;border-radius:11px;font-size:20px}.total-box{font-size:22px;padding:13px 0}.ticket-line{font-size:13px}.payment-grid{gap:8px}.pay-btn{min-height:50px;border-radius:12px;padding:12px 7px;font-size:13px;font-weight:700}
+      .btn{min-height:44px;border-radius:12px;padding:11px 14px;font-size:13px}.field{gap:5px;margin-bottom:11px}.field label{font-size:12px}.field input,.field select,.field textarea{min-height:48px;border-radius:12px;border-color:#E2E8F0;padding:12px 13px;font-size:14px}
+      .bottom-nav{left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));padding:5px;border:1px solid #E2E8F0;border-radius:18px;box-shadow:0 12px 34px rgba(15,23,42,.16);background:rgba(255,255,255,.97);grid-template-columns:repeat(4,1fr)}.bottom-nav button{min-height:54px;padding:6px 3px 5px;border-radius:14px;font-size:10px;font-weight:650;color:#64748B;display:grid;place-items:center;align-content:center;gap:2px}.bottom-nav button.active{background:#EAF8F1;color:#0E9A5A}.mobile-nav-icon{display:block;font-size:18px;line-height:1;font-weight:800}.mobile-nav-label{display:block;line-height:1.1}
+      .modal-backdrop{align-items:flex-end;padding:0;background:rgba(15,23,42,.42);backdrop-filter:blur(3px)}.modal{width:100%;max-height:90dvh;border-radius:24px 24px 0 0!important;padding:20px 16px calc(20px + env(safe-area-inset-bottom));border:1px solid #E2E8F0;box-shadow:0 -18px 48px rgba(15,23,42,.18)}.modal h3{font-size:22px;margin-bottom:12px}.modal:before{content:"";display:block;width:44px;height:4px;border-radius:999px;background:#CBD5E1;margin:-8px auto 14px}
+      .sale-context-head small{font-size:10px;font-weight:700;letter-spacing:.08em;color:#0E9A5A}.sale-context-head h3{font-size:22px;margin:4px 0}.sale-context-head p{font-size:12px;color:#64748B;margin:0}.sale-context-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:15px}.sale-context-grid button{min-height:112px;border:1px solid #E2E8F0;border-radius:15px;background:#fff;padding:14px;text-align:left}.sale-context-grid button:active{background:#F4FBF7;border-color:#12B76A}.sale-context-icon{width:36px;height:36px;border-radius:11px;background:#EAF8F1;color:#0E9A5A;font-size:18px}.sale-context-grid strong{display:block;font-size:14px;margin-top:10px}.sale-context-grid small{display:block;font-size:10.5px;color:#64748B;margin-top:3px;line-height:1.25}
+      .mobile-sale-context{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #D7F0E3;background:#F4FBF7;border-radius:13px;padding:9px 10px;margin-bottom:10px}.mobile-sale-context small{display:block;font-size:9px;font-weight:700;letter-spacing:.06em;color:#64748B}.mobile-sale-context strong{display:block;font-size:13px;margin-top:2px;color:#0F172A}.mobile-sale-context-actions{display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap}.mobile-sale-context-actions button{min-height:34px;border:1px solid #D7E5DC;background:#fff;border-radius:10px;padding:7px 8px;color:#0E9A5A;font-size:10px;font-weight:700}
+      .retail-product-grid{grid-template-columns:1fr;gap:8px}.retail-product{min-height:76px;border-radius:14px;border-color:#E2E8F0;padding:12px 13px}.retail-product strong{font-size:14px}.retail-product small{font-size:11px}.retail-product span{font-size:15px;color:#0E9A5A;margin-top:6px}.retail-category-strip{gap:6px;padding-bottom:8px}.retail-category-strip button{min-height:38px;padding:8px 11px;border-radius:999px;font-size:11px}.retail-category-strip button.active{background:#12B76A;border-color:#12B76A}
+      .retail-checkout-bar{left:10px;right:10px;bottom:calc(78px + env(safe-area-inset-bottom));border-color:#E2E8F0;border-radius:16px;padding:9px 9px 9px 12px;box-shadow:0 10px 28px rgba(15,23,42,.14)}.retail-checkout-bar strong{font-size:17px}.retail-checkout-bar small{font-size:10.5px}.retail-checkout-bar .btn{min-width:104px}
+      .toolbar{gap:7px}.toast{bottom:calc(82px + env(safe-area-inset-bottom));border-radius:12px;font-size:12px;padding:10px 13px}
+    }
+    @media(max-width:390px){
+      .shell{padding-left:11px;padding-right:11px}.topbar{margin-left:-11px;margin-right:-11px;padding-left:11px;padding-right:11px}.app-compact .brand h1{font-size:17px;max-width:29vw}.app-compact .badge,.app-compact .lock-top-btn{padding:6px 7px;font-size:10px}.sale-context-grid{gap:7px}.sale-context-grid button{min-height:106px;padding:12px}.bottom-nav{left:7px;right:7px}.bottom-nav button{font-size:9.5px}.mobile-nav-icon{font-size:17px}}
+
     /* PUNTO YA CR · Especificación Maestra UI · Bloque 1 PC */
     @media(min-width:1100px) and (min-height:650px){
       .desktop-app{--primary:#12B76A;--primary-dark:#0E9A5A;--soft:#EAF8F1;--text:#0F172A;--muted:#64748B;--line:#E2E8F0;background:#F8FAFC;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;transition:grid-template-columns .2s ease}
@@ -1869,7 +1898,8 @@ function proBrandBadge() {
   const title = validDate ? `PUNTO YA CR PRO · activo hasta ${expires.toLocaleDateString("es-CR")}` : "PUNTO YA CR PRO · activo";
   return `<span class="pro-brand-badge" title="${esc(title)}" aria-label="PUNTO YA CR PRO activo"><span class="pro-star">★</span> PRO</span>`;
 }
-function navBtn(target, label, active) { return `<button class="${active === target ? "active" : ""}" onclick="go('${target}')">${label}</button>`; }
+function mobileNavIcon(target) { return ({home:"⌂",sale:"▣",orders:"☷",sales:"≡",more:"•••"})[target] || "•"; }
+function navBtn(target, label, active) { return `<button class="${active === target ? "active" : ""}" onclick="go('${target}')"><span class="mobile-nav-icon" aria-hidden="true">${mobileNavIcon(target)}</span><span class="mobile-nav-label">${label}</span></button>`; }
 function desktopNavItems() {
   const items = [["home", "Inicio"], ["sale", isServices() ? "Nuevo servicio" : "Vender"]];
   if (isFood()) items.push(["orders", "Pedidos"], ["tables", "Mesas"], ["products", "Productos"], ["clients", "Clientes / Crédito"], ["cash", "Caja"], ["sales", "Mis ventas"], ["catalog", "Menú QR"]);
@@ -1939,6 +1969,8 @@ window.go = target => {
     if (isDesktopPOS()) {
       desktopSidebarExpandedInSale = false;
       pendingDesktopSaleContextChoice = isFood();
+    } else {
+      pendingMobileSaleContextChoice = isFood();
     }
   }
 
@@ -4769,9 +4801,13 @@ function renderSale() {
     return `<button class="category-card" onclick="openCategory(decodeURIComponent('${enc(c)}'))"><span class="category-name">${esc(c)}</span><span class="category-count">${count} ${isServices() ? (count === 1 ? "servicio" : "servicios") : (count === 1 ? "producto" : "productos")}</span><span class="category-arrow">›</span></button>`;
   }).join("");
   const cartHtml = cart.length ? cart.map(i => `<div class="cart-item"><div><strong>${esc(i.name)}</strong>${i.variant ? `<div class="muted">${esc(i.variant)}</div>` : ""}<div class="muted">${money(i.price)} c/u</div></div><div class="qty"><button onclick="qty('${i.cartId}',-1)">−</button><strong>${i.qty}</strong><button onclick="qty('${i.cartId}',1)">+</button></div></div>`).join("") : `<div class="empty">Selecciona una categoría para comenzar.</div>`;
-  const foodMeta = isFood() ? `<div class="quick-meta"><button class="${saleMeta.orderType === "Mostrador" ? "active" : ""}" onclick="setOrderType('Mostrador')">Mostrador</button><button class="${saleMeta.orderType === "Para llevar" ? "active" : ""}" onclick="setOrderType('Para llevar')">Para llevar</button><button class="${saleMeta.orderType === "Express" ? "active" : ""}" onclick="setOrderType('Express')">Express</button><button class="${saleMeta.orderType === "Mesa" ? "active" : ""}" onclick="askTable()">${saleMeta.table ? `Mesa ${esc(saleMeta.table)}` : "Mesa"}</button><button onclick="editSaleNote()">${saleMeta.note ? "Nota ✓" : "Nota"}</button></div>` : "";
+  const foodMeta = isFood() ? `<div class="mobile-sale-context"><div><small>TIPO DE VENTA</small><strong>${esc(desktopSaleContextLabel())}</strong></div><div class="mobile-sale-context-actions"><button onclick="openSaleContextChooser()">Cambiar</button><button onclick="editSaleNote()">${saleMeta.note ? "Nota ✓" : "Nota"}</button>${saleMeta.orderType === "Express" ? `<button onclick="setOrderType('Express')">Entrega</button>` : ""}</div></div>` : "";
   const selectedClient = saleMeta.clientId ? `<span><strong>${esc(clientName(saleMeta.clientId))}</strong></span>` : `<span class="muted">Sin cliente</span>`;
   $("#app").innerHTML = shell(`<section class="screen-title"><h2>${isServices() ? "Nuevo servicio" : "Nueva venta"}</h2><p>Selecciona una categoría.</p></section><div class="sale-layout"><section class="panel"><input class="search" placeholder="Buscar categoría..." oninput="filterCategories(this.value)"><div class="category-grid">${categoryHtml || `<div class="empty">Primero agrega ${isServices() ? "servicios" : "productos"}.</div>`}</div></section><section class="panel">${foodMeta}<div class="row-head"><h3 style="margin:0">${isServices() ? "Servicio actual" : "Venta actual"}</h3><button class="btn ghost" onclick="clearCart()">Vaciar</button></div><div class="row-head" style="margin:12px 0"><div>${selectedClient}</div><button class="btn ghost" onclick="selectSaleClient()">${saleMeta.clientId ? "Cambiar cliente" : "Cliente opcional"}</button></div><div class="cart-list">${cartHtml}</div>${isFood() && saleMeta.orderType === "Express" && Number(saleMeta.expressFee||0)>0 ? `<div class="ticket-line"><span>Express</span><strong>${money(saleMeta.expressFee)}</strong></div>` : ""}${state.settings.taxMode !== "exempt" ? `<div class="divider"></div><div class="ticket-line"><span class="muted">Impuesto</span><span>${money(t.tax)}</span></div>` : ""}<div class="total-box"><span>Total</span><span>${money(t.total)}</span></div>${isFood() && saleMeta.orderType === "Mesa" ? `<div class="toolbar"><button class="btn primary" onclick="saveTableAccount()">Guardar mesa</button><button class="btn ghost" onclick="previewCurrentPrebill()">Precuenta</button><button class="btn ghost" onclick="go('tables')">Ver mesas</button></div>` : ""}<div class="payment-grid"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta / Otro</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div></section></div>`, "sale");
+  if (pendingMobileSaleContextChoice) {
+    pendingMobileSaleContextChoice = false;
+    setTimeout(() => { if (screen === "sale" && !isDesktopPOS() && isFood()) openSaleContextChooser(); }, 0);
+  }
 }
 window.openRetailCheckout=()=>{
   const t=currentSaleTotals();
