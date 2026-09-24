@@ -5526,12 +5526,13 @@ window.sendFiscalEmail = async id => {
   const email=String($("#fiscalSendEmail")?.value||"").trim().toLowerCase();
   if(!/^\S+@\S+\.\S+$/.test(email)) return toast("Escribe un correo válido.");
   if(!sale.cloudId) return toast("Sincroniza la venta con la nube antes de enviarla por correo.");
+  const button=document.querySelector('.modal .btn.primary');
   try{
-    const button=document.querySelector('.modal .btn.primary'); if(button){button.disabled=true;button.textContent="Preparando…";}
+    if(button){button.disabled=true;button.textContent="Preparando…";}
     const pdfBlob=await createElectronicInvoicePdf(sale);
     if(pdfBlob.size>7_000_000) throw new Error("El PDF es demasiado grande para enviarlo por correo.");
     const pdfBase64=await blobToBase64(pdfBlob);
-    const result=await fiscalInvoke("fiscal-send-email",{business_id:mpCloudBusiness?.id||"",sale_id:sale.cloudId,recipient:email,pdf_base64:pdfBase64,public_url:fiscalPublicUrl(sale)});
+    const result=await fiscalInvoke("fiscal-send-email",{business_id:mpCloudBusiness?.id||"",sale_id:sale.cloudId,recipient:email,pdf_base64:pdfBase64,public_url:fiscalPublicLookupUrl(sale)});
     sale.fiscalEmailSentAt=result.sent_at||new Date().toISOString(); sale.fiscalEmailLastTo=email; sale.fiscalEmailProviderId=result.email_id||"";
     await put("sales",sale);
     try{await cloudSaveSaleFromApp(sale);}catch(syncError){console.error("Sync correo fiscal:",syncError);}
@@ -5541,6 +5542,8 @@ window.sendFiscalEmail = async id => {
     const msg=fiscalFunctionError(e,"No fue posible enviar el correo.");
     if(/RESEND_API_KEY|FISCAL_EMAIL_FROM|proveedor de correo|correo transaccional/i.test(msg)) modal(`<h3>Falta conectar el correo transaccional</h3><p>El flujo ya está preparado, pero todavía no hay un proveedor de correo configurado.</p><p class="muted">Configura los secretos <strong>RESEND_API_KEY</strong> y <strong>FISCAL_EMAIL_FROM</strong> en Supabase Edge Functions. No pongas estas claves dentro del ZIP.</p><button class="btn primary full" onclick="closeModal()">Entendido</button>`);
     else toast(msg);
+  } finally {
+    if(button && document.body.contains(button)){button.disabled=false;button.textContent="Enviar correo";}
   }
 };
 
