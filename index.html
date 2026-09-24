@@ -8947,7 +8947,38 @@ printSimpleDocument=function(title,bodyHtml){
 .pycr-supplier-grid{display:grid;gap:10px;margin-top:12px}.pycr-supplier-card{border:1px solid var(--line);border-radius:18px;background:#fff;padding:14px}.pycr-supplier-card h4{margin:0;font-size:18px}.pycr-supplier-card p{margin:6px 0;color:var(--muted);line-height:1.4;font-size:13px}.pycr-supplier-tags{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}.pycr-supplier-tag{border-radius:999px;background:#f0f5f3;color:#405765;padding:5px 8px;font-size:10px;font-weight:800}.pycr-verified{display:inline-flex;align-items:center;gap:5px;border-radius:999px;background:#e4f6ea;color:#2f6f45;padding:5px 8px;font-size:10px;font-weight:900}.pycr-supplier-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.pycr-supplier-actions .btn{padding:9px 11px;font-size:11px}.pycr-pro-lock{border:1px dashed #b8cbc7;background:#fbfdfc;border-radius:18px;padding:15px}.pycr-category-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:55vh;overflow:auto;padding-right:2px}.pycr-category-picker .type-choice{text-align:left;min-height:76px}.pycr-category-picker .type-choice small{display:block;margin-top:5px;color:var(--muted)}
 @media(min-width:700px){.pycr-category-picker{grid-template-columns:repeat(3,minmax(0,1fr))}.pycr-product-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pycr-product-two>.field{margin-bottom:0}}
 @media(max-width:520px){.pycr-category-picker{grid-template-columns:1fr}.pycr-supplier-actions .btn{flex:1 1 calc(50% - 7px)}}
-</style></head><body><div class="center"><img class="logo" src="${esc(businessDocumentLogo())}"><h1>${esc(state.settings.businessName||'PUNTO YA CR')}</h1></div><h2>${esc(title)}</h2>${bodyHtml}<hr><p class="center" style="font-size:9px;color:#555">PUNTO YA CR · Tu negocio, más simple</p><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script>
+</style>
+<style id="pycr-mobile-v4-5-closeout">
+@media(max-width:699px){
+  .m3-quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+  .m3-quick{min-height:70px!important}
+  #app .screen-title h2{color:#0F172A!important}
+  #app .screen-title p{color:#64748B!important}
+  #app .screen-title~.panel,#app .retail-settings-note,#app .panel{border-color:#E2E8F0!important}
+  #app .panel{border-radius:20px!important;padding:17px!important;background:#fff!important;box-shadow:0 8px 24px rgba(15,23,42,.03)!important}
+  #app .panel>strong:first-child{display:block!important;font-size:18px!important;line-height:1.2!important;color:#0F172A!important;margin-bottom:4px!important}
+  #app .field{gap:7px!important;margin-bottom:14px!important}
+  #app .field label{font-size:13px!important;font-weight:750!important;color:#475569!important}
+  #app .field input,#app .field select,#app .field textarea{min-height:50px!important;border-radius:14px!important;border:1px solid #E2E8F0!important;background:#F8FAFC!important;padding:13px 14px!important;font-size:16px!important;color:#0F172A!important}
+  #app .field input:focus,#app .field select:focus,#app .field textarea:focus{border-color:#12B76A!important;box-shadow:0 0 0 3px rgba(18,183,106,.10)!important;background:#fff!important}
+  #app .retail-settings-note{border:1px solid #D9EDE5!important;border-radius:18px!important;background:#F2FBF7!important;color:#475569!important;padding:15px!important;line-height:1.45!important}
+  #app .toolbar{gap:10px!important}
+  #app .toolbar .btn{min-height:48px!important;border-radius:14px!important}
+  #app .btn.primary{background:#12B76A!important;color:#fff!important}
+  #app .btn.danger{background:#FEECEB!important;color:#B42318!important}
+  #app .empty{margin:12px 0!important;padding:26px 18px!important;border:1px dashed #CBD5E1!important;border-radius:18px!important;background:#F8FAFC!important;color:#64748B!important;font-size:15px!important;line-height:1.45!important}
+  .offline-note{margin:0 0 14px!important;padding:13px 14px!important;border-radius:16px!important;border:1px solid #F6D78B!important;background:#FFF8E6!important;color:#7C5A12!important;font-size:14px!important;line-height:1.4!important}
+  .badge.offline{background:#FEECEB!important;color:#B42318!important}
+  .badge.online{background:#E7F8EF!important;color:#287548!important}
+  button:disabled,.btn:disabled{opacity:.48!important;cursor:not-allowed!important;filter:saturate(.65)!important}
+  .toast{bottom:calc(118px + env(safe-area-inset-bottom))!important;max-width:calc(100vw - 40px)!important;border-radius:15px!important;background:#0F172A!important;color:#fff!important;box-shadow:0 14px 36px rgba(15,23,42,.22)!important}
+  .pycr-mobile-skeleton{display:grid!important;gap:10px!important;padding:12px 0!important}
+  .pycr-mobile-skeleton span{display:block!important;height:72px!important;border-radius:18px!important;background:linear-gradient(90deg,#F1F5F9 25%,#F8FAFC 37%,#F1F5F9 63%)!important;background-size:400% 100%!important;animation:pycrSkeleton 1.25s ease-in-out infinite!important}
+  @keyframes pycrSkeleton{0%{background-position:100% 0}100%{background-position:0 0}}
+}
+</style>
+
+</head><body><div class="center"><img class="logo" src="${esc(businessDocumentLogo())}"><h1>${esc(state.settings.businessName||'PUNTO YA CR')}</h1></div><h2>${esc(title)}</h2>${bodyHtml}<hr><p class="center" style="font-size:9px;color:#555">PUNTO YA CR · Tu negocio, más simple</p><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script>
 <style id="pycr-mobile-v4-2-secondary-screens">
 @media(max-width:699px){
   /* V4.2 · pantallas secundarias con el mismo lenguaje visual móvil */
@@ -10050,6 +10081,44 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   #modalRoot .modal{padding-bottom:max(18px,calc(14px + env(safe-area-inset-bottom)))!important}
 }
 </style>
+
+
+<script id="pycr-mobile-v4-5-closeout-js">
+(function(){
+  function isMobileV45(){ return window.matchMedia && window.matchMedia('(max-width:699px)').matches && !isDesktopPOS(); }
+  const previousMobileV3Home = window.renderMobileV3Home;
+  window.renderMobileV3Home = function(){
+    if(!isMobileV45()) return previousMobileV3Home?.();
+    const today=new Date().toDateString();
+    const todaySales=isFood()?activeShiftSales():activeCurrentSales().filter(s=>new Date(s.createdAt).toDateString()===today);
+    const todayRefunds=currentBusinessRefunds().filter(r=>new Date(r.createdAt).toDateString()===today).reduce((sum,r)=>sum+Number(r.total||0),0);
+    const sold=Math.max(0,todaySales.reduce((a,b)=>a+Number(b.total||0),0)-todayRefunds);
+    const txCount=todaySales.length;
+    const avg=txCount?sold/txCount:0;
+    const clientCount=state.clients.length;
+    const credit=state.clients.reduce((a,b)=>a+clientModuleBalance(b.id),0);
+    let quick='';
+    quick+=m3Quick('sale',isServices()?'Servicio':'Vender','cart','green');
+    quick+=m3Quick('products',isServices()?'Servicios':'Productos','box','blue');
+    if(usesOrdersTablesCash()) quick+=m3Quick('orders','Pedidos','orders','orange');
+    if(isFood()) quick+=m3Quick('tables','Mesas','table','navy');
+    quick+=m3Quick('clients','Clientes','users','blue');
+    quick+=m3Quick('sales','Mis ventas','chart','green');
+    if(canAccessScreen('cash')) quick+=m3Quick('cash','Caja','cash','orange');
+    if(canAccessScreen('catalog')) quick+=m3Quick('catalog',isServices()?'Catálogo QR':'Menú QR','grid','navy');
+    const creditText=credit>0?(money(credit)+' por cobrar'):'Al día';
+    const html='<section class="mobile-home-v3">'+
+      '<div class="m3-search">'+pyIcon('search')+'<span>Buscar productos, clientes...</span></div>'+
+      '<div class="m3-kpis">'+
+        '<button class="m3-kpi" onclick="go(\'sales\')"><span>Ventas hoy</span><strong>'+money(sold)+'</strong><small>↑ '+(txCount||0)+' transacciones</small></button>'+
+        '<button class="m3-kpi" onclick="go(\'sales\')"><span>Transacciones</span><strong>'+txCount+'</strong><small>Hoy</small></button>'+
+        '<button class="m3-kpi" onclick="go(\'sales\')"><span>Ticket promedio</span><strong>'+money(avg)+'</strong><small>Hoy</small></button>'+
+        '<button class="m3-kpi" onclick="go(\'clients\')"><span>Clientes</span><strong>'+clientCount+'</strong><small>'+creditText+'</small></button>'+
+      '</div><div class="m3-section-title">Accesos rápidos</div><div class="m3-quick-grid">'+quick+'</div></section>';
+    $('#app').innerHTML=shell(html,'home');
+  };
+})();
+</script>
 
 </body>
 </html>
