@@ -9522,5 +9522,52 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
 })();
 </script>
 
+<style id="pycr-mobile-v4-1-finetune">
+@media(max-width:699px){
+  /* V4.1: misma cápsula aprobada, paleta clara PUNTO YA CR */
+  .bottom-nav{
+    background:#FFFFFF!important;
+    border:1px solid #E2E8F0!important;
+    box-shadow:0 14px 34px rgba(15,23,42,.14)!important;
+  }
+  .bottom-nav button{
+    color:#64748B!important;
+    background:transparent!important;
+  }
+  .bottom-nav button.active{
+    background:#EAF8F1!important;
+    color:#12B76A!important;
+    box-shadow:0 4px 14px rgba(18,183,106,.10)!important;
+  }
+
+  /* Cobro: misma lógica, presentación consistente con el nuevo móvil */
+  #modalRoot .modal:has(.cash-quick-grid),
+  #modalRoot .modal:has(.checkout-document){
+    width:100%!important;
+    max-width:none!important;
+    max-height:92dvh!important;
+    margin:0!important;
+    border-radius:26px 26px 0 0!important;
+    padding:20px 16px calc(20px + env(safe-area-inset-bottom))!important;
+  }
+  #modalRoot .modal:has(.cash-quick-grid) h3,
+  #modalRoot .modal:has(.checkout-document) h3{
+    font-size:25px!important;
+    line-height:1.08!important;
+    letter-spacing:-.4px!important;
+    margin:0 0 12px!important;
+    color:#0F172A!important;
+  }
+  .cash-quick-grid{gap:8px!important;margin:12px 0!important}
+  .cash-chip{min-height:48px!important;border-radius:14px!important;font-size:13px!important;font-weight:800!important}
+  .change-card{min-height:54px!important;border-radius:15px!important;padding:12px 14px!important}
+  .checkout-document{border-color:#DDE9E3!important;background:#FBFDFC!important;border-radius:18px!important;padding:14px!important}
+  .checkout-document .sale-document-status{border-radius:15px!important}
+  #modalRoot .modal:has(.checkout-document) .toolbar{display:grid!important;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)!important;gap:8px!important}
+  #modalRoot .modal:has(.checkout-document) .toolbar .btn{min-height:48px!important;border-radius:14px!important;font-size:13px!important;font-weight:800!important}
+  #modalRoot .modal:has(.checkout-document) .toolbar .btn.primary{background:#12B76A!important;color:#fff!important}
+}
+</style>
+
 </body>
 </html>
