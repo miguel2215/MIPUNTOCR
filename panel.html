@@ -167,6 +167,45 @@
 }
 </style>
 
+
+<style>
+/* =========================================================
+   PANEL DEL EMPRENDEDOR · MOBILE V1.1 · UNIFICACIÓN POS
+   Cápsula inferior + PRO dorado como App/POS
+   ========================================================= */
+@media(max-width:700px){
+  .mobile-nav{display:none!important}
+  .layout{padding-bottom:calc(118px + env(safe-area-inset-bottom))!important}
+  .brand-name-line{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+  .panel-pro-gold{
+    border:1px solid #E4C45E;background:linear-gradient(135deg,#FFF8D9,#FFE6A2);
+    color:#6F4E08;border-radius:999px;padding:5px 9px;min-height:28px;
+    font-size:10px;font-weight:900;letter-spacing:.09em;line-height:1;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:4px
+  }
+  .panel-pro-gold::before{content:'★';font-size:11px}
+  .actions>.plan-button{display:none!important}
+  .panel-bottom-nav{
+    position:fixed;left:18px;right:18px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:70;
+    height:76px;padding:8px;background:#fff;border:1px solid #E2E8F0;border-radius:30px;
+    box-shadow:0 18px 40px rgba(15,23,42,.12);display:grid;grid-template-columns:repeat(5,1fr);gap:4px
+  }
+  .panel-bottom-item{
+    border:0;background:transparent;border-radius:23px;color:#64748B;display:grid;place-items:center;
+    align-content:center;gap:3px;min-width:0;padding:6px 2px;font-size:10.5px;font-weight:750
+  }
+  .panel-bottom-item .panel-icon{width:22px;height:22px}
+  .panel-bottom-item.active{background:#EAF8F1;color:#12B76A}
+  .panel-bottom-item.active span{color:#0E9A5A}
+  .panel-bottom-item span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+}
+@media(max-width:370px){
+  .panel-bottom-nav{left:11px;right:11px;height:72px;border-radius:27px}
+  .panel-bottom-item{font-size:9.5px}
+  .panel-bottom-item .panel-icon{width:21px;height:21px}
+}
+</style>
+
 </head>
 <body>
 <div id="root"></div>
@@ -299,9 +338,12 @@ function panelIcon(name){
 function panelMenuCard(id,icon,title,sub){return `<button class="panel-menu-card" data-nav="${id}"><span class="panel-iconbox">${panelIcon(icon)}</span><span><strong>${esc(title)}</strong><small>${esc(sub)}</small></span><span class="panel-menu-arrow">›</span></button>`}
 function panelMetric(label,value,sub=''){return `<div class="panel-today-metric"><span>${esc(label)}</span><strong>${value}</strong>${sub?`<small>${esc(sub)}</small>`:''}</div>`}
 function navAll(){return `${navButton('business','Mi negocio')}${navButton('home','Hoy')}${navButton('sales','Ventas')}${navButton('inventory','Inventario')}${navButton('clients','Clientes')}${navButton('money','Dinero')}${navButton('goals','Metas')}${navButton('week','Mi semana')}${navButton('opportunities','Oportunidades')}${navButton('growth','Haz crecer')}${navButton('ask','Pregúntale a PUNTO YA')}${navButton('team','Equipo')}${navButton('pro','PRO')}${navButton('settings','Configuración')}`}
+function panelBottomItem(id,icon,label){return `<button class="panel-bottom-item ${view===id?'active':''}" data-nav="${id}" aria-label="${esc(label)}">${panelIcon(icon)}<span>${esc(label)}</span></button>`}
 function shell(content){
   const primary=`${navButton('home','Hoy')}${navButton('sales','Ventas')}${navButton('inventory','Inventario')}${navButton('clients','Clientes')}${navButton('more','Más')}`;
-  return `<div class="app"><header class="top"><div class="topin"><div class="brand"><img src="assets/icon-only.png" alt="PUNTO YA CR"><div><strong>${esc(business?.name||'PUNTO YA CR')}</strong><small>Panel del Emprendedor</small></div></div><div class="actions"><button class="pill plan-button ${planLabel()==='PRO'?'pro':''}" data-nav="pro">${planLabel()}</button><button class="btn ghost compact" id="goApp">Abrir app</button><button class="icon-btn" id="logout" title="Cerrar sesión" aria-label="Cerrar sesión">↪</button></div></div></header><div class="mobile-nav"><div class="mobile-primary">${primary}</div></div><div class="layout"><aside class="nav desktop-nav">${navAll()}</aside><main class="main">${content}</main></div></div>`
+  const bottom=`<nav class="panel-bottom-nav" aria-label="Navegación del Panel">${panelBottomItem('home','home','Hoy')}${panelBottomItem('sales','sales','Ventas')}${panelBottomItem('inventory','box','Inventario')}${panelBottomItem('clients','users','Clientes')}${panelBottomItem('more','more','Más')}</nav>`;
+  const pro=planLabel()==='PRO';
+  return `<div class="app"><header class="top"><div class="topin"><div class="brand"><img src="assets/icon-only.png" alt="PUNTO YA CR"><div><div class="brand-name-line"><strong>${esc(business?.name||'PUNTO YA CR')}</strong>${pro?'<button class="panel-pro-gold" data-nav="pro">PRO</button>':''}</div><small>Panel del Emprendedor</small></div></div><div class="actions"><button class="pill plan-button ${pro?'pro':''}" data-nav="pro">${pro?'PRO':'FREE'}</button><button class="btn ghost compact" id="goApp">Abrir app</button><button class="icon-btn" id="logout" title="Cerrar sesión" aria-label="Cerrar sesión">↪</button></div></div></header><div class="mobile-nav"><div class="mobile-primary">${primary}</div></div><div class="layout"><aside class="nav desktop-nav">${navAll()}</aside><main class="main">${content}</main></div>${bottom}</div>`
 }
 
 function settingsCard(icon,title,sub,key,extra='') {return `<button class="settings-card" data-settings="${key}"><span class="settings-icon">${icon}</span><span class="settings-copy"><strong>${esc(title)}</strong><small>${esc(sub)}</small>${extra}</span><span class="settings-arrow">›</span></button>`}
