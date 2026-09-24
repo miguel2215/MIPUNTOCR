@@ -1441,7 +1441,7 @@ html, body {
       app.innerHTML = `<section class="onboarding"><div class="onboard-card"><img class="brand-logo-horizontal compact" src="./logo-horizontal.png" alt="PUNTO YA CR"><h2>Abriendo PUNTO YA CR…</h2><p>Estamos cargando los datos guardados en este dispositivo.</p></div></section>`;
       window.finishPycStartupSplash?.();
     }
-  }, 6000);
+  }, 12000);
 })();
 </script>
 <!-- Supabase se carga de forma no bloqueante después del primer render local. -->
@@ -1747,7 +1747,11 @@ function openDB() {
         if (!r.result.objectStoreNames.contains(name)) r.result.createObjectStore(name, { keyPath: "id" });
       }
     };
-    r.onsuccess = () => resolve(r.result);
+    r.onsuccess = () => {
+      const database = r.result;
+      database.onversionchange = () => { try { database.close(); } catch (_) {} };
+      resolve(database);
+    };
     r.onerror = () => reject(r.error);
     r.onblocked = () => {
       const app = document.querySelector("#app");
@@ -1780,46 +1784,111 @@ async function resetLocalBusinessCache() {
   locked = false;
 }
 
+
+function readStoresFast(names) {
+  return new Promise((resolve, reject) => {
+    let tx;
+    try { tx = db.transaction(names, "readonly"); }
+    catch (error) { reject(error); return; }
+    const out = {};
+    let failed = false;
+    for (const name of names) {
+      const req = tx.objectStore(name).getAll();
+      req.onsuccess = () => { out[name] = req.result || []; };
+      req.onerror = () => { failed = true; reject(req.error); };
+    }
+    tx.oncomplete = () => { if (!failed) resolve(out); };
+    tx.onerror = () => { if (!failed) reject(tx.error); };
+    tx.onabort = () => { if (!failed) reject(tx.error || new Error("Lectura local cancelada.")); };
+  });
+}
+function putMany(name, values) {
+  if (!Array.isArray(values) || !values.length) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    let tx;
+    try { tx = db.transaction(name, "readwrite"); }
+    catch (error) { reject(error); return; }
+    const os = tx.objectStore(name);
+    for (const value of values) os.put(value);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error("Actualización local cancelada."));
+  });
+}
+let pycrDeferredLocalMigrations = null;
 async function load() {
-  for (const name of ["products", "clients", "sales", "orders", "cashMoves", "cashSessions", "creditMoves", "tableAccounts", "expenses"]) state[name] = await all(name);
-  const saved = await all("settings");
+  // Arranque rápido: una sola transacción local y lecturas en paralelo.
+  // Ninguna migración costosa se ejecuta antes de mostrar la app.
+  const names = ["products", "clients", "sales", "orders", "cashMoves", "cashSessions", "creditMoves", "tableAccounts", "expenses", "settings"];
+  const snapshot = await readStoresFast(names);
+
+  for (const name of ["products", "clients", "sales", "orders", "cashMoves", "cashSessions", "creditMoves", "tableAccounts", "expenses"]) {
+    state[name] = snapshot[name] || [];
+  }
+  const saved = snapshot.settings || [];
   if (saved[0]) state.settings = { ...state.settings, ...saved[0] };
-  await migrateLegacyPinIfNeeded();
+
   if (state.settings.businessType === "general") state.settings.businessType = "food";
   if (state.settings.businessType === "retail") state.settings.businessType = "products";
   if (typeof state.settings.sessionActive !== "boolean") state.settings.sessionActive = true;
   role = ["owner","admin","employee"].includes(state.settings.cloudRole) ? state.settings.cloudRole : "owner";
 
+  let settingsDirty = false;
+
   // v7.9.2: corte limpio a cuentas reales de Supabase.
-  // Las cuentas locales anteriores eran solo de prueba; al actualizar se exige
-  // iniciar sesión o crear una cuenta real en la nube.
   if (!state.settings.cloudOnlyV792Migrated) {
     state.settings.cloudOnlyV792Migrated = true;
     if (!state.settings.cloudLinked) state.settings.sessionActive = false;
+    settingsDirty = true;
   }
 
-  // Migración v7.6: el impuesto se suma al cobro por defecto.
-  // Solo se aplica una vez; después el usuario puede cambiarlo en Configuración.
+  // Migración v7.6: impuesto sumado al cobro por defecto.
   if (!state.settings.taxV76Migrated) {
     if (state.settings.taxMode !== "exempt") state.settings.taxMode = "added";
     state.settings.taxV76Migrated = true;
+    settingsDirty = true;
   }
 
-  // Migración v7.5: lo que existía antes queda asociado al tipo de negocio
-  // que estaba activo. Desde aquí Restaurante, Artículos y Servicios ya no
-  // comparten productos, inventario, ventas ni crédito.
+  // v7.5: normalizar en memoria inmediatamente para que los filtros funcionen,
+  // pero persistir después del primer render.
   const legacyType = state.settings.businessType || "food";
-  for (const p of state.products) {
-    if (!p.businessType) { p.businessType = legacyType; await put("products", p); }
+  const productsToPersist = [];
+  const salesToPersist = [];
+  const creditMovesToPersist = [];
+  for (const item of state.products) {
+    if (!item.businessType) { item.businessType = legacyType; productsToPersist.push(item); }
   }
-  for (const sale of state.sales) {
-    if (!sale.businessType) { sale.businessType = legacyType; await put("sales", sale); }
+  for (const item of state.sales) {
+    if (!item.businessType) { item.businessType = legacyType; salesToPersist.push(item); }
   }
-  for (const move of state.creditMoves) {
-    if (!move.businessType) { move.businessType = legacyType; await put("creditMoves", move); }
+  for (const item of state.creditMoves) {
+    if (!item.businessType) { item.businessType = legacyType; creditMovesToPersist.push(item); }
   }
 
-  await put("settings", state.settings);
+  pycrDeferredLocalMigrations = {
+    settingsDirty,
+    productsToPersist,
+    salesToPersist,
+    creditMovesToPersist,
+    needsPinMigration: !!(state.settings.ownerPin && !state.settings.ownerPinHash)
+  };
+}
+async function runDeferredLocalMigrations() {
+  const job = pycrDeferredLocalMigrations;
+  pycrDeferredLocalMigrations = null;
+  if (!job) return;
+  try {
+    // La derivación PBKDF2 del PIN puede ser lenta en iPhone; nunca bloquea Inicio.
+    if (job.needsPinMigration) await migrateLegacyPinIfNeeded();
+    await Promise.all([
+      putMany("products", job.productsToPersist),
+      putMany("sales", job.salesToPersist),
+      putMany("creditMoves", job.creditMovesToPersist)
+    ]);
+    if (job.settingsDirty && !job.needsPinMigration) await put("settings", state.settings);
+  } catch (error) {
+    console.warn("Migraciones locales diferidas:", error);
+  }
 }
 
 function injectStyles() {
@@ -6015,18 +6084,7 @@ window.previewInvoiceBeforeSale = () => {
 </style>
 
 
-<script id="pycr-no-zoom-script">
-(() => {
-  const stop = (e) => e.preventDefault();
-  document.addEventListener('gesturestart', stop, { passive: false });
-  document.addEventListener('gesturechange', stop, { passive: false });
-  document.addEventListener('gestureend', stop, { passive: false });
-  document.addEventListener('touchmove', (e) => {
-    if (e.touches && e.touches.length > 1) e.preventDefault();
-  }, { passive: false });
-  document.addEventListener('dblclick', stop, { passive: false });
-})();
-</script>
+
 </body></html>`);
   w.document.close();
 };
@@ -9385,9 +9443,18 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   injectStyles();
   injectV7Styles();
 
-  // OFFLINE-FIRST: datos locales y primera pantalla nunca esperan a Supabase.
+  const appRoot = document.querySelector("#app");
+  // Mostrar feedback inmediato mientras Safari abre IndexedDB.
+  if (appRoot && !appRoot.innerHTML.trim()) {
+    appRoot.innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<h2>Preparando PUNTO YA CR…</h2><p>Abriendo los datos guardados en este dispositivo.</p></div></section>`;
+  }
+
+  // OFFLINE-FIRST real: IndexedDB y datos locales primero; red después.
+  const localStartedAt = performance.now();
   db = await openDB();
   await load();
+  console.info(`Datos locales listos en ${Math.round(performance.now()-localStartedAt)} ms`);
+
   const publicParams = new URLSearchParams(location.search);
   if (publicParams.get("privacy") === "1") { renderPublicLegal("privacy"); window.finishPycStartupSplash?.(); return; }
   if (publicParams.get("terms") === "1") { renderPublicLegal("terms"); window.finishPycStartupSplash?.(); return; }
@@ -9411,32 +9478,30 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   render();
   window.finishPycStartupSplash?.();
 
-  // Registrar el shell offline apenas la UI local ya está visible.
+  // Registrar el shell offline después de que la interfaz local ya esté visible.
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(console.error);
+
+  // Migraciones locales pesadas y hash del PIN fuera de la ruta crítica.
+  const scheduleLocalMaintenance = () => runDeferredLocalMigrations();
+  if ("requestIdleCallback" in window) requestIdleCallback(scheduleLocalMaintenance, { timeout: 1800 });
+  else setTimeout(scheduleLocalMaintenance, 350);
 
   // La nube se hidrata después, sin bloquear Inicio ni el trabajo offline.
   if (navigator.onLine) {
-    initCloudInBackground().then(() => {
-      const active = document.activeElement;
-      const editingOnboarding = !state.settings.onboardingComplete && active?.closest?.(".onboarding") && ["INPUT", "SELECT", "TEXTAREA"].includes(active?.tagName);
-      if (!document.querySelector("#modalRoot") && !onboardingFormDirty && !editingOnboarding) render();
-    }).catch(error => console.warn("Sincronización en segundo plano:", error));
+    setTimeout(() => {
+      initCloudInBackground().then(() => {
+        const active = document.activeElement;
+        const editingOnboarding = !state.settings.onboardingComplete && active?.closest?.(".onboarding") && ["INPUT", "SELECT", "TEXTAREA"].includes(active?.tagName);
+        if (!document.querySelector("#modalRoot") && !onboardingFormDirty && !editingOnboarding) render();
+      }).catch(error => console.warn("Sincronización en segundo plano:", error));
+    }, 80);
   }
-
-  // Repintado local corto: nunca depende de red ni borra formularios en edición.
-  requestAnimationFrame(() => { if (!document.querySelector("#modalRoot") && !onboardingFormDirty) render(); });
-  setTimeout(() => {
-    const active = document.activeElement;
-    const editingOnboarding = !state.settings.onboardingComplete && active?.closest?.(".onboarding") && ["INPUT", "SELECT", "TEXTAREA"].includes(active?.tagName);
-    if (!document.querySelector("#modalRoot") && !onboardingFormDirty && !editingOnboarding) render();
-  }, 250);
 })().catch(err => {
   console.error(err);
   injectStyles();
-  document.querySelector("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<h2>No se pudo iniciar</h2><p>Ocurrió un error al abrir los datos locales.</p><pre style="white-space:pre-wrap;font-size:12px">${esc(err?.message || err)}</pre></div></section>`;
+  document.querySelector("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal("brand-logo-horizontal compact")}<h2>No se pudo iniciar</h2><p>Ocurrió un error al abrir los datos locales.</p><pre style="white-space:pre-wrap;font-size:12px">${esc(err?.message || err)}</pre><button class="btn primary full" style="margin-top:14px" onclick="location.reload()">Reintentar</button></div></section>`;
   window.finishPycStartupSplash?.();
 });
-
 
 
 /* =========================
@@ -10333,6 +10398,19 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
       '</div><div class="m3-section-title">Accesos rápidos</div><div class="m3-quick-grid">'+quick+'</div></section>';
     $('#app').innerHTML=shell(html,'home');
   };
+})();
+</script>
+
+<script id="pycr-no-zoom-script">
+(() => {
+  const stop = (e) => e.preventDefault();
+  document.addEventListener('gesturestart', stop, { passive: false });
+  document.addEventListener('gesturechange', stop, { passive: false });
+  document.addEventListener('gestureend', stop, { passive: false });
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('dblclick', stop, { passive: false });
 })();
 </script>
 
