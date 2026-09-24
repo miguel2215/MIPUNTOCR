@@ -10104,6 +10104,10 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
 (function(){
   function isMobileV45(){ return window.matchMedia && window.matchMedia('(max-width:699px)').matches && !isDesktopPOS(); }
   const previousMobileV3Home = window.renderMobileV3Home;
+  function v45Quick(target,label,icon,tone){
+    if(!canAccessScreen(target)) return '';
+    return '<button class="m3-quick '+tone+'" onclick="go(\''+target+'\')"><span class="ico">'+pyIcon(icon)+'</span><strong>'+label+'</strong></button>';
+  }
   window.renderMobileV3Home = function(){
     if(!isMobileV45()) return previousMobileV3Home?.();
     const today=new Date().toDateString();
@@ -10115,14 +10119,14 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
     const clientCount=state.clients.length;
     const credit=state.clients.reduce((a,b)=>a+clientModuleBalance(b.id),0);
     let quick='';
-    quick+=m3Quick('sale',isServices()?'Servicio':'Vender','cart','green');
-    quick+=m3Quick('products',isServices()?'Servicios':'Productos','box','blue');
-    if(usesOrdersTablesCash()) quick+=m3Quick('orders','Pedidos','orders','orange');
-    if(isFood()) quick+=m3Quick('tables','Mesas','table','navy');
-    quick+=m3Quick('clients','Clientes','users','blue');
-    quick+=m3Quick('sales','Mis ventas','chart','green');
-    if(canAccessScreen('cash')) quick+=m3Quick('cash','Caja','cash','orange');
-    if(canAccessScreen('catalog')) quick+=m3Quick('catalog',isServices()?'Catálogo QR':'Menú QR','grid','navy');
+    quick+=v45Quick('sale',isServices()?'Servicio':'Vender','cart','green');
+    quick+=v45Quick('products',isServices()?'Servicios':'Productos','box','blue');
+    if(usesOrdersTablesCash()) quick+=v45Quick('orders','Pedidos','orders','orange');
+    if(isFood()) quick+=v45Quick('tables','Mesas','table','navy');
+    quick+=v45Quick('clients','Clientes','users','blue');
+    quick+=v45Quick('sales','Mis ventas','chart','green');
+    if(canAccessScreen('cash')) quick+=v45Quick('cash','Caja','cash','orange');
+    if(canAccessScreen('catalog')) quick+=v45Quick('catalog',isServices()?'Catálogo QR':'Menú QR','grid','navy');
     const creditText=credit>0?(money(credit)+' por cobrar'):'Al día';
     const html='<section class="mobile-home-v3">'+
       '<div class="m3-search">'+pyIcon('search')+'<span>Buscar productos, clientes...</span></div>'+
