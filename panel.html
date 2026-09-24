@@ -206,6 +206,109 @@
 }
 </style>
 
+
+<style>
+/* =========================================================
+   PANEL DEL EMPRENDEDOR · MOBILE V1.2 · TODOS LOS MÓDULOS
+   Misma familia visual que App/POS, prioridad: claridad
+   ========================================================= */
+@media(max-width:700px){
+  .layout{padding:14px 14px calc(122px + env(safe-area-inset-bottom))!important}
+  .main{width:100%;overflow:hidden}
+  .hero{margin-bottom:13px!important}
+  .hero h1{font-size:27px!important;line-height:1.06!important;letter-spacing:-.7px!important}
+  .hero p{font-size:13.5px!important;line-height:1.38!important;max-width:92%}
+  .section{margin-top:15px!important}
+  .section h2{font-size:18px!important;letter-spacing:-.25px}
+  .card{border-radius:18px!important;padding:14px!important;box-shadow:0 8px 24px rgba(15,23,42,.04)!important}
+  .grid3,.grid4{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  .grid3>.metric:nth-child(3):last-child,.grid3>.card:nth-child(3):last-child{grid-column:1/-1}
+  .metric{min-height:104px;display:flex;flex-direction:column;justify-content:center}
+  .metric span{font-size:11.5px!important}
+  .metric strong{font-size:24px!important;margin-top:7px!important}
+  .metric small{font-size:11px;line-height:1.25;margin-top:7px}
+  .row{border-radius:16px!important;padding:12px 13px!important}
+  .notice,.opp{border-radius:16px!important;padding:13px!important}
+  .btn{min-height:44px;border-radius:14px!important;padding:10px 13px!important}
+  .field input,.field select,.field textarea{min-height:48px;border-radius:14px!important;font-size:16px!important}
+  .form,.fiscal-grid2{grid-template-columns:1fr!important}
+  .form-card,.logo-card{max-width:none!important}
+  .tablewrap.desktop-table{display:none!important}
+
+  /* Tarjetas móviles reutilizables */
+  .panel-mobile-list{display:grid;gap:9px}
+  .panel-mobile-card{background:#fff;border:1px solid #E2E8F0;border-radius:17px;padding:13px 14px;box-shadow:0 7px 20px rgba(15,23,42,.035)}
+  .panel-mobile-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .panel-mobile-card-head strong{font-size:14px;line-height:1.25;color:#0F172A}
+  .panel-mobile-card-head b{font-size:15px;white-space:nowrap;color:#0F172A}
+  .panel-mobile-card p{margin:5px 0 0;color:#64748B;font-size:12px;line-height:1.35}
+  .panel-mobile-card .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .panel-mini-pill{display:inline-flex;align-items:center;min-height:27px;padding:5px 9px;border-radius:999px;background:#F1F5F9;color:#475569;font-size:10.5px;font-weight:750}
+  .panel-mini-pill.ok{background:#EAF8F1;color:#0E9A5A}.panel-mini-pill.warn{background:#FFF5E6;color:#B45309}.panel-mini-pill.danger{background:#FEF0F0;color:#DC2626}
+  .panel-mobile-only{display:block!important}
+
+  /* Mi negocio */
+  .panel-business-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .panel-business-summary .card:first-child{grid-column:1/-1}
+  .panel-business-id{display:flex;align-items:center;gap:11px}
+  .panel-business-id .panel-iconbox{width:42px;height:42px;border-radius:13px;background:#EAF8F1;color:#0E9A5A;display:grid;place-items:center}
+
+  /* Metas */
+  .panel-goal-card{background:#fff;border:1px solid #E2E8F0;border-radius:18px;padding:15px}
+  .panel-goal-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-end}
+  .panel-goal-top strong{font-size:25px}.panel-goal-top span{font-size:12px;color:#64748B}
+  .panel-goal-track{height:10px;background:#EEF2F6;border-radius:999px;overflow:hidden;margin-top:12px}
+  .panel-goal-track i{display:block;height:100%;background:#12B76A;border-radius:999px}
+
+  /* Dinero */
+  .panel-money-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .panel-money-grid .card{min-height:108px}
+  .panel-money-grid .card:nth-child(3){grid-column:1/-1}
+
+  /* Semana */
+  .barrow{grid-template-columns:38px 1fr 76px!important;gap:7px!important;margin:8px 0!important}
+  .barrow strong{font-size:11.5px}.bar{height:10px!important}
+
+  /* Oportunidades + crecimiento */
+  .opp{background:#F6FBF8!important;border-color:#D9EEE5!important}
+  .opp strong{font-size:13px}.opp p{font-size:12.5px;line-height:1.35}
+  .panel-action-link{margin-top:9px;display:inline-flex;color:#0E9A5A;font-size:11.5px;font-weight:800}
+
+  /* Pregúntale */
+  .panel-ask-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .panel-ask-grid .btn{font-size:12px;line-height:1.25;white-space:normal;background:#fff}
+  #askAnswer{margin-top:12px!important;background:#F8FAFC}
+
+  /* Equipo */
+  .panel-team-card{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:11px}
+  .panel-team-avatar{width:42px;height:42px;border-radius:50%;background:#EAF8F1;color:#0E9A5A;display:grid;place-items:center;font-weight:900}
+
+  /* Settings */
+  .settings-grid{grid-template-columns:1fr!important;gap:9px!important}
+  .settings-card{min-height:76px;border-radius:17px!important;padding:12px 13px!important;grid-template-columns:40px minmax(0,1fr) 18px!important}
+  .settings-icon{width:40px;height:40px;border-radius:12px;background:#F8FAFC;display:grid;place-items:center;font-size:0!important;color:#0E9A5A}
+  .settings-icon::after{content:'•';font-size:23px;font-weight:900}
+  .settings-copy strong{font-size:14px!important;color:#0F172A}.settings-copy small{font-size:11.5px!important}
+  .settings-arrow{font-size:22px!important}
+  .pro-active{padding:18px!important}.pro-check{width:52px!important;height:52px!important;font-size:27px!important}
+  .account-row{padding:11px 0!important;font-size:13px}.account-row strong{font-size:13px;text-align:right;max-width:62%;overflow-wrap:anywhere}
+
+  /* PRO */
+  .pro-price-card{padding:15px!important;border-radius:18px!important}.pro-price-card strong{font-size:23px!important}
+  .pro-plans{grid-template-columns:1fr!important}
+
+  /* Fiscal: técnico, pero más legible */
+  .secure-box,.danger-note,.fiscal-step{border-radius:16px!important}
+  .secure-box{padding:14px!important}
+  .secure-box h3{font-size:17px!important;margin-top:0}
+  .secure-row{font-size:12.5px!important}
+  .fiscal-step{padding:12px!important;gap:10px!important}
+  .fiscal-step b{font-size:13.5px}.fiscal-step small{font-size:11.5px;line-height:1.35}
+  .secret-note{font-size:11.5px;line-height:1.4}
+}
+@media(min-width:701px){.panel-mobile-only{display:none!important}}
+</style>
+
 </head>
 <body>
 <div id="root"></div>
@@ -273,6 +376,24 @@ function renderMore(){
 function render(){const map={business:renderBusiness,home:renderHome,sales:renderSales,inventory:renderInventory,clients:renderClients,more:renderMore,money:renderMoney,goals:renderGoals,week:renderWeek,opportunities:renderOpportunities,growth:renderGrowth,ask:renderAsk,team:renderTeam,pro:renderPro,settings:renderSettings};$('#root').innerHTML=(map[view]||renderHome)();bind();}
 
 
+
+
+/* =========================================================
+   PANEL DEL EMPRENDEDOR · V1.2 · RENDER MÓVIL SIMPLIFICADO
+   ========================================================= */
+function panelPaymentLabelV12(v){const k=String(v||'').toLowerCase();if(k.includes('cash')||k.includes('efect'))return'Efectivo';if(k.includes('credit'))return'Crédito';if(k.includes('card')||k.includes('tarj'))return'Tarjeta';if(k.includes('sinpe'))return'SINPE';return v||'Otro'}
+function panelStockStateV12(p){const stock=Number(p.stock||0),min=Number(p.min_stock||0);if(stock<=0)return['Agotado','danger'];if(min>0&&stock<=min)return['Stock bajo','warn'];return['Disponible','ok']}
+function renderSales(){const rows=activeSales().slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));const s30=salesSince(30),gross=s30.reduce((n,s)=>n+Number(s.total||0),0),today=todaySales(),todayGross=today.reduce((n,s)=>n+Number(s.total||0),0);return shell(`<div class="hero"><div><h1>Ventas</h1><p>Lo importante primero: cuánto vendiste y cómo se está moviendo el negocio.</p></div></div><div class="grid3">${kpi('Ventas hoy',money(todayGross),`${today.length} transacciones`)}${kpi('Últimos 30 días',money(gross),`${s30.length} ventas`)}${kpi('Ticket promedio',money(s30.length?gross/s30.length:0),'Últimos 30 días')}</div><section class="section"><h2>Ventas recientes</h2><div class="panel-mobile-list panel-mobile-only">${rows.slice(0,40).map(s=>`<div class="panel-mobile-card"><div class="panel-mobile-card-head"><strong>Comprobante #${esc(s.receipt_number||s.local_number||'—')}</strong><b>${money(s.total)}</b></div><p>${dt(s.created_at)}</p><div class="meta"><span class="panel-mini-pill">${esc(panelPaymentLabelV12(s.payment_method))}</span><span class="panel-mini-pill">${esc(s.order_type||s.sale_type||'Venta')}</span></div></div>`).join('')||'<div class="card empty">Sin ventas todavía.</div>'}</div><div class="tablewrap desktop-table"><table class="table"><thead><tr><th>Fecha</th><th>Comprobante</th><th>Pago</th><th>Origen</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows.slice(0,200).map(s=>`<tr><td>${dt(s.created_at)}</td><td>#${esc(s.receipt_number||s.local_number||'—')}</td><td>${esc(panelPaymentLabelV12(s.payment_method))}</td><td>${esc(s.order_type||s.sale_type||'—')}</td><td class="num">${money(s.total)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Sin ventas.</td></tr>'}</tbody></table></div></section>`)}
+function renderInventory(){const inv=panelProducts(),invested=inv.reduce((n,p)=>n+Number(p.cost||0)*Math.max(0,Number(p.stock||0)),0),potential=inv.reduce((n,p)=>n+Number(p.price||0)*Math.max(0,Number(p.stock||0)),0),low=inv.filter(p=>panelStockStateV12(p)[1]!=='ok').length;return shell(`<div class="hero"><div><h1>Inventario</h1><p>Qué tienes, qué se está agotando y qué conviene revisar.</p></div></div><div class="grid3">${kpi('Productos',String(inv.length))}${kpi('Requieren atención',String(low),low?'Revisa stock':'Todo bien')}${kpi('Venta potencial',money(potential),'Inventario actual')}</div><section class="section"><h2>Productos</h2><div class="panel-mobile-list panel-mobile-only">${inv.map(p=>{const st=panelStockStateV12(p);return`<div class="panel-mobile-card"><div class="panel-mobile-card-head"><strong>${esc(p.name)}</strong><b>${money(p.price)}</b></div><p>Stock: ${Number(p.stock||0)}${p.sku||p.barcode?` · ${esc(p.sku||p.barcode)}`:''}</p><div class="meta"><span class="panel-mini-pill ${st[1]}">${st[0]}</span>${Number(p.cost||0)?`<span class="panel-mini-pill">Costo ${money(p.cost)}</span>`:''}</div></div>`}).join('')||'<div class="card empty">Sin productos.</div>'}</div><div class="tablewrap desktop-table"><table class="table"><thead><tr><th>Producto</th><th>Stock</th><th>Costo</th><th>Precio</th><th style="text-align:right">Valor</th></tr></thead><tbody>${inv.map(p=>`<tr><td><strong>${esc(p.name)}</strong></td><td>${Number(p.stock||0)}</td><td>${money(p.cost)}</td><td>${money(p.price)}</td><td class="num">${money(Number(p.price||0)*Math.max(0,Number(p.stock||0)))}</td></tr>`).join('')}</tbody></table></div></section>`)}
+function renderClients(){const rows=data.clients.map(c=>({c,b:Math.max(0,creditBalance(c.id))})).sort((a,b)=>b.b-a.b),owing=rows.filter(x=>x.b>0);return shell(`<div class="hero"><div><h1>Clientes</h1><p>Quién compra, quién debe y dónde necesitas dar seguimiento.</p></div></div><div class="grid3">${kpi('Clientes',String(data.clients.length))}${kpi('Por cobrar',money(totalReceivable()),`${owing.length} con saldo`)}${kpi('Al día',String(rows.length-owing.length),'Sin deuda pendiente')}</div><section class="section"><h2>Clientes</h2><div class="panel-mobile-list">${rows.map(({c,b})=>`<div class="panel-mobile-card"><div class="panel-mobile-card-head"><strong>${esc(c.name||'Cliente')}</strong><b>${money(b)}</b></div><p>${esc(c.phone||'Sin teléfono')}</p><div class="meta"><span class="panel-mini-pill ${b>0?'warn':'ok'}">${b>0?'Requiere seguimiento':'Al día'}</span></div></div>`).join('')||'<div class="card empty">Sin clientes sincronizados.</div>'}</div></section>`)}
+function renderBusiness(){const s=settings(),orders=Array.isArray(s.retailSupplierOrders)?s.retailSupplierOrders:[],payables=Array.isArray(s.retailPayables)?s.retailPayables:[],pending=payables.filter(x=>!['paid','Pagado'].includes(x.status)).reduce((n,x)=>n+Number(x.balance??x.amount??0),0);return shell(`<div class="hero"><div><h1>Mi negocio</h1><p>Una vista simple de la identidad y el estado general.</p></div><span class="pill ${planLabel()==='PRO'?'pro':''}">${planLabel()}</span></div><div class="panel-business-summary"><div class="card"><div class="panel-business-id"><span class="panel-iconbox">${panelIcon('building')}</span><div><strong>${esc(business?.name||'PUNTO YA CR')}</strong><p class="muted" style="margin:3px 0 0">${business?.business_type==='products'?'Retail':'Restaurante'} · ${esc(s.phone||'Sin teléfono')}</p></div></div></div>${kpi('Productos',String(panelProducts().length))}${kpi('Clientes',String(data.clients.length))}${kpi('Por cobrar',money(totalReceivable()))}${kpi('Por pagar',money(pending))}</div><section class="section"><div class="notice">Impresión: ${esc(s.printerDetectedName?'Automática · '+s.printerDetectedName:'Automática · pendiente de detectar')} · Plan ${planLabel()}.</div></section>`)}
+function renderMoney(){const p30=data.payments.filter(p=>new Date(p.created_at).getTime()>=Date.now()-30*86400000),by={};p30.forEach(p=>{const k=panelPaymentLabelV12(p.method||'Otro');by[k]=(by[k]||0)+Number(p.amount||0)});const supplierOrders=Array.isArray(settings().retailSupplierOrders)?settings().retailSupplierOrders:[],payables=Array.isArray(settings().retailPayables)?settings().retailPayables:[],pending=payables.filter(x=>!['paid','Pagado'].includes(x.status)).reduce((n,x)=>n+Number(x.balance??x.amount??0),0);const entries=Object.entries(by).sort((a,b)=>b[1]-a[1]);return shell(`<div class="hero"><div><h1>Dinero</h1><p>Cómo entra el dinero y qué sigue pendiente.</p></div></div><div class="panel-money-grid">${(entries.slice(0,2).map(([k,v])=>kpi(k,money(v),'Últimos 30 días')).join('')||kpi('Ventas cobradas',money(0),'Últimos 30 días'))}${kpi('Por cobrar clientes',money(totalReceivable()),'Saldo pendiente')}</div><section class="section"><h2>Compromisos</h2><div class="grid3">${kpi('Por pagar proveedores',money(pending))}${kpi('Pedidos proveedor',String(supplierOrders.length))}${kpi('Clientes con saldo',String(data.clients.filter(c=>creditBalance(c.id)>0).length))}</div></section><div class="notice section">Este panel resume la operación. La contabilidad formal y conciliación bancaria siguen fuera de esta etapa.</div>`)}
+function renderGoals(){const target=Math.max(0,Number(settings().panelMonthlySalesGoal||0)),actual=monthSales(),pct=target>0?Math.min(999,actual/target*100):0;return shell(`<div class="hero"><div><h1>Metas</h1><p>Una meta sencilla para saber si vas por el camino que esperas.</p></div></div><div class="panel-goal-card"><div class="panel-goal-top"><div><span>Ventas del mes</span><strong>${money(actual)}</strong></div><div style="text-align:right"><span>Meta</span><strong style="font-size:17px">${target?money(target):'Sin definir'}</strong></div></div><div class="panel-goal-track"><i style="width:${target?Math.min(100,pct):0}%"></i></div><p class="muted" style="margin:9px 0 0;font-size:12px">${target?`${pct.toFixed(0)}% cumplido`:'Define una meta para ver tu avance.'}</p></div><section class="section"><div class="card"><h2 style="margin-top:0">Cambiar meta mensual</h2><div class="field"><label>Monto</label><input id="monthlyGoal" type="number" min="0" value="${target}" inputmode="decimal"></div><button class="btn primary" id="saveGoal" style="margin-top:12px">Guardar meta</button><div id="goalStatus" class="status hidden"></div></div></section>`)}
+function renderWeek(){const w=weekly(),max=Math.max(1,...w.map(x=>x.total)),sum=w.reduce((n,x)=>n+x.total,0);return shell(`<div class="hero"><div><h1>Mi semana</h1><p>Una vista simple de los últimos 7 días.</p></div></div><div class="card">${w.map(x=>`<div class="barrow"><strong>${esc(x.label)}</strong><div class="bar"><i style="width:${Math.max(2,x.total/max*100)}%"></i></div><strong style="text-align:right">${money(x.total)}</strong></div>`).join('')}</div><div class="grid3 section">${kpi('Total semana',money(sum))}${kpi('Promedio diario',money(sum/7))}${kpi('Mejor día',money(Math.max(...w.map(x=>x.total))))}</div>`)}
+function renderOpportunities(){const ops=opportunities();return shell(`<div class="hero"><div><h1>Oportunidades</h1><p>Hallazgos simples basados en tus datos reales.</p></div></div><div class="list">${ops.map((x,i)=>`<div class="opp"><strong>${i===0?'Lo más importante':'También revisa esto'}</strong><p>${esc(x)}</p><span class="panel-action-link">Revísalo cuando te convenga →</span></div>`).join('')}</div><div class="notice section">PUNTO YA CR te muestra señales; tú decides qué acción tomar.</div>`)}
+function renderGrowth(){const op=opportunities(),actual=monthSales(),target=Math.max(0,Number(settings().panelMonthlySalesGoal||0)),gap=Math.max(0,target-actual);return shell(`<div class="hero"><div><h1>Haz crecer tu negocio</h1><p>Convierte tus datos en acciones sencillas, sin complicarte.</p></div><span class="pill pro">PRO</span></div><div class="grid3">${kpi('Ventas del mes',money(actual))}${kpi('Faltante a meta',target?money(gap):'Sin meta')}${kpi('Acciones sugeridas',String(op.length))}</div><section class="section"><h2>Qué revisar ahora</h2><div class="list">${op.slice(0,3).map((x,i)=>`<div class="opp"><strong>${i===0?'Prioridad':'Siguiente paso'}</strong><p>${esc(x)}</p></div>`).join('')}</div></section><div class="notice section">PUNTO YA CR no publica promociones ni toma decisiones automáticamente. Tú confirmas cada acción.</div>`)}
+function renderAsk(){return shell(`<div class="hero"><div><h1>Pregúntale a PUNTO YA</h1><p>Entiende tu negocio con preguntas simples.</p></div><span class="pill">BETA</span></div><div class="card"><div class="panel-ask-grid"><button class="btn ghost" data-ask="sales">¿Cómo voy en ventas?</button><button class="btn ghost" data-ask="stock">¿Qué debo reponer?</button><button class="btn ghost" data-ask="credit">¿Cuánto me deben?</button><button class="btn ghost" data-ask="week">¿Cuál fue mi mejor día?</button></div><div id="askAnswer" class="notice section">Elige una pregunta. La respuesta usa únicamente los datos de tu negocio.</div></div>`)}
+function renderTeam(){const rows=[...data.members,...data.employees].map(x=>({name:x.display_name||x.email||'Colaborador',role:x.role||'employee',code:x.employee_code||x.code_number||''}));return shell(`<div class="hero"><div><h1>Equipo</h1><p>Personas vinculadas a tu negocio.</p></div></div><div class="panel-mobile-list">${rows.length?rows.map(r=>`<div class="panel-mobile-card panel-team-card"><span class="panel-team-avatar">${esc((r.name||'?').trim().charAt(0).toUpperCase())}</span><div><strong>${esc(r.name)}</strong><p>${esc(r.role==='owner'?'Dueño':r.role==='admin'?'Administrador':'Colaborador')}</p></div><span class="panel-mini-pill">${r.code?`CR${esc(r.code)}`:'Activo'}</span></div>`).join(''):'<div class="card empty">No hay colaboradores sincronizados.</div>'}</div><div class="notice section">Los permisos siguen protegidos por las reglas de Supabase.</div>`)}
 
 function bind(){document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.nav;render()}));$('#goApp')?.addEventListener('click',()=>location.href='index.html');$('#logout')?.addEventListener('click',async()=>{await sb.auth.signOut();location.href='index.html'});$('#saveSettings')?.addEventListener('click',saveBusinessSettings);$('#removeLogo')?.addEventListener('click',()=>{pendingLogo='';const p=$('#logoPreview');if(p)p.textContent='Sin logo'});$('#logoFile')?.addEventListener('change',async e=>{const f=e.target.files?.[0];if(!f)return;try{pendingLogo=await resizeLogo(f);$('#logoPreview').innerHTML=`<img src="${esc(pendingLogo)}" alt="Logo negocio">`}catch(err){alert(err.message||'No se pudo procesar el logo')}});$('#saveGoal')?.addEventListener('click',saveGoal);document.querySelectorAll('[data-ask]').forEach(b=>b.addEventListener('click',()=>{const box=$('#askAnswer');if(box)box.textContent=askPointYaAnswer(b.dataset.ask)}))}
 let pendingLogo=null;
