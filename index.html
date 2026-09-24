@@ -1431,10 +1431,20 @@ html, body {
       setTimeout(() => splash.remove(), 240);
     }, wait);
   };
-  setTimeout(() => window.finishPycStartupSplash?.(), 4500);
+  setTimeout(() => {
+    const app = document.getElementById('app');
+    if (app && app.innerHTML.trim()) {
+      window.finishPycStartupSplash?.();
+      return;
+    }
+    if (app) {
+      app.innerHTML = `<section class="onboarding"><div class="onboard-card"><img class="brand-logo-horizontal compact" src="./logo-horizontal.png" alt="PUNTO YA CR"><h2>Abriendo PUNTO YA CR…</h2><p>Estamos cargando los datos guardados en este dispositivo.</p></div></section>`;
+      window.finishPycStartupSplash?.();
+    }
+  }, 6000);
 })();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Supabase se carga de forma no bloqueante después del primer render local. -->
 <script>
 /* ===== core.js ===== */
 const DB_NAME = "mipuntocr";
@@ -2250,6 +2260,62 @@ function cloudSdkAvailable() {
   return !!window.supabase?.createClient;
 }
 
+const MPCR_SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+let mpCloudSdkPromise = null;
+
+function loadCloudSdk(timeoutMs = 7000) {
+  if (cloudSdkAvailable()) return Promise.resolve(true);
+  if (!navigator.onLine) return Promise.resolve(false);
+  if (mpCloudSdkPromise) return mpCloudSdkPromise;
+
+  const basePromise = new Promise(resolve => {
+    let settled = false;
+    const finish = ok => {
+      if (settled) return;
+      settled = true;
+      resolve(!!ok);
+    };
+
+    let script = document.querySelector('script[data-pycr-supabase-sdk="1"]');
+    if (!script) {
+      script = document.createElement("script");
+      script.src = MPCR_SUPABASE_SDK_URL;
+      script.async = true;
+      script.defer = true;
+      script.dataset.pycrSupabaseSdk = "1";
+      document.head.appendChild(script);
+    }
+    script.addEventListener("load", () => finish(cloudSdkAvailable()), { once: true });
+    script.addEventListener("error", () => finish(false), { once: true });
+    setTimeout(() => finish(cloudSdkAvailable()), timeoutMs);
+  });
+
+  mpCloudSdkPromise = basePromise.then(ok => {
+    if (!ok) mpCloudSdkPromise = null;
+    return ok;
+  });
+  return mpCloudSdkPromise;
+}
+
+async function ensureCloudClient() {
+  if (initCloudClient()) return true;
+  const loaded = await loadCloudSdk();
+  return loaded ? initCloudClient() : false;
+}
+
+async function initCloudInBackground() {
+  if (!navigator.onLine) return false;
+  const ready = await ensureCloudClient();
+  if (!ready) return false;
+  try {
+    await initCloudAuth();
+    return true;
+  } catch (error) {
+    console.warn("Nube disponible después del arranque local:", error);
+    return false;
+  }
+}
+
 function initCloudClient() {
   if (mpCloud) return true;
   if (!cloudSdkAvailable()) return false;
@@ -2892,7 +2958,10 @@ async function cloudHydrateSession(session) {
 }
 
 async function initCloudAuth() {
-  if (!initCloudClient()) return false;
+  if (!initCloudClient()) {
+    const ready = await ensureCloudClient();
+    if (!ready) return false;
+  }
 
   try {
     await setupNativeOAuthListener();
@@ -8657,6 +8726,7 @@ function handleViewportChange() {
 window.addEventListener("resize", handleViewportChange);
 window.addEventListener("orientationchange", handleViewportChange);
 window.addEventListener("online", async () => {
+  try { await initCloudInBackground(); } catch (error) { console.warn("Reconexión de nube:", error); }
   if (mpCloudSession?.user) {
     try { await cloudHydrateSession(mpCloudSession); } catch (error) { console.error(error); }
   } else if (state.settings.cloudLinked) {
@@ -9314,26 +9384,52 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
 (async () => {
   injectStyles();
   injectV7Styles();
+
+  // OFFLINE-FIRST: datos locales y primera pantalla nunca esperan a Supabase.
   db = await openDB();
   await load();
   const publicParams = new URLSearchParams(location.search);
   if (publicParams.get("privacy") === "1") { renderPublicLegal("privacy"); window.finishPycStartupSplash?.(); return; }
   if (publicParams.get("terms") === "1") { renderPublicLegal("terms"); window.finishPycStartupSplash?.(); return; }
-  if (publicParams.get("delete-account") === "1") { await renderPublicDeletionRequest(); window.finishPycStartupSplash?.(); return; }
-  if (publicParams.get("catalog") === "1") { initCloudClient(); await renderPublicCatalog(); window.finishPycStartupSplash?.(); return; }
-  await initCloudAuth();
+
+  // Las vistas públicas que sí dependen de nube cargan el SDK solo cuando lo necesitan.
+  if (publicParams.get("delete-account") === "1") {
+    if (navigator.onLine) await ensureCloudClient();
+    await renderPublicDeletionRequest();
+    window.finishPycStartupSplash?.();
+    return;
+  }
+  if (publicParams.get("catalog") === "1") {
+    if (navigator.onLine) await ensureCloudClient();
+    await renderPublicCatalog();
+    window.finishPycStartupSplash?.();
+    return;
+  }
+
   locked = !!state.settings.pinEnabled;
   lastActivityAt = Date.now();
   render();
   window.finishPycStartupSplash?.();
-  // Hotfix de repintado: se mantiene, pero nunca debe borrar un formulario de onboarding ya editado.
+
+  // Registrar el shell offline apenas la UI local ya está visible.
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(console.error);
+
+  // La nube se hidrata después, sin bloquear Inicio ni el trabajo offline.
+  if (navigator.onLine) {
+    initCloudInBackground().then(() => {
+      const active = document.activeElement;
+      const editingOnboarding = !state.settings.onboardingComplete && active?.closest?.(".onboarding") && ["INPUT", "SELECT", "TEXTAREA"].includes(active?.tagName);
+      if (!document.querySelector("#modalRoot") && !onboardingFormDirty && !editingOnboarding) render();
+    }).catch(error => console.warn("Sincronización en segundo plano:", error));
+  }
+
+  // Repintado local corto: nunca depende de red ni borra formularios en edición.
   requestAnimationFrame(() => { if (!document.querySelector("#modalRoot") && !onboardingFormDirty) render(); });
   setTimeout(() => {
     const active = document.activeElement;
-    const editingOnboarding = !state.settings.onboardingComplete && active?.closest?.(".onboarding") && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName);
+    const editingOnboarding = !state.settings.onboardingComplete && active?.closest?.(".onboarding") && ["INPUT", "SELECT", "TEXTAREA"].includes(active?.tagName);
     if (!document.querySelector("#modalRoot") && !onboardingFormDirty && !editingOnboarding) render();
   }, 250);
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(console.error);
 })().catch(err => {
   console.error(err);
   injectStyles();
