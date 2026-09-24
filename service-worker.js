@@ -1,9 +1,10 @@
-const CACHE = 'punto-ya-cr-v7-44';
+const CACHE = 'punto-ya-cr-v7-59-fiscal-final';
 
 const CORE = [
   './',
   './index.html',
   './panel.html',
+  './consulta-comprobante.html',
   './manifest.webmanifest',
   './logo-horizontal.png',
   './logo-vertical.png',
@@ -57,7 +58,8 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   const isSupabaseSdk = url.hostname === 'cdn.jsdelivr.net' && url.pathname.includes('@supabase/supabase-js');
-  if (isSupabaseSdk) return event.respondWith(cacheFirst(request));
+  const isQrCodeSdk = url.hostname === 'cdnjs.cloudflare.com' && url.pathname.includes('/qrcodejs/');
+  if (isSupabaseSdk || isQrCodeSdk) return event.respondWith(cacheFirst(request));
   if (url.origin !== self.location.origin) return;
   if (request.mode === 'navigate') return event.respondWith(networkFirst(request, './index.html'));
   event.respondWith(cacheFirst(request));

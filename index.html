@@ -5061,7 +5061,12 @@ function fiscalXmlActivityCode(value) {
   if(/^\d{6}$/.test(digits)) return digits;
   throw new Error(`La actividad ${raw||"sin código"} necesita su código tributario RUT de 6 dígitos para facturación electrónica.`);
 }
+const FISCAL_TRANSMISSION_ENABLED = false; // PREPRODUCCIÓN: cambiar solo al activar producción de forma controlada.
+const FISCAL_TARGET_ENVIRONMENT = "sandbox";
+
 async function emitElectronicInvoiceSandbox(sale) {
+  if (!FISCAL_TRANSMISSION_ENABLED) throw new Error("Transmisión fiscal bloqueada: PUNTO YA CR continúa en preproducción.");
+  if (FISCAL_TARGET_ENVIRONMENT !== "sandbox") throw new Error("Entorno fiscal no autorizado para esta versión.");
   if (sale?.fiscalTransmissionPaused !== false) throw new Error("Transmisión fiscal pausada durante la etapa de integración.");
   if(!isElectronicSale(sale)) return null;
   if(!navigator.onLine) throw new Error("La prueba de Factura Electrónica requiere Internet.");
