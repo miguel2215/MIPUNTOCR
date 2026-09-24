@@ -1182,6 +1182,7 @@ button {
 @media(max-width:520px){.pycr-product-two{grid-template-columns:1fr}.pycr-supplier-actions .btn{flex:1 1 calc(50% - 6px)}.pycr-sticky-modal-head h3{font-size:25px}.pycr-category-picker .type-choice strong{font-size:13px}}
 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <div id="pycStartupSplash" role="status" aria-label="Abriendo PUNTO YA CR">
@@ -5356,12 +5357,26 @@ function fiscalPublicLookupUrl(sale) {
   u.hash=`token=${sale.fiscalPublicToken}`;
   return u.href;
 }
-function fiscalQrImageUrl(sale, size=220) { const url=fiscalPublicLookupUrl(sale); return url?`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}`:""; }
+function fiscalQrDataUrl(text, size=220) {
+  if(!text || typeof QRCode === "undefined") return "";
+  try {
+    const host=document.createElement("div");
+    new QRCode(host,{text,width:size,height:size,colorDark:"#000000",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+    const canvas=host.querySelector("canvas");
+    if(canvas?.toDataURL) return canvas.toDataURL("image/png");
+    return host.querySelector("img")?.src || "";
+  } catch(error) {
+    console.error("QR fiscal local:",error);
+    return "";
+  }
+}
+function fiscalQrImageUrl(sale, size=220) { const url=fiscalPublicLookupUrl(sale); return url?fiscalQrDataUrl(url,size):""; }
 function fiscalQrHtml(sale,{compact=false}={}) {
   if(!isElectronicSale(sale)) return "";
   const url=fiscalPublicLookupUrl(sale);
   if(!url) return `<div class="fiscal-qr-block" style="text-align:center;margin-top:${compact?10:18}px;padding-top:${compact?8:14}px;border-top:1px dashed #b9c7c3"><strong style="display:block;font-size:${compact?10:11}px">Consulta tu factura/comprobante electrónico aquí</strong><small style="display:block;color:#536B79;margin-top:6px">El enlace estará disponible al sincronizar esta venta con la nube.</small></div>`;
-  return `<div class="fiscal-qr-block" style="text-align:center;margin-top:${compact?10:18}px;padding-top:${compact?8:14}px;border-top:1px dashed #b9c7c3"><strong style="display:block;font-size:${compact?10:11}px">Consulta tu factura/comprobante electrónico aquí</strong><img src="${esc(fiscalQrImageUrl(sale,compact?150:220))}" alt="QR de consulta" style="width:${compact?30:38}mm;max-width:145px;height:auto;margin:7px auto 3px;display:block"><small style="display:block;color:#536B79;word-break:break-all">${esc(url)}</small></div>`;
+  const qr=fiscalQrImageUrl(sale,compact?150:220);
+  return `<div class="fiscal-qr-block" style="text-align:center;margin-top:${compact?10:18}px;padding-top:${compact?8:14}px;border-top:1px dashed #b9c7c3"><strong style="display:block;font-size:${compact?10:11}px">Consulta tu factura/comprobante electrónico aquí</strong>${qr?`<img src="${esc(qr)}" alt="QR de consulta" style="width:${compact?30:38}mm;max-width:145px;height:auto;margin:7px auto 3px;display:block">`:``}<small style="display:block;color:#536B79;word-break:break-all">${esc(url)}</small></div>`;
 }
 function invoiceRequestTicketHtml(sale) {
   if (!isElectronicSale(sale)) return "";

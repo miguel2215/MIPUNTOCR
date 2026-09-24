@@ -1,4 +1,77 @@
-import { corsHeaders, json, requireBusinessMember } from '../shared/fiscal.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+  });
+}
+
+function env(name: string) {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`Falta la variable segura ${name}`);
+  return value;
+}
+
+function userClient(req: Request) {
+  return createClient(env('SUPABASE_URL'), env('SUPABASE_ANON_KEY'), {
+    global: { headers: { Authorization: req.headers.get('Authorization') || '' } },
+    auth: { persistSession: false },
+  });
+}
+
+function serviceClient() {
+  return createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {
+    auth: { persistSession: false },
+  });
+}
+
+async function requireBusinessMember(req: Request, businessId: string) {
+  if (!businessId) throw new Error('Negocio no especificado.');
+
+  const client = userClient(req);
+  const { data: authData, error: authError } = await client.auth.getUser();
+  if (authError || !authData.user) throw new Error('Sesión no válida.');
+
+  const uid = authData.user.id;
+  const service = serviceClient();
+
+  const { data: business, error: businessError } = await client
+    .from('businesses')
+    .select('id, owner_user_id')
+    .eq('id', businessId)
+    .maybeSingle();
+
+  if (businessError) {
+    console.error('businesses member lookup:', businessError);
+    throw new Error('No fue posible consultar el negocio.');
+  }
+  if (!business) throw new Error('Negocio no encontrado.');
+  if (business.owner_user_id === uid) return { user: authData.user, service, role: 'owner' };
+
+  const { data: member, error: memberError } = await client
+    .from('business_members')
+    .select('role, active')
+    .eq('business_id', businessId)
+    .eq('user_id', uid)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (memberError) throw new Error('No fue posible comprobar los permisos del negocio.');
+  if (!member) throw new Error('No tienes acceso a este negocio.');
+
+  return {
+    user: authData.user,
+    service,
+    role: String(member.role || 'employee').toLowerCase(),
+  };
+}
 
 const SALE_META_PREFIX='__PYCR_SALE__';
 const clean=(v:unknown,max=200)=>String(v??'').trim().slice(0,max);

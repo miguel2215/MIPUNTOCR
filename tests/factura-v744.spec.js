@@ -200,6 +200,10 @@ test.describe('PUNTO YA CR - Consulta pública fiscal v7.59', () => {
     expect(source).toMatch(/consulta-comprobante\.html/);
     expect(source).toMatch(/u\.hash=`token=/);
     expect(source).not.toMatch(/u\.searchParams\.set\(["']token["']/);
+    expect(source).toMatch(/function fiscalQrDataUrl\(/);
+    expect(source).toMatch(/new QRCode\(/);
+    const fiscalQrBlock = source.match(/function fiscalQrDataUrl[\s\S]*?function fiscalQrHtml/)?.[0] || "";
+    expect(fiscalQrBlock).not.toMatch(/api\.qrserver\.com/);
   });
 
   test('la consulta pública existe y usa el endpoint dedicado sin emitir a Hacienda', async ({ request }) => {
