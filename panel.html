@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0BB79A">
 <title>Panel del Emprendedor · PUNTO YA CR</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -309,6 +309,18 @@
 @media(min-width:701px){.panel-mobile-only{display:none!important}}
 </style>
 
+
+<style id="pycr-no-zoom-style">
+/* PUNTO YA CR · interacción móvil sin zoom accidental */
+html, body {
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+@media (max-width: 767px) {
+  input, select, textarea, button { font-size: max(16px, 1em); }
+}
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -532,7 +544,20 @@ async function saveBusinessTypeV742(){const box=$('#typeStatus');if(!isOwnerPane
 function inferPrinterWidth(name){const n=String(name||'').toLowerCase();if(/(^|[^0-9])58([^0-9]|$)|pos[-_ ]?58|rp[-_ ]?58|xp[-_ ]?58/.test(n))return'58';if(/(^|[^0-9])80([^0-9]|$)|pos[-_ ]?80|rp[-_ ]?80|xp[-_ ]?80|tm[-_ ]?t/.test(n))return'80';return''}
 async function savePrinterConfigV742(patch){const next={...settings(),printerAuto:true,...patch};await updateBusinessV742({settings:next})}
 async function findPrinterV742(){const box=$('#printerStatus');box.className='status';box.textContent='Buscando impresora…';try{let name='',source='';if(navigator.usb?.getDevices){const devices=await navigator.usb.getDevices();const d=devices.find(x=>x.productName)||devices[0];if(d){name=d.productName||`USB ${d.vendorId||''}:${d.productId||''}`;source='USB'}}if(!name&&navigator.bluetooth?.requestDevice){try{const d=await navigator.bluetooth.requestDevice({acceptAllDevices:true});if(d){name=d.name||'Impresora Bluetooth';source='Bluetooth'}}catch(e){if(e?.name!=='NotFoundError')console.warn(e)}}const width=inferPrinterWidth(name);await savePrinterConfigV742({printerDetectedName:name||'Impresora del sistema',printerDetectedSource:source||'system',printerWidth:width||String(settings().printerWidth||'80'),printerNeedsCalibration:!width,printerDetectedAt:new Date().toISOString()});box.textContent=width?`Impresora detectada y configurada automáticamente (${name}).`:'Impresora lista. Haz una prueba rápida para terminar la configuración.';setTimeout(render,800)}catch(e){console.error(e);box.className='status error';box.textContent='No pude identificarla directamente. Usa “Imprimir prueba” y PUNTO YA CR la ajustará.'}}
-function openPrinterTestWindowV742(){const mm=String(settings().printerWidth||'80')==='58'?58:80,body=mm===58?50:72,w=window.open('','_blank','width=520,height=760');if(!w)return false;w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Prueba PUNTO YA CR</title><style>@page{size:${mm}mm auto;margin:4mm}body{font-family:Arial,sans-serif;width:${body}mm;margin:0 auto;text-align:center;font-size:${mm===58?10:12}px}h1{font-size:${mm===58?15:18}px}hr{border:0;border-top:1px dashed #777}</style></head><body><h1>${esc(business?.name||'PUNTO YA CR')}</h1><p>Prueba de impresión</p><hr><p>Si todo el texto cabe y se ve centrado, la configuración está lista.</p><p style="font-weight:bold">PUNTO YA CR</p><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();return true}
+function openPrinterTestWindowV742(){const mm=String(settings().printerWidth||'80')==='58'?58:80,body=mm===58?50:72,w=window.open('','_blank','width=520,height=760');if(!w)return false;w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Prueba PUNTO YA CR</title><style>@page{size:${mm}mm auto;margin:4mm}body{font-family:Arial,sans-serif;width:${body}mm;margin:0 auto;text-align:center;font-size:${mm===58?10:12}px}h1{font-size:${mm===58?15:18}px}hr{border:0;border-top:1px dashed #777}</style></head><body><h1>${esc(business?.name||'PUNTO YA CR')}</h1><p>Prueba de impresión</p><hr><p>Si todo el texto cabe y se ve centrado, la configuración está lista.</p><p style="font-weight:bold">PUNTO YA CR</p><script>window.onload=()=>window.print()<\/script>
+<script id="pycr-no-zoom-script">
+(() => {
+  const stop = (e) => e.preventDefault();
+  document.addEventListener('gesturestart', stop, { passive: false });
+  document.addEventListener('gesturechange', stop, { passive: false });
+  document.addEventListener('gestureend', stop, { passive: false });
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('dblclick', stop, { passive: false });
+})();
+</script>
+</body></html>`);w.document.close();return true}
 async function printPrinterTestV742(){if(!settings().printerDetectedName){await savePrinterConfigV742({printerDetectedName:'Impresora del sistema',printerDetectedSource:'system',printerWidth:String(settings().printerWidth||'80'),printerNeedsCalibration:true,printerDetectedAt:new Date().toISOString()});}const ok=openPrinterTestWindowV742();if(!ok){const box=$('#printerStatus');if(box){box.className='status error';box.textContent='Permite ventanas emergentes para hacer la prueba.'}}else setTimeout(render,250)}
 async function printerCalibrationV742(ok){if(ok){await savePrinterConfigV742({printerNeedsCalibration:false,printerCalibratedAt:new Date().toISOString()});return render()}const other=String(settings().printerWidth||'80')==='80'?'58':'80';await savePrinterConfigV742({printerWidth:other,printerNeedsCalibration:true});openPrinterTestWindowV742();setTimeout(render,250)}
 async function redeemProCodeV742(source='full'){const quick=source==='quick';const box=quick?$('#proQuickStatus'):$('#proStatus');const input=quick?$('#proCodeQuick'):$('#proCode');if(!isOwnerPanel())return;const code=input?.value.trim().toUpperCase()||'';if(!box)return;if(!code){box.className='status error';box.textContent='Escribe el código PRO.';return}try{box.className='status';box.textContent='Activando…';const {data:r,error}=await sb.rpc('redeem_pro_promo_code',{p_code:code});if(error)throw error;await loadV742PlanStatus();box.className='status';box.textContent='PRO activado para este negocio.';setTimeout(()=>{if(quick){settingsSection='';view='settings'}else{settingsSection='pro';view='pro'}render()},700);return Array.isArray(r)?r[0]:r}catch(e){console.error(e);box.className='status error';box.textContent=e?.message||'No se pudo activar el código.'}}

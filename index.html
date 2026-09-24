@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#12B76A">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="format-detection" content="telephone=no">
@@ -1391,6 +1391,18 @@ button {
   #modalRoot .credit-summary-box span{display:block!important;color:#64748B!important;font-size:12px!important;margin-bottom:5px!important}
   #modalRoot .credit-summary-box strong{font-size:17px!important;color:#0F172A!important}
   #modalRoot textarea{line-height:1.55!important;min-height:220px!important}
+}
+</style>
+
+<style id="pycr-no-zoom-style">
+/* PUNTO YA CR · interacción móvil sin zoom accidental */
+html, body {
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+@media (max-width: 767px) {
+  input, select, textarea, button { font-size: max(16px, 1em); }
 }
 </style>
 </head>
@@ -5933,6 +5945,19 @@ window.previewInvoiceBeforeSale = () => {
 }
 </style>
 
+
+<script id="pycr-no-zoom-script">
+(() => {
+  const stop = (e) => e.preventDefault();
+  document.addEventListener('gesturestart', stop, { passive: false });
+  document.addEventListener('gesturechange', stop, { passive: false });
+  document.addEventListener('gestureend', stop, { passive: false });
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('dblclick', stop, { passive: false });
+})();
+</script>
 </body></html>`);
   w.document.close();
 };
