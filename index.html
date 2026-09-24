@@ -1337,6 +1337,8 @@ let locked = false;
 let role = "owner"; // owner | admin | employee (se carga desde Supabase)
 let activeClientId = "";
 let quickCategory = "";
+let desktopSidebarExpandedInSale = false;
+let pendingDesktopSaleContextChoice = false;
 let authStep = "welcome";
 let setupDraft = {};
 let onboardingFormDirty = false;
@@ -1768,6 +1770,46 @@ function injectStyles() {
       .desktop-pos-layout{grid-template-columns:225px minmax(0,1fr) 420px}
       .desktop-product-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
     }
+
+    /* PUNTO YA CR · Especificación Maestra UI · Bloque 1 PC */
+    @media(min-width:1100px) and (min-height:650px){
+      .desktop-app{--primary:#12B76A;--primary-dark:#0E9A5A;--soft:#EAF8F1;--text:#0F172A;--muted:#64748B;--line:#E2E8F0;background:#F8FAFC;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;transition:grid-template-columns .2s ease}
+      .desktop-app.sale-sidebar-collapsed{grid-template-columns:88px minmax(0,1fr)}
+      .desktop-sidebar{border-color:#E2E8F0;border-radius:20px;box-shadow:0 10px 28px rgba(15,23,42,.05);transition:padding .2s ease}
+      .desktop-logo{display:flex;align-items:center;gap:10px;position:relative;min-height:58px;padding-right:34px}
+      .desktop-sidebar-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:30px;height:30px;border:1px solid #E2E8F0;border-radius:10px;background:#fff;color:#0F172A;font-size:20px;line-height:1;font-weight:800}
+      .desktop-nav button{display:flex;align-items:center;gap:11px;min-height:48px;border-radius:12px;padding:12px 13px;color:#64748B;font-size:14px}
+      .desktop-nav-icon{width:22px;min-width:22px;text-align:center;font-size:18px;line-height:1;color:currentColor}
+      .desktop-nav-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .desktop-nav button.active{background:#EAF8F1;border-color:#D7F0E3;color:#0E9A5A;box-shadow:inset 3px 0 0 #12B76A}
+      .desktop-app.sale-sidebar-collapsed .desktop-sidebar{padding-left:10px;padding-right:10px}
+      .desktop-app.sale-sidebar-collapsed .desktop-logo{justify-content:center;padding:4px 0 18px}
+      .desktop-app.sale-sidebar-collapsed .desktop-logo>div,.desktop-app.sale-sidebar-collapsed .desktop-sidebar-foot{display:none}
+      .desktop-app.sale-sidebar-collapsed .desktop-logo .brand-icon{width:38px;height:38px}
+      .desktop-app.sale-sidebar-collapsed .desktop-sidebar-toggle{right:-4px;top:26px;background:#0F172A;color:#fff;border-color:#0F172A}
+      .desktop-app.sale-sidebar-collapsed .desktop-nav button{justify-content:center;padding-left:8px;padding-right:8px}
+      .desktop-app.sale-sidebar-collapsed .desktop-nav-label{display:none}
+      .desktop-app.sale-sidebar-collapsed .desktop-nav-icon{font-size:20px}
+      .desktop-topbar{border-color:#E2E8F0;border-radius:18px;box-shadow:0 8px 24px rgba(15,23,42,.04)}
+      .desktop-page{padding:8px 4px 20px}
+      .desktop-pos-header h2{font-size:24px;font-weight:700;color:#0F172A}.desktop-pos-header p{color:#64748B}
+      .desktop-pos-layout{grid-template-columns:190px minmax(0,1fr) minmax(340px,390px);gap:12px}
+      .sale-sidebar-collapsed .desktop-pos-layout{grid-template-columns:200px minmax(0,1fr) minmax(360px,410px)}
+      .desktop-pos-box{border-color:#E2E8F0;border-radius:16px;box-shadow:0 7px 20px rgba(15,23,42,.035)}
+      .desktop-category-btn{min-height:48px;border-radius:12px}.desktop-category-btn.active,.desktop-category-btn.active:hover{background:#12B76A}
+      .desktop-product-toolbar .search{min-height:48px;border-radius:12px;border-color:#E2E8F0}
+      .desktop-product{min-height:112px;border-radius:14px;border-color:#E2E8F0}.desktop-product span{color:#0E9A5A}
+      .desktop-cart-pane{padding:14px}.desktop-cart-head h3{font-size:18px}.desktop-pay-grid .pay-btn{min-height:52px;border-radius:12px;font-size:13px}
+      .desktop-sale-context{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #D7F0E3;background:#F4FBF7;border-radius:14px;padding:10px 11px;margin-bottom:10px}
+      .desktop-sale-context small{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748B}.desktop-sale-context strong{display:block;font-size:14px;color:#0F172A;margin-top:2px}
+      .desktop-sale-context-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.desktop-sale-context-actions button{border:1px solid #D7E5DC;background:#fff;border-radius:10px;padding:8px 9px;font-size:11px;font-weight:700;color:#0E9A5A}
+      .sale-context-picker{color:#0F172A}.sale-context-head small{font-size:11px;font-weight:700;letter-spacing:.09em;color:#0E9A5A}.sale-context-head h3{font-size:24px;margin:5px 0 5px}.sale-context-head p{margin:0;color:#64748B;font-size:14px}
+      .sale-context-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}.sale-context-grid button{min-height:128px;border:1px solid #E2E8F0;background:#fff;border-radius:16px;padding:18px;text-align:left;transition:.15s ease}.sale-context-grid button:hover{border-color:#12B76A;background:#F4FBF7;transform:translateY(-1px)}.sale-context-grid strong{display:block;font-size:16px;margin-top:12px}.sale-context-grid small{display:block;color:#64748B;font-size:12px;margin-top:5px}.sale-context-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#EAF8F1;color:#0E9A5A;font-size:20px;font-weight:800}
+    }
+    @media(min-width:1500px) and (min-height:650px){
+      .desktop-app.sale-sidebar-collapsed{grid-template-columns:92px minmax(0,1fr)}
+      .sale-sidebar-collapsed .desktop-pos-layout{grid-template-columns:210px minmax(0,1fr) 420px}
+    }
   `;
   document.head.appendChild(s);
 }
@@ -1836,12 +1878,22 @@ function desktopNavItems() {
   items.push(["expenses", "Gastos y utilidad"]); if (role === "owner") { items.push(["fiscal", isProPlan() ? "Factura electrónica" : "Factura electrónica · PRO"]); if (state.settings.cloudLinked) items.push(["users", "Empleados"]); items.push(["settings", "Configuración"]); }
   return items.filter(([target]) => canAccessScreen(target));
 }
+function desktopNavIcon(target) {
+  return ({ home:"⌂", sale:"▣", orders:"☷", tables:"▦", products:"◇", clients:"◎", cash:"₡", sales:"≡", catalog:"⌘", expenses:"↗", fiscal:"ƒ", users:"♙", settings:"⚙" })[target] || "•";
+}
 function desktopShell(content, active = "home") {
   const current = screen || active;
-  const nav = desktopNavItems().map(([target, label]) => `<button class="${current === target ? "active" : ""}" onclick="go('${target}')">${label}</button>`).join("");
+  const compactSaleSidebar = current === "sale" && !desktopSidebarExpandedInSale;
+  const nav = desktopNavItems().map(([target, label]) => `<button class="${current === target ? "active" : ""}" onclick="go('${target}')" title="${esc(label)}"><span class="desktop-nav-icon" aria-hidden="true">${desktopNavIcon(target)}</span><span class="desktop-nav-label">${label}</span></button>`).join("");
   const shift = currentShift();
-  return `<div class="desktop-app"><aside class="desktop-sidebar"><div class="desktop-logo">${brandIcon("brand-icon small")}<div><div class="business-name-line"><strong>${esc(state.settings.businessName)}</strong>${proBrandBadge()}</div><small>PUNTO YA CR</small></div></div><nav class="desktop-nav">${nav}</nav><div class="desktop-sidebar-foot">${usesOrdersTablesCash() ? (shift ? `Caja abierta · ${dateTime(shift.openedAt)}` : "Caja cerrada") : "Listo para cobrar"}</div></aside><main class="desktop-main"><header class="desktop-topbar"><div class="desktop-topbar-title"><div class="business-name-line"><strong>${esc(state.settings.businessName)}</strong>${proBrandBadge()}</div><span>${usesOrdersTablesCash() ? (shift ? "Punto de venta · Caja abierta" : "Punto de venta · Caja cerrada") : "Servicios"}</span></div><div class="desktop-top-actions">${securityLockButton()}<button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Pantalla completa</button>${badge()}</div></header><div class="desktop-page">${!navigator.onLine ? `<div class="offline-note">Sin conexión. Las funciones internas siguen guardándose en este dispositivo.</div>` : ""}${content}</div></main></div>`;
+  const sidebarToggle = current === "sale" ? `<button class="desktop-sidebar-toggle" type="button" onclick="toggleDesktopSaleSidebar()" title="${compactSaleSidebar ? "Expandir menú" : "Compactar menú"}" aria-label="${compactSaleSidebar ? "Expandir menú" : "Compactar menú"}">${compactSaleSidebar ? "›" : "‹"}</button>` : "";
+  return `<div class="desktop-app ${compactSaleSidebar ? "sale-sidebar-collapsed" : ""}"><aside class="desktop-sidebar"><div class="desktop-logo">${brandIcon("brand-icon small")}<div><div class="business-name-line"><strong>${esc(state.settings.businessName)}</strong>${proBrandBadge()}</div><small>PUNTO YA CR</small></div>${sidebarToggle}</div><nav class="desktop-nav">${nav}</nav><div class="desktop-sidebar-foot">${usesOrdersTablesCash() ? (shift ? `Caja abierta · ${dateTime(shift.openedAt)}` : "Caja cerrada") : "Listo para cobrar"}</div></aside><main class="desktop-main"><header class="desktop-topbar"><div class="desktop-topbar-title"><div class="business-name-line"><strong>${esc(state.settings.businessName)}</strong>${proBrandBadge()}</div><span>${usesOrdersTablesCash() ? (shift ? "Punto de venta · Caja abierta" : "Punto de venta · Caja cerrada") : "Servicios"}</span></div><div class="desktop-top-actions">${securityLockButton()}<button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Pantalla completa</button>${badge()}</div></header><div class="desktop-page">${!navigator.onLine ? `<div class="offline-note">Sin conexión. Las funciones internas siguen guardándose en este dispositivo.</div>` : ""}${content}</div></main></div>`;
 }
+window.toggleDesktopSaleSidebar = () => {
+  if (screen !== "sale") return;
+  desktopSidebarExpandedInSale = !desktopSidebarExpandedInSale;
+  rerenderSale();
+};
 function shell(content, active = "home") {
   if (isDesktopPOS()) return desktopShell(content, active);
   const third = usesOrdersTablesCash() ? ["orders", "Pedidos"] : ["sales", "Mis ventas"];
@@ -1884,6 +1936,10 @@ window.go = target => {
     cart = [];
     resetSaleMeta();
     quickCategory = "";
+    if (isDesktopPOS()) {
+      desktopSidebarExpandedInSale = false;
+      pendingDesktopSaleContextChoice = isFood();
+    }
   }
 
   screen = target;
@@ -4762,13 +4818,13 @@ window.setOrderType = value => {
   if (value === "Express") {
     saleMeta.orderType = "Express"; saleMeta.table = "";
     const current = Number(saleMeta.expressFee || state.settings.expressFee || 0);
-    modal(`<h3>Costo de Express</h3><p class="muted">Agrega el monto del envío. Se sumará al total y al comprobante.</p><div class="field"><label>Monto de Express</label><input id="saleExpressFee" type="number" min="0" inputmode="decimal" value="${current || ""}" placeholder="Ej. 2000"></div><div class="toolbar"><button class="btn primary" onclick="confirmSaleExpress()">Agregar Express</button><button class="btn ghost" onclick="removeSaleExpress()">Quitar Express</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
+    modal(`<h3>Costo de domicilio</h3><p class="muted">Agrega el monto de la entrega. Se sumará al total y al comprobante.</p><div class="field"><label>Monto de entrega</label><input id="saleExpressFee" type="number" min="0" inputmode="decimal" value="${current || ""}" placeholder="Ej. 2000"></div><div class="toolbar"><button class="btn primary" onclick="confirmSaleExpress()">Guardar entrega</button><button class="btn ghost" onclick="removeSaleExpress()">Quitar Express</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
     return;
   }
   saleMeta.orderType = value; saleMeta.expressFee = 0; if (value !== "Mesa") saleMeta.table = ""; rerenderSale();
 };
-window.confirmSaleExpress = () => { const amount=Math.max(0,Number($("#saleExpressFee")?.value||0)); saleMeta.orderType="Express"; saleMeta.expressFee=amount; closeModal(); rerenderSale(); toast(`Express agregado: ${money(amount)}`); };
-window.removeSaleExpress = () => { saleMeta.expressFee=0; saleMeta.orderType="Mostrador"; closeModal(); rerenderSale(); toast("Express quitado."); };
+window.confirmSaleExpress = () => { const amount=Math.max(0,Number($("#saleExpressFee")?.value||0)); saleMeta.orderType="Express"; saleMeta.expressFee=amount; closeModal(); rerenderSale(); toast(`Entrega agregada: ${money(amount)}`); };
+window.removeSaleExpress = () => { saleMeta.expressFee=0; saleMeta.orderType="Mostrador"; closeModal(); rerenderSale(); toast("Entrega quitada."); };
 window.askTable = () => showTablePicker();
 window.editSaleNote = () => modal(`<h3>Nota de la venta</h3><div class="field"><textarea id="saleNote" rows="4" placeholder="Ej. sin cebolla, entregar a las 3...">${esc(saleMeta.note)}</textarea></div><div class="toolbar"><button class="btn primary" onclick="saveSaleNote()">Guardar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`);
 window.saveSaleNote = () => { saleMeta.note = $("#saleNote").value.trim(); closeModal(); rerenderSale(); };
@@ -4782,6 +4838,28 @@ window.newClientFromSale = () => modal(`<h3>Nuevo cliente</h3><div class="field"
 /* =========================
    POS PARA COMPUTADORA
 ========================= */
+function desktopSaleContextLabel() {
+  if (saleMeta.orderType === "Mesa") return saleMeta.table ? `Mesa ${saleMeta.table}` : "Mesa";
+  if (saleMeta.orderType === "Express") return "Domicilio";
+  return saleMeta.orderType || "Mostrador";
+}
+window.openSaleContextChooser = () => {
+  if (!isFood()) return;
+  modal(`<div class="sale-context-picker"><div class="sale-context-head"><div><small>NUEVA VENTA</small><h3>¿Cómo será esta venta?</h3><p>Selecciona una opción para continuar.</p></div></div><div class="sale-context-grid"><button onclick="chooseSaleContext('Mesa')"><span class="sale-context-icon">▦</span><strong>Mesa</strong><small>Seleccionar mesa</small></button><button onclick="chooseSaleContext('Para llevar')"><span class="sale-context-icon">↗</span><strong>Para llevar</strong><small>Pedido para recoger</small></button><button onclick="chooseSaleContext('Domicilio')"><span class="sale-context-icon">⌂</span><strong>Domicilio</strong><small>Entrega al cliente</small></button><button onclick="chooseSaleContext('Mostrador')"><span class="sale-context-icon">▣</span><strong>Mostrador</strong><small>Venta directa</small></button></div></div>`);
+};
+window.chooseSaleContext = choice => {
+  closeModal();
+  if (choice === "Mesa") {
+    saleMeta.orderType = "Mesa"; saleMeta.expressFee = 0;
+    return showTablePicker();
+  }
+  if (choice === "Domicilio") {
+    saleMeta.orderType = "Express"; saleMeta.table = ""; saleMeta.expressFee = Math.max(0, Number(state.settings.expressFee || 0));
+  } else {
+    saleMeta.orderType = choice; saleMeta.table = ""; saleMeta.expressFee = 0;
+  }
+  rerenderSale();
+};
 function renderDesktopSale() {
   if (!canSell()) { screen = "cash"; return renderCash(); }
   const categories = [...new Set(currentProducts().map(p => p.category?.trim() || "Otros"))];
@@ -4791,13 +4869,17 @@ function renderDesktopSale() {
   const catHtml = categories.map(c => `<button class="desktop-category-btn ${c === quickCategory ? "active" : ""}" onclick="desktopSetCategory(decodeURIComponent('${enc(c)}'))">${esc(c)}</button>`).join("") || `<div class="empty" style="padding:10px">Sin categorías.</div>`;
   const itemHtml = items.map(p => `<button class="desktop-product" data-desktop-product="1" data-search="${esc((p.name + " " + (p.category || "") + " " + (p.barcode || p.sku || "")).toLowerCase())}" onclick="pickProduct('${p.id}')"><strong>${esc(p.name)}</strong>${!isFood() && p.variants?.length ? `<small>${p.variants.length} opciones</small>` : (!isServices() ? `<small>Stock: ${Number(p.stock || 0)}</small>` : `<small>${esc(p.category || "Servicio")}</small>`)}<span>${money(p.price)}</span></button>`).join("") || `<div class="empty" style="grid-column:1/-1">No hay ${isServices() ? "servicios" : "productos"} en esta categoría.</div>`;
   const cartHtml = cart.length ? cart.map(i => { const disc=isProducts()?itemDiscountAmount(i):0, net=isProducts()?Math.max(0,itemGross(i)-disc):itemGross(i); return `<div class="cart-item"><div style="min-width:0"><strong>${esc(i.name)}</strong>${i.variant ? `<div class="muted">${esc(i.variant)}</div>` : ""}<div class="muted">${i.qty} × ${money(i.price)}${isProducts()?` · ${money(net)}`:""}</div>${disc>0?`<span class="discount-note">Descuento −${money(disc)}</span>`:""}</div><div style="display:grid;gap:6px;justify-items:end"><div class="qty"><button onclick="qty('${i.cartId}',-1)">−</button><strong>${i.qty}</strong><button onclick="qty('${i.cartId}',1)">+</button></div>${isProducts()?`<button class="btn ghost" style="padding:6px 8px;font-size:10px" onclick="openItemDiscount('${i.cartId}')">Desc.</button>`:""}</div></div>`; }).join("") : `<div class="empty" style="padding:18px 8px">Selecciona ${isServices() ? "un servicio" : "un producto"}.</div>`;
-  const foodMeta = isFood() ? `<div class="desktop-cart-meta"><button class="${saleMeta.orderType === "Mostrador" ? "active" : ""}" onclick="setOrderType('Mostrador')">Mostrador</button><button class="${saleMeta.orderType === "Para llevar" ? "active" : ""}" onclick="setOrderType('Para llevar')">Para llevar</button><button class="${saleMeta.orderType === "Express" ? "active" : ""}" onclick="setOrderType('Express')">Express</button><button class="${saleMeta.orderType === "Mesa" ? "active" : ""}" onclick="askTable()">${saleMeta.table ? `Mesa ${esc(saleMeta.table)}` : "Mesa"}</button><button onclick="editSaleNote()">${saleMeta.note ? "Nota ✓" : "Nota"}</button></div>` : "";
+  const foodMeta = isFood() ? `<div class="desktop-sale-context"><div><small>Tipo de venta</small><strong>${esc(desktopSaleContextLabel())}</strong></div><div class="desktop-sale-context-actions"><button onclick="openSaleContextChooser()">Cambiar</button><button onclick="editSaleNote()">${saleMeta.note ? "Nota ✓" : "Nota"}</button>${saleMeta.orderType === "Express" ? `<button onclick="setOrderType('Express')">Entrega ${money(Number(saleMeta.expressFee||0))}</button>` : ""}</div></div>` : "";
   const selectedClient = saleMeta.clientId ? esc(clientName(saleMeta.clientId)) : "Sin cliente";
   const shift = currentShift();
   const exchangeShort=isProducts()&&Number(saleMeta.exchangeCredit||0)>Number(t.beforeExchangeTotal||0)+0.01;
   const retailPayHtml=isProducts()?(exchangeShort?`<div class="exchange-note">Agrega artículos por ${money(Number(saleMeta.exchangeCredit)-Number(t.beforeExchangeTotal||0))} más para completar el cambio.</div>`:(Number(saleMeta.exchangeCredit||0)>0&&Number(t.total||0)<=0.01?`<button class="btn primary full" onclick="finishExchangeOnly()">Finalizar cambio · sin diferencia</button>`:`<div class="desktop-pay-grid"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div>`)):"";
   const content = `<section class="desktop-pos-page"><div class="desktop-pos-header"><div><h2>${isServices() ? "Nuevo servicio" : "Punto de venta"}</h2><p>${isServices() ? "Selecciona el servicio y cobra." : "Selecciona productos y cobra desde la misma pantalla."}</p></div>${isFood() ? `<span class="desktop-cash-state open">Caja abierta${shift ? ` · ${dateTime(shift.openedAt)}` : ""}</span>` : `<span class="desktop-cash-state open">Listo para cobrar</span>`}</div><div class="desktop-pos-layout"><aside class="desktop-pos-box desktop-category-pane"><div class="desktop-category-title">Categorías</div>${catHtml}</aside><section class="desktop-pos-box desktop-product-pane"><div class="desktop-product-toolbar"><div class="sale-search-row"><input class="search" placeholder="Buscar en ${esc(quickCategory || (isServices() ? "servicios" : "productos"))}..." oninput="desktopFilterProducts(this.value)">${isProducts()?`<button class="scan-btn" onclick="openBarcodeScanner()">Escanear</button>`:""}</div>${isProducts()?retailSaleToolsHtml():""}</div><div class="desktop-product-grid">${itemHtml}</div></section><aside class="desktop-pos-box desktop-cart-pane">${foodMeta}<div class="desktop-cart-head"><h3>${isServices() ? "Servicio actual" : "Venta actual"}</h3><button class="btn ghost" style="padding:7px 9px;font-size:11px" onclick="clearCart()">Vaciar</button></div><div class="desktop-client-row"><span><strong>${selectedClient}</strong></span><button onclick="selectSaleClient()">${saleMeta.clientId ? "Cambiar" : "Cliente"}</button></div><div class="desktop-cart-list">${cartHtml}</div><div class="desktop-summary">${isProducts()?retailAdjustmentSummaryHtml(t):""}${state.settings.taxMode !== "exempt" ? `<div class="ticket-line"><span class="muted">Impuesto</span><span>${money(t.tax)}</span></div>` : ""}<div class="total-box"><span>${isProducts()&&saleMeta.exchangeCredit?"Diferencia":"Total"}</span><span>${money(t.total)}</span></div></div>${isProducts()?retailDocumentStatusHtml():""}${isFood() && saleMeta.orderType === "Mesa" ? `<div class="toolbar"><button class="btn primary" onclick="saveTableAccount()">Guardar mesa</button><button class="btn ghost" onclick="previewCurrentPrebill()">Precuenta</button></div>` : ""}${isProducts()?retailPayHtml:`<div class="desktop-pay-grid"><button class="pay-btn pay-cash" onclick="pay('cash')">Efectivo</button><button class="pay-btn pay-sinpe" onclick="pay('sinpe')">SINPE</button><button class="pay-btn pay-card" onclick="pay('card')">Tarjeta</button><button class="pay-btn pay-credit" onclick="pay('credit')">Crédito</button></div>`}</aside></div></section>`;
   $("#app").innerHTML = shell(content, "sale");
+  if (pendingDesktopSaleContextChoice) {
+    pendingDesktopSaleContextChoice = false;
+    setTimeout(() => { if (screen === "sale" && isDesktopPOS() && isFood()) openSaleContextChooser(); }, 0);
+  }
 }
 window.desktopSetCategory = c => { quickCategory = c; renderDesktopSale(); };
 window.desktopFilterProducts = q => {
