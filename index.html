@@ -5781,7 +5781,83 @@ window.previewInvoiceBeforeSale = () => {
   const sale = draftInvoiceSale();
   const w = window.open("", "_blank", "width=900,height=900");
   if (!w) return toast("Permite ventanas emergentes para abrir la vista previa.");
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Vista previa · Factura</title><style>body{margin:0;background:#eef2f1;padding:24px}.wrap{max-width:794px;margin:auto;box-shadow:0 10px 35px rgba(0,0,0,.08)}${unifiedInvoiceCss()}</style></head><body><div class="wrap">${unifiedInvoiceHtml(sale,{preview:true})}</div></body></html>`);
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Vista previa · Factura</title><style>body{margin:0;background:#eef2f1;padding:24px}.wrap{max-width:794px;margin:auto;box-shadow:0 10px 35px rgba(0,0,0,.08)}${unifiedInvoiceCss()}</style></head><body><div class="wrap">${unifiedInvoiceHtml(sale,{preview:true})}</div>
+<style id="pycr-mobile-v4-2-secondary-screens">
+@media(max-width:699px){
+  /* V4.2 · pantallas secundarias con el mismo lenguaje visual móvil */
+  #app .screen-title{margin:4px 0 12px;padding:0 1px}
+  #app .screen-title h2{font-size:28px!important;line-height:1.05!important;letter-spacing:-.55px!important;color:#0F172A!important;margin:0 0 6px!important;font-weight:800!important}
+  #app .screen-title p{font-size:13px!important;line-height:1.45!important;color:#64748B!important;margin:0!important}
+
+  #app .toolbar{gap:8px!important;margin:9px 0!important;flex-wrap:wrap!important}
+  #app .toolbar .btn,#app .toolbar a.btn{min-height:42px!important;border-radius:13px!important;padding:9px 12px!important;font-size:12px!important;font-weight:800!important;box-shadow:none!important}
+  #app .toolbar .btn.primary{background:#12B76A!important;border-color:#12B76A!important;color:#fff!important}
+  #app .toolbar .btn.ghost,#app .toolbar a.btn.ghost{background:#fff!important;border:1px solid #E2E8F0!important;color:#334155!important}
+
+  /* PEDIDOS */
+  #app .order-tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;background:#F1F5F9!important;border-radius:14px!important;padding:4px!important;margin-bottom:10px!important}
+  #app .order-tabs .btn{border:0!important;background:transparent!important;color:#64748B!important;border-radius:11px!important;padding:8px 7px!important;min-height:39px!important}
+  #app .order-tabs .btn.primary{background:#fff!important;color:#0E9A5A!important;box-shadow:0 3px 10px rgba(15,23,42,.08)!important}
+  #app .list{display:grid!important;gap:10px!important}
+  #app .list>.row-card{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:14px!important;box-shadow:0 8px 24px rgba(15,23,42,.045)!important}
+  #app .list>.row-card .row-head{gap:9px!important;align-items:flex-start!important}
+  #app .list>.row-card .row-head strong[style]{font-size:18px!important;line-height:1.1!important;color:#0F172A!important}
+  #app .list>.row-card .muted{font-size:11px!important;line-height:1.4!important;color:#64748B!important}
+  #app .list>.row-card .badge{border:0!important;background:#EAF8F1!important;color:#0E9A5A!important;border-radius:999px!important;padding:5px 8px!important;font-size:9px!important;font-weight:800!important}
+  #app .list>.row-card .ticket-line{font-size:12px!important;padding:5px 0!important}
+  #app .list>.row-card .ticket-total{font-size:14px!important;color:#0F172A!important;border-top:1px solid #E2E8F0!important;margin-top:6px!important;padding-top:9px!important}
+  #app .list>.row-card>.toolbar{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+  #app .list>.row-card>.toolbar .btn,#app .list>.row-card>.toolbar a.btn{width:100%!important;justify-content:center!important}
+
+  /* MESAS */
+  #app .table-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  #app .table-card{min-height:132px!important;border:1px solid #E2E8F0!important;border-radius:18px!important;background:#fff!important;padding:14px 10px!important;gap:5px!important;box-shadow:0 8px 22px rgba(15,23,42,.045)!important}
+  #app .table-card .table-icon{transform:scale(.86)!important;margin-bottom:2px!important}
+  #app .table-card strong{font-size:16px!important;color:#0F172A!important}
+  #app .table-card small{font-size:10.5px!important;line-height:1.25!important;color:#64748B!important}
+  #app .table-card:has(small:nth-of-type(1)){transition:transform .12s ease}
+  #app .table-card:active{transform:scale(.985)}
+
+  /* MIS VENTAS */
+  #app .sales-scroll{max-height:none!important;overflow:visible!important;padding-right:0!important}
+  #app .sales-day{margin-bottom:15px!important}
+  #app .sales-day-head{align-items:flex-start!important;margin:0 1px 8px!important;padding:0!important}
+  #app .sales-day-head h3{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-head span{font-size:10.5px!important;color:#64748B!important}
+  #app .sales-day-head strong{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-list{gap:8px!important}
+  #app .sales-day-list .row-card{border:1px solid #E2E8F0!important;border-radius:16px!important;background:#fff!important;padding:12px 13px!important;box-shadow:0 6px 18px rgba(15,23,42,.035)!important}
+  #app .sales-day-list .row-head strong{font-size:12.5px!important;line-height:1.35!important;color:#0F172A!important}
+  #app .sales-day-list .muted{font-size:10.5px!important;line-height:1.4!important;color:#64748B!important}
+  #app .screen-title + .toolbar{overflow-x:auto!important;flex-wrap:nowrap!important;padding-bottom:2px!important;scrollbar-width:none}
+  #app .screen-title + .toolbar::-webkit-scrollbar{display:none}
+  #app .screen-title + .toolbar .btn{white-space:nowrap!important;flex:0 0 auto!important}
+
+  /* CONFIGURACIÓN */
+  #app .panel-shortcut{width:100%!important;border:1px solid #D9EFE4!important;background:#F4FBF7!important;border-radius:17px!important;padding:14px!important;box-shadow:none!important;color:#0F172A!important}
+  #app .panel-shortcut strong{font-size:14px!important}.panel-shortcut small{display:block!important;color:#64748B!important;font-size:10.5px!important;margin-top:4px!important}
+  #app .panel-shortcut .panel-arrow{color:#12B76A!important;font-size:24px!important}
+  #app .panel{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:15px!important;box-shadow:0 8px 24px rgba(15,23,42,.04)!important}
+  #app .panel>strong:first-child{font-size:15px!important;color:#0F172A!important}
+  #app .form-grid{grid-template-columns:1fr!important;gap:11px!important}
+  #app .field{margin:0!important}
+  #app .field label{font-size:11px!important;font-weight:800!important;color:#475569!important;margin-bottom:5px!important}
+  #app .field input,#app .field select,#app .field textarea{min-height:46px!important;border:1px solid #E2E8F0!important;border-radius:13px!important;background:#fff!important;font-size:13px!important;color:#0F172A!important;padding:10px 12px!important}
+  #app .field small{font-size:9.5px!important;line-height:1.35!important;color:#64748B!important;margin-top:5px!important}
+  #app .btn.full{min-height:48px!important;border-radius:14px!important;font-size:13px!important;font-weight:800!important}
+  #app .retail-settings-note{border:1px solid #F4D58D!important;background:#FFF9EA!important;color:#7C5B12!important;border-radius:16px!important;padding:13px!important;font-size:11px!important;line-height:1.45!important}
+
+  /* MODALES de estas pantallas */
+  #modalRoot .modal h3{color:#0F172A}
+  #modalRoot .modal .field input,#modalRoot .modal .field select,#modalRoot .modal .field textarea{min-height:46px;border-radius:13px;border:1px solid #E2E8F0;font-size:13px}
+  #modalRoot .modal .toolbar .btn{min-height:45px;border-radius:13px;font-size:12px;font-weight:800}
+
+  /* Mantener contenido por encima de la barra flotante */
+  #app{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
+}
+</style>
+
+</body></html>`);
   w.document.close();
 };
 function returnedQtyForSaleItem(sale,index){return saleReturnEntries(sale).reduce((sum,r)=>sum+(r.items||[]).filter(x=>Number(x.saleItemIndex)===Number(index)).reduce((a,x)=>a+Number(x.qty||0),0),0);}
@@ -7281,14 +7357,166 @@ window.showDayReport=id=>{const sh=state.cashSessions.find(x=>x.id===id);if(!sh)
 ========================= */
 function printSimpleDocument(title, bodyHtml){
   const w=window.open("","_blank","width=520,height=760");if(!w)return toast("Permite ventanas emergentes para imprimir.");
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:80mm auto;margin:4mm}body{font-family:Arial,sans-serif;width:72mm;margin:0 auto;color:#111;font-size:12px}.center{text-align:center}.line{display:flex;justify-content:space-between;gap:10px;padding:4px 0}.total{font-size:16px;font-weight:700}h1{font-size:18px;text-align:center;margin:0 0 4px}h2{font-size:14px;text-align:center;margin:0 0 12px}hr{border:0;border-top:1px dashed #888;margin:10px 0}</style></head><body><h1>${esc(state.settings.businessName)}</h1><h2>${title}</h2>${bodyHtml}<hr><p class="center" style="font-size:10px;color:#555">PUNTO YA CR · Tu negocio, más simple</p><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script></body></html>`);w.document.close();
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:80mm auto;margin:4mm}body{font-family:Arial,sans-serif;width:72mm;margin:0 auto;color:#111;font-size:12px}.center{text-align:center}.line{display:flex;justify-content:space-between;gap:10px;padding:4px 0}.total{font-size:16px;font-weight:700}h1{font-size:18px;text-align:center;margin:0 0 4px}h2{font-size:14px;text-align:center;margin:0 0 12px}hr{border:0;border-top:1px dashed #888;margin:10px 0}</style></head><body><h1>${esc(state.settings.businessName)}</h1><h2>${title}</h2>${bodyHtml}<hr><p class="center" style="font-size:10px;color:#555">PUNTO YA CR · Tu negocio, más simple</p><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script>
+<style id="pycr-mobile-v4-2-secondary-screens">
+@media(max-width:699px){
+  /* V4.2 · pantallas secundarias con el mismo lenguaje visual móvil */
+  #app .screen-title{margin:4px 0 12px;padding:0 1px}
+  #app .screen-title h2{font-size:28px!important;line-height:1.05!important;letter-spacing:-.55px!important;color:#0F172A!important;margin:0 0 6px!important;font-weight:800!important}
+  #app .screen-title p{font-size:13px!important;line-height:1.45!important;color:#64748B!important;margin:0!important}
+
+  #app .toolbar{gap:8px!important;margin:9px 0!important;flex-wrap:wrap!important}
+  #app .toolbar .btn,#app .toolbar a.btn{min-height:42px!important;border-radius:13px!important;padding:9px 12px!important;font-size:12px!important;font-weight:800!important;box-shadow:none!important}
+  #app .toolbar .btn.primary{background:#12B76A!important;border-color:#12B76A!important;color:#fff!important}
+  #app .toolbar .btn.ghost,#app .toolbar a.btn.ghost{background:#fff!important;border:1px solid #E2E8F0!important;color:#334155!important}
+
+  /* PEDIDOS */
+  #app .order-tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;background:#F1F5F9!important;border-radius:14px!important;padding:4px!important;margin-bottom:10px!important}
+  #app .order-tabs .btn{border:0!important;background:transparent!important;color:#64748B!important;border-radius:11px!important;padding:8px 7px!important;min-height:39px!important}
+  #app .order-tabs .btn.primary{background:#fff!important;color:#0E9A5A!important;box-shadow:0 3px 10px rgba(15,23,42,.08)!important}
+  #app .list{display:grid!important;gap:10px!important}
+  #app .list>.row-card{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:14px!important;box-shadow:0 8px 24px rgba(15,23,42,.045)!important}
+  #app .list>.row-card .row-head{gap:9px!important;align-items:flex-start!important}
+  #app .list>.row-card .row-head strong[style]{font-size:18px!important;line-height:1.1!important;color:#0F172A!important}
+  #app .list>.row-card .muted{font-size:11px!important;line-height:1.4!important;color:#64748B!important}
+  #app .list>.row-card .badge{border:0!important;background:#EAF8F1!important;color:#0E9A5A!important;border-radius:999px!important;padding:5px 8px!important;font-size:9px!important;font-weight:800!important}
+  #app .list>.row-card .ticket-line{font-size:12px!important;padding:5px 0!important}
+  #app .list>.row-card .ticket-total{font-size:14px!important;color:#0F172A!important;border-top:1px solid #E2E8F0!important;margin-top:6px!important;padding-top:9px!important}
+  #app .list>.row-card>.toolbar{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+  #app .list>.row-card>.toolbar .btn,#app .list>.row-card>.toolbar a.btn{width:100%!important;justify-content:center!important}
+
+  /* MESAS */
+  #app .table-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  #app .table-card{min-height:132px!important;border:1px solid #E2E8F0!important;border-radius:18px!important;background:#fff!important;padding:14px 10px!important;gap:5px!important;box-shadow:0 8px 22px rgba(15,23,42,.045)!important}
+  #app .table-card .table-icon{transform:scale(.86)!important;margin-bottom:2px!important}
+  #app .table-card strong{font-size:16px!important;color:#0F172A!important}
+  #app .table-card small{font-size:10.5px!important;line-height:1.25!important;color:#64748B!important}
+  #app .table-card:has(small:nth-of-type(1)){transition:transform .12s ease}
+  #app .table-card:active{transform:scale(.985)}
+
+  /* MIS VENTAS */
+  #app .sales-scroll{max-height:none!important;overflow:visible!important;padding-right:0!important}
+  #app .sales-day{margin-bottom:15px!important}
+  #app .sales-day-head{align-items:flex-start!important;margin:0 1px 8px!important;padding:0!important}
+  #app .sales-day-head h3{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-head span{font-size:10.5px!important;color:#64748B!important}
+  #app .sales-day-head strong{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-list{gap:8px!important}
+  #app .sales-day-list .row-card{border:1px solid #E2E8F0!important;border-radius:16px!important;background:#fff!important;padding:12px 13px!important;box-shadow:0 6px 18px rgba(15,23,42,.035)!important}
+  #app .sales-day-list .row-head strong{font-size:12.5px!important;line-height:1.35!important;color:#0F172A!important}
+  #app .sales-day-list .muted{font-size:10.5px!important;line-height:1.4!important;color:#64748B!important}
+  #app .screen-title + .toolbar{overflow-x:auto!important;flex-wrap:nowrap!important;padding-bottom:2px!important;scrollbar-width:none}
+  #app .screen-title + .toolbar::-webkit-scrollbar{display:none}
+  #app .screen-title + .toolbar .btn{white-space:nowrap!important;flex:0 0 auto!important}
+
+  /* CONFIGURACIÓN */
+  #app .panel-shortcut{width:100%!important;border:1px solid #D9EFE4!important;background:#F4FBF7!important;border-radius:17px!important;padding:14px!important;box-shadow:none!important;color:#0F172A!important}
+  #app .panel-shortcut strong{font-size:14px!important}.panel-shortcut small{display:block!important;color:#64748B!important;font-size:10.5px!important;margin-top:4px!important}
+  #app .panel-shortcut .panel-arrow{color:#12B76A!important;font-size:24px!important}
+  #app .panel{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:15px!important;box-shadow:0 8px 24px rgba(15,23,42,.04)!important}
+  #app .panel>strong:first-child{font-size:15px!important;color:#0F172A!important}
+  #app .form-grid{grid-template-columns:1fr!important;gap:11px!important}
+  #app .field{margin:0!important}
+  #app .field label{font-size:11px!important;font-weight:800!important;color:#475569!important;margin-bottom:5px!important}
+  #app .field input,#app .field select,#app .field textarea{min-height:46px!important;border:1px solid #E2E8F0!important;border-radius:13px!important;background:#fff!important;font-size:13px!important;color:#0F172A!important;padding:10px 12px!important}
+  #app .field small{font-size:9.5px!important;line-height:1.35!important;color:#64748B!important;margin-top:5px!important}
+  #app .btn.full{min-height:48px!important;border-radius:14px!important;font-size:13px!important;font-weight:800!important}
+  #app .retail-settings-note{border:1px solid #F4D58D!important;background:#FFF9EA!important;color:#7C5B12!important;border-radius:16px!important;padding:13px!important;font-size:11px!important;line-height:1.45!important}
+
+  /* MODALES de estas pantallas */
+  #modalRoot .modal h3{color:#0F172A}
+  #modalRoot .modal .field input,#modalRoot .modal .field select,#modalRoot .modal .field textarea{min-height:46px;border-radius:13px;border:1px solid #E2E8F0;font-size:13px}
+  #modalRoot .modal .toolbar .btn{min-height:45px;border-radius:13px;font-size:12px;font-weight:800}
+
+  /* Mantener contenido por encima de la barra flotante */
+  #app{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
+}
+</style>
+
+</body></html>`);w.document.close();
 }
 function printUnifiedElectronicInvoice(sale) {
   const mm=String(state.settings.printerWidth||"80")==="58"?58:80;
   const bodyMm=mm===58?54:76;
   const logoMm=mm===58?28:34;
   const w=window.open("","_blank","width=520,height=760"); if(!w)return toast("Permite ventanas emergentes para imprimir.");
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(receiptTypeLabel(sale))} #${esc(sale.number)}</title><style>@page{size:${mm}mm auto;margin:2mm}html,body{margin:0;padding:0;background:#fff}body{width:${bodyMm}mm;margin:0 auto}${unifiedInvoiceCss()} .invoice-doc{padding:${mm===58?5:8}px!important}.invoice-brand img{width:${logoMm}mm!important}.invoice-header{display:block!important}.invoice-docmeta{text-align:left!important;max-width:none!important;margin-top:8px}.invoice-two{grid-template-columns:1fr!important;gap:5px!important}.invoice-item-values{grid-template-columns:${mm===58?"1fr 1fr":"repeat(2,1fr)"}!important;margin-left:${mm===58?0:24}px!important}.invoice-summary{grid-template-columns:1fr!important;gap:6px!important}.invoice-brand{display:block!important}.invoice-brand h1{font-size:${mm===58?16:18}px!important}.invoice-docmeta h2{font-size:${mm===58?14:16}px!important}.invoice-item-values strong{font-size:${mm===58?9:10}px!important}.invoice-totals .grand{font-size:${mm===58?14:16}px!important}</style></head><body>${unifiedInvoiceHtml(sale)}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),700)}<\/script></body></html>`); w.document.close();
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(receiptTypeLabel(sale))} #${esc(sale.number)}</title><style>@page{size:${mm}mm auto;margin:2mm}html,body{margin:0;padding:0;background:#fff}body{width:${bodyMm}mm;margin:0 auto}${unifiedInvoiceCss()} .invoice-doc{padding:${mm===58?5:8}px!important}.invoice-brand img{width:${logoMm}mm!important}.invoice-header{display:block!important}.invoice-docmeta{text-align:left!important;max-width:none!important;margin-top:8px}.invoice-two{grid-template-columns:1fr!important;gap:5px!important}.invoice-item-values{grid-template-columns:${mm===58?"1fr 1fr":"repeat(2,1fr)"}!important;margin-left:${mm===58?0:24}px!important}.invoice-summary{grid-template-columns:1fr!important;gap:6px!important}.invoice-brand{display:block!important}.invoice-brand h1{font-size:${mm===58?16:18}px!important}.invoice-docmeta h2{font-size:${mm===58?14:16}px!important}.invoice-item-values strong{font-size:${mm===58?9:10}px!important}.invoice-totals .grand{font-size:${mm===58?14:16}px!important}</style></head><body>${unifiedInvoiceHtml(sale)}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),700)}<\/script>
+<style id="pycr-mobile-v4-2-secondary-screens">
+@media(max-width:699px){
+  /* V4.2 · pantallas secundarias con el mismo lenguaje visual móvil */
+  #app .screen-title{margin:4px 0 12px;padding:0 1px}
+  #app .screen-title h2{font-size:28px!important;line-height:1.05!important;letter-spacing:-.55px!important;color:#0F172A!important;margin:0 0 6px!important;font-weight:800!important}
+  #app .screen-title p{font-size:13px!important;line-height:1.45!important;color:#64748B!important;margin:0!important}
+
+  #app .toolbar{gap:8px!important;margin:9px 0!important;flex-wrap:wrap!important}
+  #app .toolbar .btn,#app .toolbar a.btn{min-height:42px!important;border-radius:13px!important;padding:9px 12px!important;font-size:12px!important;font-weight:800!important;box-shadow:none!important}
+  #app .toolbar .btn.primary{background:#12B76A!important;border-color:#12B76A!important;color:#fff!important}
+  #app .toolbar .btn.ghost,#app .toolbar a.btn.ghost{background:#fff!important;border:1px solid #E2E8F0!important;color:#334155!important}
+
+  /* PEDIDOS */
+  #app .order-tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;background:#F1F5F9!important;border-radius:14px!important;padding:4px!important;margin-bottom:10px!important}
+  #app .order-tabs .btn{border:0!important;background:transparent!important;color:#64748B!important;border-radius:11px!important;padding:8px 7px!important;min-height:39px!important}
+  #app .order-tabs .btn.primary{background:#fff!important;color:#0E9A5A!important;box-shadow:0 3px 10px rgba(15,23,42,.08)!important}
+  #app .list{display:grid!important;gap:10px!important}
+  #app .list>.row-card{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:14px!important;box-shadow:0 8px 24px rgba(15,23,42,.045)!important}
+  #app .list>.row-card .row-head{gap:9px!important;align-items:flex-start!important}
+  #app .list>.row-card .row-head strong[style]{font-size:18px!important;line-height:1.1!important;color:#0F172A!important}
+  #app .list>.row-card .muted{font-size:11px!important;line-height:1.4!important;color:#64748B!important}
+  #app .list>.row-card .badge{border:0!important;background:#EAF8F1!important;color:#0E9A5A!important;border-radius:999px!important;padding:5px 8px!important;font-size:9px!important;font-weight:800!important}
+  #app .list>.row-card .ticket-line{font-size:12px!important;padding:5px 0!important}
+  #app .list>.row-card .ticket-total{font-size:14px!important;color:#0F172A!important;border-top:1px solid #E2E8F0!important;margin-top:6px!important;padding-top:9px!important}
+  #app .list>.row-card>.toolbar{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+  #app .list>.row-card>.toolbar .btn,#app .list>.row-card>.toolbar a.btn{width:100%!important;justify-content:center!important}
+
+  /* MESAS */
+  #app .table-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  #app .table-card{min-height:132px!important;border:1px solid #E2E8F0!important;border-radius:18px!important;background:#fff!important;padding:14px 10px!important;gap:5px!important;box-shadow:0 8px 22px rgba(15,23,42,.045)!important}
+  #app .table-card .table-icon{transform:scale(.86)!important;margin-bottom:2px!important}
+  #app .table-card strong{font-size:16px!important;color:#0F172A!important}
+  #app .table-card small{font-size:10.5px!important;line-height:1.25!important;color:#64748B!important}
+  #app .table-card:has(small:nth-of-type(1)){transition:transform .12s ease}
+  #app .table-card:active{transform:scale(.985)}
+
+  /* MIS VENTAS */
+  #app .sales-scroll{max-height:none!important;overflow:visible!important;padding-right:0!important}
+  #app .sales-day{margin-bottom:15px!important}
+  #app .sales-day-head{align-items:flex-start!important;margin:0 1px 8px!important;padding:0!important}
+  #app .sales-day-head h3{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-head span{font-size:10.5px!important;color:#64748B!important}
+  #app .sales-day-head strong{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-list{gap:8px!important}
+  #app .sales-day-list .row-card{border:1px solid #E2E8F0!important;border-radius:16px!important;background:#fff!important;padding:12px 13px!important;box-shadow:0 6px 18px rgba(15,23,42,.035)!important}
+  #app .sales-day-list .row-head strong{font-size:12.5px!important;line-height:1.35!important;color:#0F172A!important}
+  #app .sales-day-list .muted{font-size:10.5px!important;line-height:1.4!important;color:#64748B!important}
+  #app .screen-title + .toolbar{overflow-x:auto!important;flex-wrap:nowrap!important;padding-bottom:2px!important;scrollbar-width:none}
+  #app .screen-title + .toolbar::-webkit-scrollbar{display:none}
+  #app .screen-title + .toolbar .btn{white-space:nowrap!important;flex:0 0 auto!important}
+
+  /* CONFIGURACIÓN */
+  #app .panel-shortcut{width:100%!important;border:1px solid #D9EFE4!important;background:#F4FBF7!important;border-radius:17px!important;padding:14px!important;box-shadow:none!important;color:#0F172A!important}
+  #app .panel-shortcut strong{font-size:14px!important}.panel-shortcut small{display:block!important;color:#64748B!important;font-size:10.5px!important;margin-top:4px!important}
+  #app .panel-shortcut .panel-arrow{color:#12B76A!important;font-size:24px!important}
+  #app .panel{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:15px!important;box-shadow:0 8px 24px rgba(15,23,42,.04)!important}
+  #app .panel>strong:first-child{font-size:15px!important;color:#0F172A!important}
+  #app .form-grid{grid-template-columns:1fr!important;gap:11px!important}
+  #app .field{margin:0!important}
+  #app .field label{font-size:11px!important;font-weight:800!important;color:#475569!important;margin-bottom:5px!important}
+  #app .field input,#app .field select,#app .field textarea{min-height:46px!important;border:1px solid #E2E8F0!important;border-radius:13px!important;background:#fff!important;font-size:13px!important;color:#0F172A!important;padding:10px 12px!important}
+  #app .field small{font-size:9.5px!important;line-height:1.35!important;color:#64748B!important;margin-top:5px!important}
+  #app .btn.full{min-height:48px!important;border-radius:14px!important;font-size:13px!important;font-weight:800!important}
+  #app .retail-settings-note{border:1px solid #F4D58D!important;background:#FFF9EA!important;color:#7C5B12!important;border-radius:16px!important;padding:13px!important;font-size:11px!important;line-height:1.45!important}
+
+  /* MODALES de estas pantallas */
+  #modalRoot .modal h3{color:#0F172A}
+  #modalRoot .modal .field input,#modalRoot .modal .field select,#modalRoot .modal .field textarea{min-height:46px;border-radius:13px;border:1px solid #E2E8F0;font-size:13px}
+  #modalRoot .modal .toolbar .btn{min-height:45px;border-radius:13px;font-size:12px;font-weight:800}
+
+  /* Mantener contenido por encima de la barra flotante */
+  #app{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
+}
+</style>
+
+</body></html>`); w.document.close();
 }
 window.printReceipt=id=>{const sale=state.sales.find(x=>x.id===id);if(!sale)return;if(isElectronicSale(sale))return printUnifiedElectronicInvoice(sale);const client=sale.clientId?state.clients.find(x=>x.id===sale.clientId):null;const body=`${sale.voided?`<div class="center" style="font-size:16px;font-weight:700;color:#9f2f26">ANULADO</div><hr>`:""}<div class="center"><strong>${esc(receiptTypeLabel(sale))}</strong><br>Comprobante #${sale.number}<br>${dateTime(sale.createdAt)}</div><hr>${sale.orderType?`<div class="line"><span>Pedido</span><strong>${esc(sale.orderType)}${sale.table?` · Mesa ${esc(sale.table)}`:""}</strong></div>`:""}${client?`<div class="line"><span>Cliente</span><strong>${esc(client.name)}</strong></div>`:""}${sale.items.map(i=>`<div class="line"><span>${i.qty} × ${esc(i.name)}${i.variant?` · ${esc(i.variant)}`:""}</span><strong>${money(sale.businessType==="products"?saleItemNetTotal(i):Number(i.price||0)*Number(i.qty||0))}</strong></div>`).join("")}${Number(sale.expressFee||0)>0?`<div class="line"><span>Express</span><strong>${money(sale.expressFee)}</strong></div>`:""}${Number(sale.discountTotal||0)>0?`<div class="line"><span>Descuentos</span><strong>−${money(sale.discountTotal)}</strong></div>`:""}${Number(sale.exchangeCredit||0)>0?`<div class="line"><span>Crédito por cambio #${esc(sale.exchangeSourceSaleNumber||"")}</span><strong>−${money(sale.exchangeCredit)}</strong></div>`:""}<hr>${sale.tax>0?`<div class="line"><span>Impuesto</span><strong>${money(sale.tax)}</strong></div>`:""}<div class="line total"><span>TOTAL</span><strong>${money(sale.total)}</strong></div><div class="line"><span>Pago</span><strong>${esc(sale.method)}</strong></div>${sale.change>0?`<div class="line"><span>Vuelto</span><strong>${money(sale.change)}</strong></div>`:""}${sale.voidReason?`<hr><div>Motivo anulación: ${esc(sale.voidReason)}</div>`:""}<hr><p class="center">Gracias por su compra</p>`;printSimpleDocument(`Comprobante #${sale.number}${sale.voided?" · ANULADO":""}`,body);};
 function buildDayReportElement(sh){const r=shiftReportData(sh);const e=document.createElement("div");e.style.cssText=`position:fixed;left:-10000px;top:0;width:700px;background:#fff;color:#162B38;padding:34px;font-family:Arial,sans-serif;z-index:-1`;const sales=(sh.report?.saleIds||r.sales.map(s=>s.id)).map(id=>state.sales.find(s=>s.id===id)).filter(Boolean);const products=Object.entries(sh.report?.products||r.products);e.innerHTML=`<div style="text-align:center"><h1 style="margin:0">${esc(state.settings.businessName)}</h1><div style="font-size:22px;font-weight:800;margin-top:8px">REPORTE DEL DÍA</div><div style="color:#667085;margin-top:6px">${dateTime(sh.openedAt)} → ${dateTime(sh.closedAt)}</div></div><hr style="margin:24px 0"><table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td>Ventas</td><td style="text-align:right;font-weight:700">${sh.report?.count??r.count}</td></tr><tr><td>Total vendido</td><td style="text-align:right;font-weight:700">${money(sh.report?.gross??r.gross)}</td></tr><tr><td>Impuestos</td><td style="text-align:right">${money(sh.report?.tax??r.tax)}</td></tr><tr><td>Efectivo</td><td style="text-align:right">${money(sh.report?.cash??r.cash)}</td></tr><tr><td>SINPE</td><td style="text-align:right">${money(sh.report?.sinpe??r.sinpe)}</td></tr><tr><td>Tarjeta</td><td style="text-align:right">${money(sh.report?.card??r.card)}</td></tr><tr><td>Crédito</td><td style="text-align:right">${money(sh.report?.credit??r.credit)}</td></tr><tr><td>Abonos recibidos</td><td style="text-align:right">${money(sh.report?.creditPayments??r.creditPayments)}</td></tr><tr><td>Mostrador</td><td style="text-align:right">${sh.report?.orderCounts?.Mostrador??r.orderCounts.Mostrador}</td></tr><tr><td>Para llevar</td><td style="text-align:right">${sh.report?.orderCounts?.["Para llevar"]??r.orderCounts["Para llevar"]}</td></tr><tr><td>Mesas</td><td style="text-align:right">${sh.report?.orderCounts?.Mesa??r.orderCounts.Mesa}</td></tr><tr><td>Fondo inicial</td><td style="text-align:right">${money(sh.opening)}</td></tr><tr><td>Efectivo esperado</td><td style="text-align:right">${money(sh.expected??r.expected)}</td></tr><tr><td>Efectivo contado</td><td style="text-align:right">${money(sh.counted||0)}</td></tr><tr><td>Diferencia</td><td style="text-align:right;font-weight:700">${money(sh.difference||0)}</td></tr></table><h3 style="margin-top:28px">Comprobantes</h3>${sales.map(s=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid #e6e6e6;padding:8px 0"><span>#${s.number} · ${new Date(s.createdAt).toLocaleTimeString("es-CR",{hour:"2-digit",minute:"2-digit"})} · ${esc(s.method)}</span><strong>${money(s.total)}</strong></div>`).join("")||"Sin ventas"}<h3 style="margin-top:28px">Productos vendidos</h3>${products.map(([n,q])=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid #e6e6e6;padding:7px 0"><span>${esc(n)}</span><strong>${q}</strong></div>`).join("")||"Sin productos"}<div style="display:flex;align-items:center;justify-content:center;gap:9px;margin-top:30px;padding-top:16px;border-top:1px solid #e6e8e7;color:#536B79;font-size:11px"><span>Generado con</span><img src="${BRAND.horizontal}" alt="PUNTO YA CR" style="width:120px;height:auto"></div>`;document.body.appendChild(e);return e;}
@@ -8655,7 +8883,83 @@ printSimpleDocument=function(title,bodyHtml){
 .pycr-supplier-grid{display:grid;gap:10px;margin-top:12px}.pycr-supplier-card{border:1px solid var(--line);border-radius:18px;background:#fff;padding:14px}.pycr-supplier-card h4{margin:0;font-size:18px}.pycr-supplier-card p{margin:6px 0;color:var(--muted);line-height:1.4;font-size:13px}.pycr-supplier-tags{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}.pycr-supplier-tag{border-radius:999px;background:#f0f5f3;color:#405765;padding:5px 8px;font-size:10px;font-weight:800}.pycr-verified{display:inline-flex;align-items:center;gap:5px;border-radius:999px;background:#e4f6ea;color:#2f6f45;padding:5px 8px;font-size:10px;font-weight:900}.pycr-supplier-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.pycr-supplier-actions .btn{padding:9px 11px;font-size:11px}.pycr-pro-lock{border:1px dashed #b8cbc7;background:#fbfdfc;border-radius:18px;padding:15px}.pycr-category-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:55vh;overflow:auto;padding-right:2px}.pycr-category-picker .type-choice{text-align:left;min-height:76px}.pycr-category-picker .type-choice small{display:block;margin-top:5px;color:var(--muted)}
 @media(min-width:700px){.pycr-category-picker{grid-template-columns:repeat(3,minmax(0,1fr))}.pycr-product-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pycr-product-two>.field{margin-bottom:0}}
 @media(max-width:520px){.pycr-category-picker{grid-template-columns:1fr}.pycr-supplier-actions .btn{flex:1 1 calc(50% - 7px)}}
-</style></head><body><div class="center"><img class="logo" src="${esc(businessDocumentLogo())}"><h1>${esc(state.settings.businessName||'PUNTO YA CR')}</h1></div><h2>${esc(title)}</h2>${bodyHtml}<hr><p class="center" style="font-size:9px;color:#555">PUNTO YA CR · Tu negocio, más simple</p><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script></body></html>`);
+</style></head><body><div class="center"><img class="logo" src="${esc(businessDocumentLogo())}"><h1>${esc(state.settings.businessName||'PUNTO YA CR')}</h1></div><h2>${esc(title)}</h2>${bodyHtml}<hr><p class="center" style="font-size:9px;color:#555">PUNTO YA CR · Tu negocio, más simple</p><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script>
+<style id="pycr-mobile-v4-2-secondary-screens">
+@media(max-width:699px){
+  /* V4.2 · pantallas secundarias con el mismo lenguaje visual móvil */
+  #app .screen-title{margin:4px 0 12px;padding:0 1px}
+  #app .screen-title h2{font-size:28px!important;line-height:1.05!important;letter-spacing:-.55px!important;color:#0F172A!important;margin:0 0 6px!important;font-weight:800!important}
+  #app .screen-title p{font-size:13px!important;line-height:1.45!important;color:#64748B!important;margin:0!important}
+
+  #app .toolbar{gap:8px!important;margin:9px 0!important;flex-wrap:wrap!important}
+  #app .toolbar .btn,#app .toolbar a.btn{min-height:42px!important;border-radius:13px!important;padding:9px 12px!important;font-size:12px!important;font-weight:800!important;box-shadow:none!important}
+  #app .toolbar .btn.primary{background:#12B76A!important;border-color:#12B76A!important;color:#fff!important}
+  #app .toolbar .btn.ghost,#app .toolbar a.btn.ghost{background:#fff!important;border:1px solid #E2E8F0!important;color:#334155!important}
+
+  /* PEDIDOS */
+  #app .order-tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;background:#F1F5F9!important;border-radius:14px!important;padding:4px!important;margin-bottom:10px!important}
+  #app .order-tabs .btn{border:0!important;background:transparent!important;color:#64748B!important;border-radius:11px!important;padding:8px 7px!important;min-height:39px!important}
+  #app .order-tabs .btn.primary{background:#fff!important;color:#0E9A5A!important;box-shadow:0 3px 10px rgba(15,23,42,.08)!important}
+  #app .list{display:grid!important;gap:10px!important}
+  #app .list>.row-card{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:14px!important;box-shadow:0 8px 24px rgba(15,23,42,.045)!important}
+  #app .list>.row-card .row-head{gap:9px!important;align-items:flex-start!important}
+  #app .list>.row-card .row-head strong[style]{font-size:18px!important;line-height:1.1!important;color:#0F172A!important}
+  #app .list>.row-card .muted{font-size:11px!important;line-height:1.4!important;color:#64748B!important}
+  #app .list>.row-card .badge{border:0!important;background:#EAF8F1!important;color:#0E9A5A!important;border-radius:999px!important;padding:5px 8px!important;font-size:9px!important;font-weight:800!important}
+  #app .list>.row-card .ticket-line{font-size:12px!important;padding:5px 0!important}
+  #app .list>.row-card .ticket-total{font-size:14px!important;color:#0F172A!important;border-top:1px solid #E2E8F0!important;margin-top:6px!important;padding-top:9px!important}
+  #app .list>.row-card>.toolbar{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+  #app .list>.row-card>.toolbar .btn,#app .list>.row-card>.toolbar a.btn{width:100%!important;justify-content:center!important}
+
+  /* MESAS */
+  #app .table-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  #app .table-card{min-height:132px!important;border:1px solid #E2E8F0!important;border-radius:18px!important;background:#fff!important;padding:14px 10px!important;gap:5px!important;box-shadow:0 8px 22px rgba(15,23,42,.045)!important}
+  #app .table-card .table-icon{transform:scale(.86)!important;margin-bottom:2px!important}
+  #app .table-card strong{font-size:16px!important;color:#0F172A!important}
+  #app .table-card small{font-size:10.5px!important;line-height:1.25!important;color:#64748B!important}
+  #app .table-card:has(small:nth-of-type(1)){transition:transform .12s ease}
+  #app .table-card:active{transform:scale(.985)}
+
+  /* MIS VENTAS */
+  #app .sales-scroll{max-height:none!important;overflow:visible!important;padding-right:0!important}
+  #app .sales-day{margin-bottom:15px!important}
+  #app .sales-day-head{align-items:flex-start!important;margin:0 1px 8px!important;padding:0!important}
+  #app .sales-day-head h3{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-head span{font-size:10.5px!important;color:#64748B!important}
+  #app .sales-day-head strong{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-list{gap:8px!important}
+  #app .sales-day-list .row-card{border:1px solid #E2E8F0!important;border-radius:16px!important;background:#fff!important;padding:12px 13px!important;box-shadow:0 6px 18px rgba(15,23,42,.035)!important}
+  #app .sales-day-list .row-head strong{font-size:12.5px!important;line-height:1.35!important;color:#0F172A!important}
+  #app .sales-day-list .muted{font-size:10.5px!important;line-height:1.4!important;color:#64748B!important}
+  #app .screen-title + .toolbar{overflow-x:auto!important;flex-wrap:nowrap!important;padding-bottom:2px!important;scrollbar-width:none}
+  #app .screen-title + .toolbar::-webkit-scrollbar{display:none}
+  #app .screen-title + .toolbar .btn{white-space:nowrap!important;flex:0 0 auto!important}
+
+  /* CONFIGURACIÓN */
+  #app .panel-shortcut{width:100%!important;border:1px solid #D9EFE4!important;background:#F4FBF7!important;border-radius:17px!important;padding:14px!important;box-shadow:none!important;color:#0F172A!important}
+  #app .panel-shortcut strong{font-size:14px!important}.panel-shortcut small{display:block!important;color:#64748B!important;font-size:10.5px!important;margin-top:4px!important}
+  #app .panel-shortcut .panel-arrow{color:#12B76A!important;font-size:24px!important}
+  #app .panel{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:15px!important;box-shadow:0 8px 24px rgba(15,23,42,.04)!important}
+  #app .panel>strong:first-child{font-size:15px!important;color:#0F172A!important}
+  #app .form-grid{grid-template-columns:1fr!important;gap:11px!important}
+  #app .field{margin:0!important}
+  #app .field label{font-size:11px!important;font-weight:800!important;color:#475569!important;margin-bottom:5px!important}
+  #app .field input,#app .field select,#app .field textarea{min-height:46px!important;border:1px solid #E2E8F0!important;border-radius:13px!important;background:#fff!important;font-size:13px!important;color:#0F172A!important;padding:10px 12px!important}
+  #app .field small{font-size:9.5px!important;line-height:1.35!important;color:#64748B!important;margin-top:5px!important}
+  #app .btn.full{min-height:48px!important;border-radius:14px!important;font-size:13px!important;font-weight:800!important}
+  #app .retail-settings-note{border:1px solid #F4D58D!important;background:#FFF9EA!important;color:#7C5B12!important;border-radius:16px!important;padding:13px!important;font-size:11px!important;line-height:1.45!important}
+
+  /* MODALES de estas pantallas */
+  #modalRoot .modal h3{color:#0F172A}
+  #modalRoot .modal .field input,#modalRoot .modal .field select,#modalRoot .modal .field textarea{min-height:46px;border-radius:13px;border:1px solid #E2E8F0;font-size:13px}
+  #modalRoot .modal .toolbar .btn{min-height:45px;border-radius:13px;font-size:12px;font-weight:800}
+
+  /* Mantener contenido por encima de la barra flotante */
+  #app{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
+}
+</style>
+
+</body></html>`);
   w.document.close();
 };
 
@@ -9566,6 +9870,82 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
   #modalRoot .modal:has(.checkout-document) .toolbar{display:grid!important;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)!important;gap:8px!important}
   #modalRoot .modal:has(.checkout-document) .toolbar .btn{min-height:48px!important;border-radius:14px!important;font-size:13px!important;font-weight:800!important}
   #modalRoot .modal:has(.checkout-document) .toolbar .btn.primary{background:#12B76A!important;color:#fff!important}
+}
+</style>
+
+
+<style id="pycr-mobile-v4-2-secondary-screens">
+@media(max-width:699px){
+  /* V4.2 · pantallas secundarias con el mismo lenguaje visual móvil */
+  #app .screen-title{margin:4px 0 12px;padding:0 1px}
+  #app .screen-title h2{font-size:28px!important;line-height:1.05!important;letter-spacing:-.55px!important;color:#0F172A!important;margin:0 0 6px!important;font-weight:800!important}
+  #app .screen-title p{font-size:13px!important;line-height:1.45!important;color:#64748B!important;margin:0!important}
+
+  #app .toolbar{gap:8px!important;margin:9px 0!important;flex-wrap:wrap!important}
+  #app .toolbar .btn,#app .toolbar a.btn{min-height:42px!important;border-radius:13px!important;padding:9px 12px!important;font-size:12px!important;font-weight:800!important;box-shadow:none!important}
+  #app .toolbar .btn.primary{background:#12B76A!important;border-color:#12B76A!important;color:#fff!important}
+  #app .toolbar .btn.ghost,#app .toolbar a.btn.ghost{background:#fff!important;border:1px solid #E2E8F0!important;color:#334155!important}
+
+  /* PEDIDOS */
+  #app .order-tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;background:#F1F5F9!important;border-radius:14px!important;padding:4px!important;margin-bottom:10px!important}
+  #app .order-tabs .btn{border:0!important;background:transparent!important;color:#64748B!important;border-radius:11px!important;padding:8px 7px!important;min-height:39px!important}
+  #app .order-tabs .btn.primary{background:#fff!important;color:#0E9A5A!important;box-shadow:0 3px 10px rgba(15,23,42,.08)!important}
+  #app .list{display:grid!important;gap:10px!important}
+  #app .list>.row-card{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:14px!important;box-shadow:0 8px 24px rgba(15,23,42,.045)!important}
+  #app .list>.row-card .row-head{gap:9px!important;align-items:flex-start!important}
+  #app .list>.row-card .row-head strong[style]{font-size:18px!important;line-height:1.1!important;color:#0F172A!important}
+  #app .list>.row-card .muted{font-size:11px!important;line-height:1.4!important;color:#64748B!important}
+  #app .list>.row-card .badge{border:0!important;background:#EAF8F1!important;color:#0E9A5A!important;border-radius:999px!important;padding:5px 8px!important;font-size:9px!important;font-weight:800!important}
+  #app .list>.row-card .ticket-line{font-size:12px!important;padding:5px 0!important}
+  #app .list>.row-card .ticket-total{font-size:14px!important;color:#0F172A!important;border-top:1px solid #E2E8F0!important;margin-top:6px!important;padding-top:9px!important}
+  #app .list>.row-card>.toolbar{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+  #app .list>.row-card>.toolbar .btn,#app .list>.row-card>.toolbar a.btn{width:100%!important;justify-content:center!important}
+
+  /* MESAS */
+  #app .table-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  #app .table-card{min-height:132px!important;border:1px solid #E2E8F0!important;border-radius:18px!important;background:#fff!important;padding:14px 10px!important;gap:5px!important;box-shadow:0 8px 22px rgba(15,23,42,.045)!important}
+  #app .table-card .table-icon{transform:scale(.86)!important;margin-bottom:2px!important}
+  #app .table-card strong{font-size:16px!important;color:#0F172A!important}
+  #app .table-card small{font-size:10.5px!important;line-height:1.25!important;color:#64748B!important}
+  #app .table-card:has(small:nth-of-type(1)){transition:transform .12s ease}
+  #app .table-card:active{transform:scale(.985)}
+
+  /* MIS VENTAS */
+  #app .sales-scroll{max-height:none!important;overflow:visible!important;padding-right:0!important}
+  #app .sales-day{margin-bottom:15px!important}
+  #app .sales-day-head{align-items:flex-start!important;margin:0 1px 8px!important;padding:0!important}
+  #app .sales-day-head h3{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-head span{font-size:10.5px!important;color:#64748B!important}
+  #app .sales-day-head strong{font-size:15px!important;color:#0F172A!important}
+  #app .sales-day-list{gap:8px!important}
+  #app .sales-day-list .row-card{border:1px solid #E2E8F0!important;border-radius:16px!important;background:#fff!important;padding:12px 13px!important;box-shadow:0 6px 18px rgba(15,23,42,.035)!important}
+  #app .sales-day-list .row-head strong{font-size:12.5px!important;line-height:1.35!important;color:#0F172A!important}
+  #app .sales-day-list .muted{font-size:10.5px!important;line-height:1.4!important;color:#64748B!important}
+  #app .screen-title + .toolbar{overflow-x:auto!important;flex-wrap:nowrap!important;padding-bottom:2px!important;scrollbar-width:none}
+  #app .screen-title + .toolbar::-webkit-scrollbar{display:none}
+  #app .screen-title + .toolbar .btn{white-space:nowrap!important;flex:0 0 auto!important}
+
+  /* CONFIGURACIÓN */
+  #app .panel-shortcut{width:100%!important;border:1px solid #D9EFE4!important;background:#F4FBF7!important;border-radius:17px!important;padding:14px!important;box-shadow:none!important;color:#0F172A!important}
+  #app .panel-shortcut strong{font-size:14px!important}.panel-shortcut small{display:block!important;color:#64748B!important;font-size:10.5px!important;margin-top:4px!important}
+  #app .panel-shortcut .panel-arrow{color:#12B76A!important;font-size:24px!important}
+  #app .panel{border:1px solid #E2E8F0!important;background:#fff!important;border-radius:18px!important;padding:15px!important;box-shadow:0 8px 24px rgba(15,23,42,.04)!important}
+  #app .panel>strong:first-child{font-size:15px!important;color:#0F172A!important}
+  #app .form-grid{grid-template-columns:1fr!important;gap:11px!important}
+  #app .field{margin:0!important}
+  #app .field label{font-size:11px!important;font-weight:800!important;color:#475569!important;margin-bottom:5px!important}
+  #app .field input,#app .field select,#app .field textarea{min-height:46px!important;border:1px solid #E2E8F0!important;border-radius:13px!important;background:#fff!important;font-size:13px!important;color:#0F172A!important;padding:10px 12px!important}
+  #app .field small{font-size:9.5px!important;line-height:1.35!important;color:#64748B!important;margin-top:5px!important}
+  #app .btn.full{min-height:48px!important;border-radius:14px!important;font-size:13px!important;font-weight:800!important}
+  #app .retail-settings-note{border:1px solid #F4D58D!important;background:#FFF9EA!important;color:#7C5B12!important;border-radius:16px!important;padding:13px!important;font-size:11px!important;line-height:1.45!important}
+
+  /* MODALES de estas pantallas */
+  #modalRoot .modal h3{color:#0F172A}
+  #modalRoot .modal .field input,#modalRoot .modal .field select,#modalRoot .modal .field textarea{min-height:46px;border-radius:13px;border:1px solid #E2E8F0;font-size:13px}
+  #modalRoot .modal .toolbar .btn{min-height:45px;border-radius:13px;font-size:12px;font-weight:800}
+
+  /* Mantener contenido por encima de la barra flotante */
+  #app{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
 }
 </style>
 
