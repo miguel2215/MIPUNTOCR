@@ -1,4 +1,4 @@
-const CACHE = 'punto-ya-cr-v7-60-offline-first-v5';
+const CACHE = 'punto-ya-cr-v7-60-panel-intelligence-v6';
 
 const CORE = [
   './index.html',

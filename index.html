@@ -10401,6 +10401,60 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
 })();
 </script>
 
+
+<style id="pycr-v760-cash-continuity-css">
+@media(max-width:699px){
+  .cash-continuity-card{background:#fff;border:1px solid #E2E8F0;border-radius:20px;padding:16px;box-shadow:0 8px 24px rgba(15,23,42,.04)}
+  .cash-continuity-label{font-size:11px;color:#64748B;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .cash-continuity-amount{font-size:30px;line-height:1.05;font-weight:900;color:#0F172A;margin:6px 0 4px}
+  .cash-continuity-card p{font-size:12px;color:#64748B;line-height:1.45;margin:0 0 14px}
+  .cash-continuity-actions{display:grid;gap:8px}.cash-continuity-actions .btn{width:100%;min-height:46px}
+}
+</style>
+<script id="pycr-v760-cash-continuity-js">
+(function(){
+  function lastClosedShift(){return [...state.cashSessions].filter(s=>s.status==='closed').sort((a,b)=>new Date(b.closedAt||b.openedAt)-new Date(a.closedAt||a.openedAt))[0]||null;}
+  function previousFund(){const sh=lastClosedShift();return sh?Math.max(0,Number(sh.opening||0)):null;}
+  async function createShift(amount){
+    if(!requirePermission('cash','No tienes permiso para abrir la caja.'))return;
+    const opening=Math.max(0,Number(amount||0));
+    const s={id:uid('shift'),opening,openedAt:new Date().toISOString(),status:'open'};
+    cloudQueueAuditEvent(s,'open','cash_shift',null,{opening:s.opening,status:'open',continued_previous_fund:previousFund()!=null&&opening===previousFund()});
+    await put('cashSessions',s);state.cashSessions.push(s);
+    try{await cloudSaveCashSessionFromApp(s);}catch(error){console.error(error);s.cloudPending=true;await put('cashSessions',s);}
+    closeModal();screen='home';render();toast('Caja abierta. Ya puedes vender.');
+  }
+  window.openCash=function(){
+    if(!requirePermission('cash','No tienes permiso para abrir la caja.'))return;
+    const prev=previousFund();
+    if(prev!=null){modal(`<h3>Abrir caja</h3><div class="cash-continuity-card"><span class="cash-continuity-label">Fondo fijo del día anterior</span><div class="cash-continuity-amount">${money(prev)}</div><p>Continúa con el mismo fondo o cámbialo antes de abrir la caja de hoy.</p><div class="cash-continuity-actions"><button class="btn primary" onclick="continuePreviousCashFund()">Continuar con este fondo</button><button class="btn ghost" onclick="editOpeningCashFund()">Cambiar monto</button></div></div><div class="toolbar" style="margin-top:12px"><button class="btn" onclick="closeModal()">Cancelar</button></div>`);return;}
+    window.editOpeningCashFund(true);
+  };
+  window.continuePreviousCashFund=async()=>{const prev=previousFund();if(prev==null)return editOpeningCashFund(true);await createShift(prev)};
+  window.editOpeningCashFund=function(first=false){const prev=previousFund(),value=prev==null?0:prev;modal(`<h3>${first?'Abrir caja':'Cambiar fondo fijo'}</h3>${prev!=null?`<p class="muted">Fondo del día anterior: <strong>${money(prev)}</strong></p>`:''}<div class="field"><label>Fondo inicial de hoy</label><input id="opening" type="number" min="0" inputmode="decimal" value="${value}"></div><div class="toolbar" style="margin-top:14px"><button class="btn primary" onclick="saveOpenCash()">Abrir caja</button>${prev!=null?'<button class="btn ghost" onclick="openCash()">Volver</button>':''}<button class="btn" onclick="closeModal()">Cancelar</button></div>`)};
+  window.saveOpenCash=async()=>{const input=$('#opening');if(!input)return;const amount=Number(input.value||0);if(!Number.isFinite(amount)||amount<0)return toast('Escribe un fondo válido.');await createShift(amount)};
+  const oldCashMoveForm=window.cashMoveForm;
+  window.cashMoveForm=function(kind){if(kind!=='out')return oldCashMoveForm(kind);if(!requirePermission('cash','No tienes permiso para mover efectivo.'))return;modal(`<h3>Retiro de caja</h3><p class="muted">Registra el efectivo que sale de la caja para que el cierre calcule correctamente lo esperado.</p><div class="field"><label>Monto</label><input id="cashMoveAmount" type="number" min="0" inputmode="decimal"></div><div class="field"><label>Motivo</label><input id="cashMoveNote" placeholder="Ej. pago pequeño, depósito, cambio de fondo"></div><div class="toolbar"><button class="btn primary" onclick="saveCashMove('out')">Registrar retiro</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`)};
+  const originalRenderCash=renderCash;
+  renderCash=function(){
+    if(!usesOrdersTablesCash())return originalRenderCash();
+    const shift=currentShift();
+    if(shift)return originalRenderCash();
+    const prev=previousFund();
+    const continuity=prev!=null?`<div class="cash-continuity-card"><span class="cash-continuity-label">Fondo fijo del día anterior</span><div class="cash-continuity-amount">${money(prev)}</div><p>Usa este mismo fondo para hoy o cámbialo antes de abrir.</p>${hasPermission('cash')?`<div class="cash-continuity-actions"><button class="btn primary" onclick="continuePreviousCashFund()">Continuar con este fondo</button><button class="btn ghost" onclick="editOpeningCashFund()">Cambiar monto</button></div>`:'<p class="muted">No tienes permiso para abrir la caja.</p>'}</div>`:`<div class="panel"><h3>Caja cerrada</h3><p class="muted">Todavía no hay un fondo anterior guardado.</p>${hasPermission('cash')?'<button class="btn primary full" onclick="openCash()">Definir fondo y abrir caja</button>':'<p class="muted">No tienes permiso para abrir la caja.</p>'}</div>`;
+    $('#app').innerHTML=shell(`<section class="screen-title"><h2>Caja</h2><p>Empieza el día con el fondo correcto y conserva el historial de cierres.</p></section>${continuity}<section class="screen-title" style="margin-top:24px"><h2 style="font-size:26px">Historial de cierres</h2><p>Reportes del día guardados.</p></section><div class="closing-list">${closingHistoryHtml()}</div>`,'more');
+  };
+  const originalRenderCashOpen=renderCash;
+  renderCash=function(){
+    const shift=currentShift();
+    if(!shift)return originalRenderCashOpen();
+    if(!usesOrdersTablesCash())return originalRenderCash();
+    const r=shiftReportData(shift);
+    $('#app').innerHTML=shell(`<section class="screen-title"><h2>Caja</h2><p>Fondo, movimientos y efectivo esperado del turno.</p></section><div class="kpi-grid"><div class="kpi"><span class="muted">Fondo fijo</span><strong>${money(shift.opening)}</strong></div><div class="kpi"><span class="muted">Efectivo esperado</span><strong>${money(r.expected)}</strong></div><div class="kpi"><span class="muted">Retiros</span><strong>${money(r.outs)}</strong></div><div class="kpi"><span class="muted">Ventas en efectivo</span><strong>${money(r.cash)}</strong></div></div><div class="panel" style="margin-top:14px"><div class="ticket-line"><span>Ventas del turno</span><strong>${r.count}</strong></div><div class="ticket-line"><span>Abonos en efectivo</span><strong>${money(r.creditCash)}</strong></div><div class="ticket-line"><span>Entradas</span><strong>${money(r.ins)}</strong></div><div class="ticket-line"><span>Retiros</span><strong>${money(r.outs)}</strong></div><div class="ticket-line ticket-total"><span>Efectivo esperado</span><strong>${money(r.expected)}</strong></div></div><div class="toolbar"><button class="btn ghost" onclick="cashMoveForm('in')">Entrada de efectivo</button><button class="btn ghost" onclick="cashMoveForm('out')">Registrar retiro</button></div>${hasPermission('cash')?`<button class="btn primary full" style="margin-top:4px" onclick="closeCash(${r.expected})">Cerrar caja</button>`:''}`,'more');
+  };
+})();
+</script>
+
 <script id="pycr-no-zoom-script">
 (() => {
   const stop = (e) => e.preventDefault();
