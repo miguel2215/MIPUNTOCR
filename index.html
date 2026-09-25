@@ -2292,6 +2292,72 @@ const MPCR_SUPABASE_URL = "https://uspycwpztzkenwsevvrp.supabase.co";
 const MPCR_SUPABASE_KEY = "sb_publishable_gRxzhxgEe3WnqSfA-fn6_w_nOtQ7sDy";
 const MPCR_SITE_URL = "https://mipuntocr.mieduar2215.workers.dev/";
 const MPCR_NATIVE_AUTH_REDIRECT = "com.puntoyacr.app://auth/callback";
+const PYCR_TURNSTILE_SITE_KEY = "0x4AAAAAAFDzdjukZKhpfuN7";
+let pycrTurnstileLoader = null;
+
+function pycrLoadTurnstile() {
+  if (window.turnstile) return Promise.resolve(window.turnstile);
+  if (pycrTurnstileLoader) return pycrTurnstileLoader;
+  pycrTurnstileLoader = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-pycr-turnstile]');
+    const ready = () => {
+      if (window.turnstile) resolve(window.turnstile);
+      else reject(new Error('No se pudo cargar la verificación de seguridad.'));
+    };
+    if (existing) {
+      if (window.turnstile) return resolve(window.turnstile);
+      existing.addEventListener('load', ready, { once:true });
+      existing.addEventListener('error', () => reject(new Error('No se pudo cargar la verificación de seguridad.')), { once:true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    script.defer = true;
+    script.dataset.pycrTurnstile = '1';
+    script.onload = ready;
+    script.onerror = () => reject(new Error('No se pudo cargar la verificación de seguridad.'));
+    document.head.appendChild(script);
+  });
+  return pycrTurnstileLoader;
+}
+
+async function pycrGetCaptchaToken() {
+  if (!navigator.onLine) throw new Error('Necesitas Internet para completar la verificación de seguridad.');
+  await pycrLoadTurnstile();
+  return new Promise((resolve, reject) => {
+    const old = document.getElementById('pycrTurnstileOverlay');
+    if (old) old.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'pycrTurnstileOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML = `<div style="width:min(420px,100%);background:#fff;border-radius:20px;padding:20px;box-shadow:0 24px 60px rgba(15,23,42,.24);text-align:center"><strong style="display:block;font-size:18px;color:#0F172A">Verificación de seguridad</strong><p style="margin:7px 0 16px;color:#64748B;font-size:13px">Estamos comprobando que eres una persona.</p><div id="pycrTurnstileHost" style="display:flex;justify-content:center;min-height:66px"></div><button id="pycrTurnstileCancel" type="button" style="margin-top:14px;border:1px solid #E2E8F0;background:#fff;border-radius:12px;padding:10px 16px;font-weight:700;color:#334155">Cancelar</button></div>`;
+    document.body.appendChild(overlay);
+    let settled = false;
+    let timer = null;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      try { overlay.remove(); } catch (_) {}
+      fn(value);
+    };
+    overlay.querySelector('#pycrTurnstileCancel')?.addEventListener('click', () => finish(reject, new Error('Verificación cancelada.')));
+    try {
+      window.turnstile.render('#pycrTurnstileHost', {
+        sitekey: PYCR_TURNSTILE_SITE_KEY,
+        theme: 'auto',
+        size: 'flexible',
+        callback: token => finish(resolve, token),
+        'error-callback': () => finish(reject, new Error('No se pudo completar la verificación de seguridad.')),
+        'expired-callback': () => finish(reject, new Error('La verificación venció. Intenta nuevamente.'))
+      });
+      timer = setTimeout(() => finish(reject, new Error('La verificación tardó demasiado. Intenta nuevamente.')), 120000);
+    } catch (error) {
+      finish(reject, error instanceof Error ? error : new Error('No se pudo iniciar la verificación de seguridad.'));
+    }
+  });
+}
 
 let mpCloud = null;
 let mpCloudSession = null;
@@ -3123,10 +3189,12 @@ async function cloudRegisterOwner(draft, businessType) {
   if (!initCloudClient()) throw new Error("No se pudo cargar Supabase.");
   if (!navigator.onLine) throw new Error("Necesitas Internet para crear la cuenta.");
 
+  const captchaToken = await pycrGetCaptchaToken();
   const { data, error } = await mpCloud.auth.signUp({
     email: draft.email,
     password: draft.password,
     options: {
+      captchaToken,
       emailRedirectTo: MPCR_SITE_URL,
       data: {
         full_name: draft.ownerName,
@@ -3148,10 +3216,12 @@ async function cloudRegisterOwner(draft, businessType) {
 async function cloudRegisterMember(draft) {
   if (!initCloudClient()) throw new Error("No se pudo cargar Supabase.");
   if (!navigator.onLine) throw new Error("Necesitas Internet para crear la cuenta.");
+  const captchaToken = await pycrGetCaptchaToken();
   const { data, error } = await mpCloud.auth.signUp({
     email: draft.email,
     password: draft.password,
     options: {
+      captchaToken,
       emailRedirectTo: MPCR_SITE_URL,
       data: { full_name: draft.fullName || "", account_kind: "member" }
     }
@@ -3176,7 +3246,8 @@ async function cloudAcceptBusinessInvite(code) {
 async function cloudJoinExistingAccount(email, password, inviteCode) {
   if (!initCloudClient()) throw new Error("No se pudo cargar Supabase.");
   if (!navigator.onLine) throw new Error("Necesitas Internet para unirte al negocio.");
-  const { data, error } = await mpCloud.auth.signInWithPassword({ email, password });
+  const captchaToken = await pycrGetCaptchaToken();
+  const { data, error } = await mpCloud.auth.signInWithPassword({ email, password, options: { captchaToken } });
   if (error) throw error;
   if (!data?.session) throw new Error("No se pudo iniciar la sesión.");
   await cloudAcceptBusinessInvite(inviteCode);
@@ -3239,8 +3310,10 @@ async function cloudSendPasswordReset(email) {
   if (!navigator.onLine) throw new Error("Necesitas Internet para recuperar la contraseña.");
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Escribe tu correo.");
+  const captchaToken = await pycrGetCaptchaToken();
   const { error } = await mpCloud.auth.resetPasswordForEmail(cleanEmail, {
-    redirectTo: MPCR_SITE_URL
+    redirectTo: MPCR_SITE_URL,
+    captchaToken
   });
   if (error) throw error;
   return true;
@@ -3259,7 +3332,8 @@ async function cloudLoginOwner(email, password) {
   if (!initCloudClient()) throw new Error("No se pudo cargar Supabase.");
   if (!navigator.onLine) throw new Error("Necesitas Internet para iniciar sesión en un dispositivo nuevo.");
 
-  const { data, error } = await mpCloud.auth.signInWithPassword({ email, password });
+  const captchaToken = await pycrGetCaptchaToken();
+  const { data, error } = await mpCloud.auth.signInWithPassword({ email, password, options: { captchaToken } });
   if (error) throw error;
   if (!data?.session) throw new Error("No se pudo iniciar la sesión.");
 
@@ -8484,7 +8558,7 @@ window.confirmAccountDeletion=async()=>{ if(String($("#deleteAccountConfirm")?.v
 function renderLegal(){ const delLabel=state.settings.guestMode||!state.settings.cloudLinked?"Eliminar datos locales":"Solicitar eliminación de cuenta"; $("#app").innerHTML=shell(`<section class="screen-title"><h2>Legal y privacidad</h2><p>Controla tus datos y consulta las condiciones de PUNTO YA CR.</p></section><div class="legal-grid"><button class="legal-card" onclick="showPrivacyPolicy()"><strong>Política de privacidad</strong><small>Qué datos se usan, para qué y cómo se protegen.</small></button><button class="legal-card" onclick="showTerms()"><strong>Términos y condiciones</strong><small>Reglas de uso de la aplicación y responsabilidades del negocio.</small></button><button class="legal-card" onclick="exportLocalData()"><strong>Exportar mis datos</strong><small>Descarga una copia JSON de la información guardada en este dispositivo.</small></button><button class="legal-card" onclick="window.open('${publicLegalUrl("privacy")}','_blank','noopener,noreferrer')"><strong>Enlace público de privacidad</strong><small>Útil para la ficha de la app y para compartir la política fuera de PUNTO YA CR.</small></button><button class="legal-card" onclick="window.open('${publicLegalUrl("delete-account")}','_blank','noopener,noreferrer')"><strong>Enlace web para eliminar cuenta</strong><small>Permite iniciar una solicitud también desde el navegador.</small></button></div><div class="danger-zone" style="margin-top:14px"><strong>${delLabel}</strong><p class="muted">${state.settings.cloudLinked&&!state.settings.guestMode?"La solicitud en nube se registra para revisión y eliminación. Los datos locales se eliminan al confirmar.":"Borra la información local de este negocio en este dispositivo."}</p><button class="btn danger" onclick="requestAccountDeletion()">${delLabel}</button></div>`,"more"); }
 let publicDeletionBusiness=null, publicDeletionUser=null;
 async function renderPublicDeletionRequest(){ initCloudClient(); document.body.innerHTML=`<main class="legal-public"><div class="delete-public-card">${brandHorizontal("brand-logo-horizontal compact")}<h1>Eliminar cuenta</h1><p>Inicia sesión para registrar una solicitud de eliminación de tu cuenta de PUNTO YA CR.</p><div class="field"><label>Correo</label><input id="publicDeleteEmail" type="email" autocomplete="email"></div><div class="field"><label>Contraseña</label><input id="publicDeletePass" type="password" autocomplete="current-password"></div><button id="publicDeleteLoginBtn" class="btn primary full" onclick="publicDeletionLogin()">Continuar</button><div id="publicDeleteStatus" class="muted" style="margin-top:12px"></div></div></main>`; }
-window.publicDeletionLogin=async()=>{ const email=$("#publicDeleteEmail")?.value.trim().toLowerCase(),pass=$("#publicDeletePass")?.value||"",status=$("#publicDeleteStatus"),btn=$("#publicDeleteLoginBtn"); if(!email||!pass)return status.textContent="Completa correo y contraseña."; btn.disabled=true;status.textContent="Verificando…"; try{const {data,error}=await mpCloud.auth.signInWithPassword({email,password:pass});if(error)throw error;publicDeletionUser=data.user;let membership=await cloudFindMembership(data.user.id);publicDeletionBusiness=membership?await cloudFetchBusiness(membership.business_id):await cloudFindOwnedBusiness(data.user.id);if(!publicDeletionBusiness)throw new Error("No encontramos un negocio asociado.");status.innerHTML=`Cuenta verificada.<br><button class="btn danger full" style="margin-top:12px" onclick="publicSubmitDeletion()">Solicitar eliminación</button>`;}catch(error){console.error(error);status.textContent=cloudAuthErrorMessage(error);btn.disabled=false;} };
+window.publicDeletionLogin=async()=>{ const email=$("#publicDeleteEmail")?.value.trim().toLowerCase(),pass=$("#publicDeletePass")?.value||"",status=$("#publicDeleteStatus"),btn=$("#publicDeleteLoginBtn"); if(!email||!pass)return status.textContent="Completa correo y contraseña."; btn.disabled=true;status.textContent="Verificando…"; try{const captchaToken=await pycrGetCaptchaToken();const {data,error}=await mpCloud.auth.signInWithPassword({email,password:pass,options:{captchaToken}});if(error)throw error;publicDeletionUser=data.user;let membership=await cloudFindMembership(data.user.id);publicDeletionBusiness=membership?await cloudFetchBusiness(membership.business_id):await cloudFindOwnedBusiness(data.user.id);if(!publicDeletionBusiness)throw new Error("No encontramos un negocio asociado.");status.innerHTML=`Cuenta verificada.<br><button class="btn danger full" style="margin-top:12px" onclick="publicSubmitDeletion()">Solicitar eliminación</button>`;}catch(error){console.error(error);status.textContent=cloudAuthErrorMessage(error);btn.disabled=false;} };
 window.publicSubmitDeletion=async()=>{ const status=$("#publicDeleteStatus"); try{ if(!publicDeletionUser||!publicDeletionBusiness)throw new Error("Vuelve a iniciar sesión."); const now=new Date().toISOString();const {error}=await mpCloud.from("audit_log").insert({business_id:publicDeletionBusiness.id,user_id:publicDeletionUser.id,action:"account_deletion_request",entity_type:"account",entity_id:publicDeletionUser.id,new_data:{requested_at:now,email:publicDeletionUser.email||"",source:"public_web"}});if(error)throw error;await mpCloud.auth.signOut();status.innerHTML="<strong>Solicitud registrada.</strong><br>La cuenta quedó marcada para el proceso de eliminación.";}catch(error){console.error(error);status.textContent="No se pudo registrar la solicitud. Intenta nuevamente.";} };
 
 /* =========================

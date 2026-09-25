@@ -1,4 +1,4 @@
-const CACHE = 'punto-ya-cr-v7-61-help-security-audit-v1';
+const CACHE = 'punto-ya-cr-v7-62-turnstile-auth-v1';
 
 const CORE = [
   './index.html',
