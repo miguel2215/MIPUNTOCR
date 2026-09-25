@@ -345,6 +345,20 @@
 @media(max-width:700px){.panel-v2-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.panel-v2-card{padding:12px}.panel-v2-card>strong{font-size:17px}.panel-v2-ask-form{grid-template-columns:1fr}.panel-v2-ask-form button{width:100%}}
 </style>
 
+
+<style id="pycr-v761-help-style">
+.panel-help-intro{background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:16px}
+.panel-help-cats{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
+.panel-help-cats::-webkit-scrollbar{display:none}
+.panel-help-cat{border:1px solid #E2E8F0;background:#fff;color:#334155;border-radius:999px;padding:10px 13px;font-weight:700;white-space:nowrap}
+.panel-help-cat.active{background:#ECFDF3;border-color:#ABEFC6;color:#067647}
+.panel-help-list{display:grid;gap:9px;margin-top:14px}
+.panel-help-q{width:100%;border:1px solid #E2E8F0;background:#fff;border-radius:14px;padding:14px 15px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:700}
+.panel-help-q span:last-child{color:#94A3B8;font-size:22px;font-weight:400}
+.panel-help-answer{margin-top:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:14px;padding:15px;white-space:pre-line;line-height:1.55;color:#334155}
+.panel-help-note{margin-top:10px;color:#64748B;font-size:12px}
+</style>
+
 </head>
 <body>
 <div id="root"></div>
@@ -859,6 +873,71 @@ function bind(){
   $('#saveGoal')?.addEventListener('click',saveGoal);document.querySelectorAll('[data-ask]').forEach(b=>b.addEventListener('click',()=>{const box=$('#askAnswer');if(box)box.textContent=askPointYaAnswer(b.dataset.ask)}));
 }
 async function init(){const {data:{session}}=await sb.auth.getSession();if(!session){return showAuth()}user=session.user;let m=null;const mr=await sb.from('business_members').select('*').eq('user_id',user.id).eq('active',true).order('created_at',{ascending:true}).limit(1);if(!mr.error)m=mr.data?.[0]||null;let b=null;if(m){const br=await sb.from('businesses').select('*').eq('id',m.business_id).maybeSingle();if(!br.error)b=br.data}else{const br=await sb.from('businesses').select('*').eq('owner_user_id',user.id).order('created_at',{ascending:true}).limit(1);if(!br.error)b=br.data?.[0]||null}if(!b)return showMessage('No encontramos un negocio vinculado a esta cuenta.','Abre PUNTO YA CR y termina la configuración del negocio.');membership=m||{role:'owner'};if(!['owner','admin'].includes(membership.role||'owner'))return showMessage('Acceso restringido','El Panel del Emprendedor está reservado para el Dueño o administración autorizada.');business=b;await Promise.all([loadAll(),loadV742PlanStatus(),loadV743FiscalSecureStatus()]);render()}
+
+
+/* v7.61 · Pregúntale a PUNTO YA = centro de ayuda controlado, sin IA */
+let pyHelpCategory='app';
+const PY_HELP_CATEGORIES=[
+  ['app','Uso de la App'],['business','Mi negocio'],['inventory','Inventario'],
+  ['clients','Clientes y crédito'],['cash','Caja'],['fiscal','Facturación electrónica'],['account','Cuenta y PRO']
+];
+function pyHelpQuestions(){
+  return [
+    {id:'app-sale',cat:'app',q:'¿Cómo hago una venta?',a:()=> 'En la App toca “Vender”, elige los productos, revisa “Pedido actual” y continúa al cobro. Selecciona el método de pago y confirma la venta.'},
+    {id:'app-takeaway',cat:'app',q:'¿Cómo hago una venta para llevar?',a:()=> 'Toca “Vender” y al crear la venta selecciona “Para llevar”. Agrega los productos y cobra normalmente.'},
+    {id:'app-client',cat:'app',q:'¿Cómo agrego un cliente?',a:()=> 'Abre “Clientes”, toca agregar cliente, completa los datos necesarios y guarda. Los datos de crédito se administran desde el mismo módulo.'},
+    {id:'app-payment',cat:'app',q:'¿Cómo registro un abono?',a:()=> 'Entra a “Clientes”, abre el cliente con saldo y toca “Registrar abono”. Indica el monto y método de pago. El saldo se actualiza al confirmar.'},
+    {id:'app-whatsapp',cat:'app',q:'¿Cómo envío un recordatorio por WhatsApp?',a:()=> 'En “Clientes”, abre una cuenta con saldo y usa “Recordar por WhatsApp”. PUNTO YA prepara el mensaje para que lo revises antes de abrir WhatsApp; nunca se envía automáticamente.'},
+    {id:'app-qr',cat:'app',q:'¿Para qué sirve Menú QR?',a:()=> 'Menú QR permite compartir el catálogo o menú del negocio para que el cliente lo consulte desde su teléfono. La configuración se mantiene dentro de PUNTO YA.'},
+    {id:'biz-today',cat:'business',q:'¿Cuánto vendí hoy?',a:()=>{const r=todaySales();return `Hoy llevas ${money(pyV2Gross(r))} en ${r.length} venta${r.length===1?'':'s'}.`}},
+    {id:'biz-week',cat:'business',q:'¿Cómo voy esta semana?',a:()=>{const a=pyV2Gross(pyV2SalesWindow(7)),b=pyV2Gross(pyV2SalesWindow(7,7)),c=pyV2Compare(a,b);return `En los últimos 7 días vendiste ${money(a)}. ${c.text}.`}},
+    {id:'biz-best',cat:'business',q:'¿Cuál fue mi mejor día?',a:()=>{const w=pyV2WeekSeries(),best=w.slice().sort((a,b)=>b.total-a.total)[0];return best?.total?`Tu mejor día de los últimos 7 fue ${best.label}, con ${money(best.total)} en ventas.`:'Todavía no hay suficientes ventas para identificar un mejor día.'}},
+    {id:'biz-ticket',cat:'business',q:'¿Qué es el ticket promedio?',a:()=>{const r=pyV2SalesWindow(7),g=pyV2Gross(r);return r.length?`Tu ticket promedio de los últimos 7 días es ${money(g/r.length)}. Se calcula dividiendo las ventas totales entre la cantidad de ventas.`:'El ticket promedio es ventas totales ÷ cantidad de ventas. Todavía no hay suficientes ventas para calcularlo.'}},
+    {id:'biz-goal',cat:'business',q:'¿Cómo voy con mi meta?',a:()=>{const g=pyV2GoalStats();return g.target?`Llevas ${money(g.actual)} de ${money(g.target)} (${g.pct.toFixed(0)}%). Faltan ${money(g.remaining)} y necesitas cerca de ${money(g.needed)} por día restante.`:'Todavía no has definido una meta mensual. Puedes hacerlo desde “Metas”.'}},
+    {id:'biz-methods',cat:'business',q:'¿Cómo pagan mis clientes?',a:()=>{const m=pyV2PaymentSummary(30);return m.length?`Últimos 30 días:\n${m.slice(0,5).map(([k,v])=>`• ${k==='Crédito'?'Ventas a crédito':k}: ${money(v)}`).join('\n')}`:'Todavía no hay pagos suficientes para comparar métodos.'}},
+    {id:'inv-restock',cat:'inventory',q:'¿Qué debo reponer?',a:()=>{const rows=panelProducts().filter(x=>Number(x.stock||0)<=0||(Number(x.min_stock||0)>0&&Number(x.stock||0)<=Number(x.min_stock||0))).slice(0,8);return rows.length?`Revisa primero:\n${rows.map(x=>`• ${x.name}: stock ${Number(x.stock||0)}`).join('\n')}`:'No hay productos agotados ni por debajo del stock mínimo.'}},
+    {id:'inv-out',cat:'inventory',q:'¿Qué productos están agotados?',a:()=>{const rows=panelProducts().filter(x=>Number(x.stock||0)<=0).slice(0,10);return rows.length?`Agotados:\n${rows.map(x=>`• ${x.name}`).join('\n')}`:'No hay productos agotados.'}},
+    {id:'inv-min',cat:'inventory',q:'¿Qué significa stock mínimo?',a:()=> 'Es la cantidad a partir de la cual PUNTO YA te avisa que conviene revisar la reposición. No modifica el inventario; funciona como una alerta.'},
+    {id:'inv-cover',cat:'inventory',q:'¿Qué significa días de inventario?',a:()=> 'Es una estimación de cuántos días podría durar el stock actual según el ritmo reciente de ventas. Es una referencia operativa, no una garantía.'},
+    {id:'cli-total',cat:'clients',q:'¿Cuánto me deben?',a:()=>{const n=data.clients.filter(c=>creditBalance(c.id)>0).length;return `Tienes ${money(totalReceivable())} por cobrar entre ${n} cliente${n===1?'':'s'}.`}},
+    {id:'cli-who',cat:'clients',q:'¿Quiénes tienen saldo pendiente?',a:()=>{const rows=data.clients.map(c=>({name:c.name||'Cliente',b:Math.max(0,creditBalance(c.id))})).filter(x=>x.b>0).sort((a,b)=>b.b-a.b).slice(0,10);return rows.length?rows.map(x=>`• ${x.name}: ${money(x.b)}`).join('\n'):'No hay clientes con saldo pendiente.'}},
+    {id:'cli-credit',cat:'clients',q:'¿Qué significa venta a crédito?',a:()=> 'Es una venta que no se paga completamente al momento. El monto pendiente pasa a la cuenta del cliente y disminuye conforme registras abonos.'},
+    {id:'cli-receivable',cat:'clients',q:'¿Cuál es la diferencia entre ventas a crédito y por cobrar?',a:()=> '“Ventas a crédito” son las ventas realizadas bajo esa modalidad. “Por cobrar” es el saldo que todavía queda pendiente después de considerar los abonos.'},
+    {id:'cash-status',cat:'cash',q:'¿Cómo va mi caja?',a:()=>{const sh=pyV2CurrentCash()||pyV2LastClosedCash(),s=pyV2CashSnapshot(sh);if(!s)return'Todavía no hay información de caja sincronizada.';return sh.status==='open'?`Caja abierta. Fondo ${money(s.opening)}, retiros ${money(s.outs)} y efectivo esperado ${money(s.expected)}.`:`Última caja cerrada. Fondo ${money(s.opening)}, contado ${money(s.counted||0)} y diferencia ${money(s.difference||0)}.`}},
+    {id:'cash-fund',cat:'cash',q:'¿Qué pasa con el fondo del día anterior?',a:()=> 'Al abrir una nueva caja, PUNTO YA muestra el fondo fijo del día anterior. Puedes tocar “Continuar con este fondo” o “Cambiar monto” antes de abrir la caja.'},
+    {id:'cash-withdraw',cat:'cash',q:'¿Cómo hago un retiro de caja?',a:()=> 'En la App entra a “Caja” y usa “Registrar retiro”. Escribe el monto y el motivo. El retiro se descuenta del efectivo esperado.'},
+    {id:'cash-close',cat:'cash',q:'¿Cómo cierro caja?',a:()=> 'En “Caja” toca “Cerrar caja”. PUNTO YA muestra el efectivo esperado; escribe el efectivo contado y confirma. Se guardará la diferencia entre lo contado y lo esperado.'},
+    {id:'cash-diff',cat:'cash',q:'¿Qué significa diferencia de caja?',a:()=> 'Es la diferencia entre el efectivo que PUNTO YA esperaba encontrar y el efectivo que realmente se contó al cerrar. Sirve para detectar faltantes o sobrantes.'},
+    {id:'fis-ticket',cat:'fiscal',q:'¿Qué es un Tiquete Electrónico?',a:()=> 'Es el comprobante electrónico utilizado normalmente cuando la venta no requiere identificar a un receptor. PUNTO YA mantiene este flujo separado de la Factura Electrónica con receptor.'},
+    {id:'fis-invoice',cat:'fiscal',q:'¿Qué es una Factura Electrónica?',a:()=> 'Es un comprobante electrónico que incluye los datos del receptor cuando corresponde. En PUNTO YA se solicita la información del receptor durante el cobro.'},
+    {id:'fis-reject',cat:'fiscal',q:'¿Qué hago si Hacienda rechaza un comprobante?',a:()=> 'Abre el comprobante y usa la opción de revisión disponible. PUNTO YA conserva el estado para que puedas corregir el problema sin ocultar ni borrar el historial.'},
+    {id:'fis-status',cat:'fiscal',q:'¿Dónde veo el estado de Facturación Electrónica?',a:()=> `En “Configuración → Factura electrónica”. Estado actual: ${settings().fiscalUsesEInvoice?'preparación/activación registrada':'no activada'}.`},
+    {id:'acc-pro',cat:'account',q:'¿Qué incluye PRO?',a:()=> 'PRO agrega las funciones de nube, respaldo, equipo/permisos, Panel del Emprendedor y herramientas avanzadas. Facturación Electrónica se activa aparte cuando el negocio la necesite.'},
+    {id:'acc-password',cat:'account',q:'¿Cómo cambio mi contraseña?',a:()=> 'Desde la pantalla de acceso usa “Olvidé mi contraseña” para recibir el enlace de recuperación en el correo de la cuenta.'},
+    {id:'acc-offline',cat:'account',q:'¿Qué pasa si trabajo sin Internet?',a:()=> 'La App está preparada para seguir operando con los datos locales disponibles. La sincronización con la nube se reanuda cuando vuelve la conexión.'},
+    {id:'acc-guest',cat:'account',q:'¿Qué significa Empezar sin cuenta?',a:()=> 'Es un modo local para probar o trabajar en este dispositivo sin crear una cuenta en la nube. Los datos permanecen en el dispositivo hasta que decidas vincular una cuenta.'}
+  ];
+}
+function pyHelpSetCategory(cat){pyHelpCategory=cat;render()}
+function pyHelpOpen(id){const item=pyHelpQuestions().find(x=>x.id===id),box=document.getElementById('pyHelpAnswer');if(!item||!box)return;try{box.textContent=item.a()}catch(e){console.error(e);box.textContent='No pude obtener esa información en este momento.'}box.scrollIntoView?.({behavior:'smooth',block:'nearest'})}
+renderAsk=function(){const qs=pyHelpQuestions().filter(x=>x.cat===pyHelpCategory),cat=PY_HELP_CATEGORIES.find(x=>x[0]===pyHelpCategory)?.[1]||'Ayuda';return shell(`<div class="hero"><div><h1>Pregúntale a PUNTO YA</h1><p>Elige qué necesitas y te mostramos una respuesta clara.</p></div><span class="pill">AYUDA</span></div><div class="panel-help-intro"><strong>¿Qué necesitas?</strong><p class="muted" style="margin:5px 0 12px">No es una IA ni un chat abierto. Son consultas preparadas por PUNTO YA y, cuando corresponde, respuestas calculadas con los datos de tu negocio.</p><div class="panel-help-cats">${PY_HELP_CATEGORIES.map(([id,label])=>`<button type="button" class="panel-help-cat ${id===pyHelpCategory?'active':''}" onclick="pyHelpSetCategory('${id}')">${esc(label)}</button>`).join('')}</div><div class="panel-v2-section-head" style="margin-top:8px"><h2>${esc(cat)}</h2><small>${qs.length} consultas</small></div><div class="panel-help-list">${qs.map(x=>`<button type="button" class="panel-help-q" onclick="pyHelpOpen('${x.id}')"><span>${esc(x.q)}</span><span>›</span></button>`).join('')}</div><div id="pyHelpAnswer" class="panel-help-answer">Toca una consulta para ver la respuesta.</div><div class="panel-help-note">Las consultas de datos respetan la cuenta y el negocio que ya están abiertos en este Panel.</div></div>`) };
+
+/* v7.61 · logo: lista permitida estricta + tamaño/dimensiones antes de regenerar */
+resizeLogo=async function(file){
+  const allowed=new Set(['image/png','image/jpeg','image/webp']);
+  if(!file||!allowed.has(String(file.type||'').toLowerCase()))throw new Error('Usa únicamente PNG, JPG/JPEG o WebP.');
+  if(file.size>3*1024*1024)throw new Error('El logo debe pesar 3 MB o menos.');
+  const src=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error||new Error('No se pudo leer la imagen.'));r.readAsDataURL(file)});
+  const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('El archivo no pudo decodificarse como imagen válida.'));i.src=src});
+  if(!img.width||!img.height||img.width>4096||img.height>4096)throw new Error('La imagen es demasiado grande. Máximo 4096 × 4096 px.');
+  const maxW=520,maxH=240,scale=Math.min(1,maxW/img.width,maxH/img.height),c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));
+  const ctx=c.getContext('2d',{alpha:true});if(!ctx)throw new Error('No se pudo procesar la imagen.');
+  ctx.drawImage(img,0,0,c.width,c.height);
+  const out=c.toDataURL('image/png',.88);
+  if(out.length>850000)throw new Error('El logo optimizado sigue siendo demasiado pesado. Usa una imagen más simple.');
+  return out;
+};
 
 init().catch(e=>{console.error(e);showMessage('No se pudo abrir el panel','Revisa la conexión y los permisos de Supabase.')});
 </script>

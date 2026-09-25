@@ -1,4 +1,4 @@
-const CACHE = 'punto-ya-cr-v7-60-panel-intelligence-v6';
+const CACHE = 'punto-ya-cr-v7-61-help-security-audit-v1';
 
 const CORE = [
   './index.html',

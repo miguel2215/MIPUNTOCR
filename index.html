@@ -1405,6 +1405,42 @@ html, body {
   input, select, textarea, button { font-size: max(16px, 1em); }
 }
 </style>
+
+<style id="pycr-v761-auth-polish">
+/* v7.61 · acceso móvil: pantalla fija cuando cabe, scroll interno solo si hace falta */
+@media (max-width: 700px){
+  html.pycr-auth-lock, body.pycr-auth-lock{height:100%;overflow:hidden;overscroll-behavior:none;background:#F8FAFC}
+  body.pycr-auth-lock #app{height:100dvh;min-height:100dvh;overflow:hidden}
+  body.pycr-auth-lock .onboarding{
+    height:100dvh;min-height:100dvh;overflow:hidden;overscroll-behavior:none;
+    padding:max(10px,env(safe-area-inset-top)) 16px max(10px,env(safe-area-inset-bottom));
+    display:flex;align-items:center;justify-content:center;background:#F8FAFC;
+  }
+  body.pycr-auth-lock .onboard-card{
+    width:min(100%,520px);max-height:100%;overflow-y:auto;overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;border-radius:24px;padding:22px 20px;
+    scrollbar-width:none;
+  }
+  body.pycr-auth-lock .onboard-card::-webkit-scrollbar{display:none}
+  body.pycr-auth-lock .brand-logo-horizontal{margin-bottom:14px}
+  body.pycr-auth-lock .brand-logo-horizontal.compact{margin-bottom:16px}
+  body.pycr-auth-lock .onboard-card h2{margin:8px 0 18px;line-height:1.12}
+  body.pycr-auth-lock .onboard-card>p{margin:0 0 18px;line-height:1.45}
+  body.pycr-auth-lock .onboard-card .field{margin-bottom:16px;gap:8px}
+  body.pycr-auth-lock .onboard-card .field label{font-size:14px}
+  body.pycr-auth-lock .onboard-card .field input,
+  body.pycr-auth-lock .onboard-card .field select{min-height:50px}
+  body.pycr-auth-lock #loginButton{margin-top:8px!important}
+  body.pycr-auth-lock #loginButton + .btn{margin-top:14px!important}
+  body.pycr-auth-lock .back-link{margin-bottom:12px;min-height:38px;display:inline-flex;align-items:center}
+  body.pycr-auth-lock .choice-grid{margin-top:16px;gap:10px}
+}
+@media (max-height: 650px) and (max-width: 700px){
+  body.pycr-auth-lock .onboarding{align-items:flex-start}
+  body.pycr-auth-lock .onboard-card{padding-top:16px;padding-bottom:16px}
+}
+</style>
+
 </head>
 <body>
 <div id="pycStartupSplash" role="status" aria-label="Abriendo PUNTO YA CR">
@@ -10465,6 +10501,24 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
     if (e.touches && e.touches.length > 1) e.preventDefault();
   }, { passive: false });
   document.addEventListener('dblclick', stop, { passive: false });
+})();
+</script>
+
+
+<script id="pycr-v761-auth-lock-script">
+(() => {
+  const syncAuthLock = () => {
+    const authVisible = !!document.querySelector('#app > .onboarding, #app .onboarding');
+    document.documentElement.classList.toggle('pycr-auth-lock', authVisible);
+    document.body?.classList.toggle('pycr-auth-lock', authVisible);
+  };
+  const start = () => {
+    syncAuthLock();
+    const app = document.getElementById('app');
+    if (app) new MutationObserver(syncAuthLock).observe(app,{childList:true,subtree:true});
+    window.addEventListener('resize',syncAuthLock,{passive:true});
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',start,{once:true}); else start();
 })();
 </script>
 
