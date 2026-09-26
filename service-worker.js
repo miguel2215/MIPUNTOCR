@@ -1,4 +1,4 @@
-const CACHE = 'punto-ya-cr-v7-63-1-team-panel';
+const CACHE = 'punto-ya-cr-v7-64-pc-completo';
 
 const CORE = [
   './index.html',
