@@ -1,4 +1,4 @@
-const CACHE = 'punto-ya-cr-v7-63-employee-access';
+const CACHE = 'punto-ya-cr-v7-63-1-team-panel';
 
 const CORE = [
   './index.html',

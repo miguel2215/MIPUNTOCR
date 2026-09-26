@@ -359,6 +359,21 @@
 .panel-help-note{margin-top:10px;color:#64748B;font-size:12px}
 </style>
 
+
+<style id="pycr-v7631-team-style">
+.team-owner-card,.team-employee-card,.team-form-card{background:#fff;border:1px solid #E2E8F0;border-radius:18px;padding:16px}
+.team-owner-card{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:12px}
+.team-avatar{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#EAF8F1;color:#0E9A5A;font-size:18px;font-weight:900}
+.team-copy strong{display:block;color:#0F172A;font-size:14px}.team-copy small{display:block;color:#64748B;font-size:11.5px;margin-top:3px}
+.team-code{display:flex;align-items:center;gap:8px;border:1px solid #DCE9E2;background:#F6FBF8;border-radius:14px;padding:9px 11px;white-space:nowrap}
+.team-code span{font-size:10px;color:#64748B;font-weight:700}.team-code strong{font-size:16px;color:#067647;letter-spacing:.04em}
+.team-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.team-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:22px 0 10px}.team-section-head h2{margin:0;font-size:18px}.team-section-head p{margin:3px 0 0;color:#64748B;font-size:12px}
+.team-employee-list{display:grid;gap:10px}.team-employee-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}.team-employee-card h3{margin:0;font-size:15px}.team-perms{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.team-perm{font-size:9.5px;font-weight:800;background:#F1F5F9;color:#475569;border-radius:999px;padding:5px 8px}.team-card-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.team-form-card{margin-top:12px}.team-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.team-permission-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.team-permission-option{display:flex;align-items:center;gap:8px;border:1px solid #E2E8F0;border-radius:12px;padding:10px;background:#fff;font-size:12px;font-weight:700;color:#334155}.team-permission-option input{width:17px;height:17px;accent-color:#12B76A}.team-status{margin-top:12px;padding:10px 12px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;color:#475569;font-size:12px}.team-status.ok{background:#ECFDF3;border-color:#ABEFC6;color:#067647}.team-status.error{background:#FEF2F2;border-color:#FECACA;color:#991B1B}
+.team-note{margin-top:12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:14px;padding:12px;color:#475569;font-size:12px;line-height:1.45}
+@media(max-width:700px){.team-owner-card{grid-template-columns:44px minmax(0,1fr)}.team-owner-card .team-code{grid-column:1/-1;justify-content:center}.team-employee-card{grid-template-columns:1fr}.team-card-actions{justify-content:flex-start}.team-form-grid{grid-template-columns:1fr}.team-permission-grid{grid-template-columns:1fr 1fr}.team-section-head{align-items:flex-start;flex-direction:column}.team-section-head .btn{width:100%}}
+</style>
+
 </head>
 <body>
 <div id="root"></div>
@@ -368,7 +383,24 @@ const SUPABASE_KEY='sb_publishable_gRxzhxgEe3WnqSfA-fn6_w_nOtQ7sDy';
 const PYCR_TURNSTILE_SITE_KEY='0x4AAAAAAFDzdjukZKhpfuN7';
 let pycrTurnstileLoader=null;
 function pycrLoadTurnstile(){if(window.turnstile)return Promise.resolve(window.turnstile);if(pycrTurnstileLoader)return pycrTurnstileLoader;pycrTurnstileLoader=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';s.async=true;s.defer=true;s.onload=()=>window.turnstile?resolve(window.turnstile):reject(new Error('No se pudo cargar la verificación de seguridad.'));s.onerror=()=>reject(new Error('No se pudo cargar la verificación de seguridad.'));document.head.appendChild(s)});return pycrTurnstileLoader}
-async function pycrGetCaptchaToken(){await pycrLoadTurnstile();return new Promise((resolve,reject)=>{const old=document.getElementById('pycrTurnstileOverlay');if(old)old.remove();const o=document.createElement('div');o.id='pycrTurnstileOverlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:20px';o.innerHTML=`<div style="width:min(420px,100%);background:#fff;border-radius:20px;padding:20px;box-shadow:0 24px 60px rgba(15,23,42,.24);text-align:center"><strong style="display:block;font-size:18px;color:#0F172A">Verificación de seguridad</strong><p style="margin:7px 0 16px;color:#64748B;font-size:13px">Estamos comprobando que eres una persona.</p><div id="pycrTurnstileHost" style="display:flex;justify-content:center;min-height:66px"></div><button id="pycrTurnstileCancel" type="button" style="margin-top:14px;border:1px solid #E2E8F0;background:#fff;border-radius:12px;padding:10px 16px;font-weight:700;color:#334155">Cancelar</button></div>`;document.body.appendChild(o);let done=false;let timer=null;const finish=(fn,v)=>{if(done)return;done=true;if(timer)clearTimeout(timer);o.remove();fn(v)};o.querySelector('#pycrTurnstileCancel').onclick=()=>finish(reject,new Error('Verificación cancelada.'));try{window.turnstile.render('#pycrTurnstileHost',{sitekey:PYCR_TURNSTILE_SITE_KEY,theme:'auto',size:'flexible',callback:token=>finish(resolve,token),'error-callback':()=>finish(reject,new Error('No se pudo completar la verificación de seguridad.')),'expired-callback':()=>finish(reject,new Error('La verificación venció. Intenta nuevamente.'))});timer=setTimeout(()=>finish(reject,new Error('La verificación tardó demasiado. Intenta nuevamente.')),120000)}catch(e){finish(reject,e)}})}
+async function pycrGetCaptchaToken(){
+  if(!navigator.onLine)throw new Error('Necesitas Internet para completar la verificación de seguridad.');
+  await pycrLoadTurnstile();
+  return new Promise((resolve,reject)=>{
+    const old=document.getElementById('pycrTurnstileOverlay');if(old)old.remove();
+    const o=document.createElement('div');o.id='pycrTurnstileOverlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:20px';
+    o.innerHTML=`<div style="width:min(420px,100%);background:#fff;border-radius:20px;padding:20px;box-shadow:0 24px 60px rgba(15,23,42,.24);text-align:center"><strong style="display:block;font-size:18px;color:#0F172A">Verificación de seguridad</strong><p style="margin:7px 0 16px;color:#64748B;font-size:13px">Estamos comprobando que eres una persona.</p><div id="pycrTurnstileHost" style="display:flex;justify-content:center;min-height:66px"></div><button id="pycrTurnstileCancel" type="button" style="margin-top:14px;border:1px solid #E2E8F0;background:#fff;border-radius:12px;padding:10px 16px;font-weight:700;color:#334155">Cancelar</button></div>`;
+    document.body.appendChild(o);
+    let done=false,timer=null,widgetId=null;
+    const cleanup=()=>{if(timer)clearTimeout(timer);if(widgetId!=null&&window.turnstile?.remove){try{window.turnstile.remove(widgetId)}catch(_){}}try{o.remove()}catch(_){}};
+    const finish=(fn,v)=>{if(done)return;done=true;cleanup();fn(v)};
+    o.querySelector('#pycrTurnstileCancel').onclick=()=>finish(reject,new Error('Verificación cancelada.'));
+    try{
+      widgetId=window.turnstile.render('#pycrTurnstileHost',{sitekey:PYCR_TURNSTILE_SITE_KEY,theme:'auto',size:'flexible',callback:token=>finish(resolve,token),'error-callback':code=>{const c=String(code||'');if(c.startsWith('110200'))return finish(reject,new Error('Turnstile no autoriza este dominio. Agrega el dominio actual en Cloudflare Turnstile.'));finish(reject,new Error(`No se pudo completar la verificación de seguridad${c?` (${c})`:''}.`))},'expired-callback':()=>finish(reject,new Error('La verificación venció. Intenta nuevamente.'))});
+      timer=setTimeout(()=>finish(reject,new Error('La verificación tardó demasiado. Intenta nuevamente.')),120000);
+    }catch(e){finish(reject,e instanceof Error?e:new Error('No se pudo iniciar la verificación de seguridad.'))}
+  })
+}
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'pkce'}});
 let user=null,business=null,membership=null,data={sales:[],saleItems:[],payments:[],credits:[],products:[],clients:[],orders:[],members:[],employees:[]};
 let view='home';
@@ -941,6 +973,116 @@ resizeLogo=async function(file){
   const out=c.toDataURL('image/png',.88);
   if(out.length>850000)throw new Error('El logo optimizado sigue siendo demasiado pesado. Usa una imagen más simple.');
   return out;
+};
+
+
+
+/* =========================================================
+   v7.63.1 · EQUIPO EN PANEL
+   - Código CR del dueño desde RPC protegida.
+   - Crear/editar/regenerar/eliminar empleados.
+   - Códigos siempre ligados al negocio.
+   ========================================================= */
+const PANEL_TEAM_PERMISSION_OPTIONS=[
+  ['sell','Vender'],['orders','Pedidos'],['tables','Mesas'],['cash','Caja'],
+  ['products','Productos / Servicios'],['clients','Clientes / Crédito'],
+  ['sales','Mis ventas'],['catalog','Menú / Catálogo QR'],['void_sales','Anular ventas']
+];
+const PANEL_TEAM_DEFAULT_PERMISSIONS={sell:true,orders:true,tables:true,cash:false,products:false,clients:true,sales:false,catalog:true,void_sales:false};
+let panelTeamCreateOpen=false;
+let panelTeamEditingId='';
+data.ownerAccessCode=data.ownerAccessCode||0;
+
+function panelTeamOwnerMember(){return data.members.find(m=>String(m.role||'').toLowerCase()==='owner')||null}
+function panelTeamOwnerName(){const m=panelTeamOwnerMember();return m?.display_name||user?.user_metadata?.full_name||user?.email||'Dueño'}
+function panelTeamIsOwner(){return String(membership?.role||'owner').toLowerCase()==='owner'}
+function panelTeamIsPro(){return planLabel()==='PRO'}
+function panelTeamInitial(name){return esc(String(name||'?').trim().charAt(0).toUpperCase()||'?')}
+function panelTeamPermissionChecks(prefix,permissions={}){const p={...PANEL_TEAM_DEFAULT_PERMISSIONS,...(permissions||{})};return PANEL_TEAM_PERMISSION_OPTIONS.map(([key,label])=>`<label class="team-permission-option"><input id="${prefix}_${key}" type="checkbox" ${p[key]===true?'checked':''}><span>${esc(label)}</span></label>`).join('')}
+function panelTeamReadPermissions(prefix){const out={};for(const [key] of PANEL_TEAM_PERMISSION_OPTIONS)out[key]=!!document.getElementById(`${prefix}_${key}`)?.checked;return out}
+function panelTeamPermissionLabels(permissions={}){const p={...PANEL_TEAM_DEFAULT_PERMISSIONS,...(permissions||{})};return PANEL_TEAM_PERMISSION_OPTIONS.filter(([key])=>p[key]===true).map(([,label])=>label)}
+function panelTeamStatus(message,type=''){const el=document.getElementById('teamStatus');if(!el)return;el.className=`team-status ${type}`.trim();el.textContent=message;el.hidden=false}
+
+async function panelTeamLoadOwnerCode(){
+  if(!business?.id||!panelTeamIsOwner())return 0;
+  const {data:rows,error}=await sb.rpc('get_owner_access_code',{p_business_id:business.id});
+  if(error)throw error;
+  const row=Array.isArray(rows)?rows[0]:rows;
+  const n=Number(row?.owner_code??row??0);
+  data.ownerAccessCode=Number.isInteger(n)&&n>=1000&&n<=9999?n:0;
+  return data.ownerAccessCode;
+}
+async function panelTeamRefreshEmployees(){
+  if(!business?.id||!panelTeamIsOwner()){data.employees=[];return []}
+  const {data:rows,error}=await sb.from('business_employees').select('id,business_id,code_number,display_name,permissions,created_at,updated_at').eq('business_id',business.id).order('display_name',{ascending:true});
+  if(error)throw error;data.employees=rows||[];return data.employees;
+}
+
+const pyV7631TeamLoadBase=loadAll;
+loadAll=async function(){
+  await pyV7631TeamLoadBase();
+  if(!panelTeamIsOwner())return;
+  try{await panelTeamLoadOwnerCode()}catch(e){console.warn('Código del dueño:',e?.message||e);data.ownerAccessCode=0}
+};
+
+renderTeam=function(){
+  const owner=panelTeamOwnerName();
+  const ownerCode=Number(data.ownerAccessCode||0);
+  const isOwner=panelTeamIsOwner();
+  const pro=panelTeamIsPro();
+  const admins=data.members.filter(m=>['admin'].includes(String(m.role||'').toLowerCase())&&m.active!==false);
+  const employees=Array.isArray(data.employees)?data.employees:[];
+  const editing=employees.find(e=>e.id===panelTeamEditingId)||null;
+  const ownerCodeHtml=isOwner&&pro
+    ? `<div class="team-code"><span>CÓDIGO DEL DUEÑO</span><strong>${ownerCode?`CR${ownerCode}`:'Cargando…'}</strong></div>`
+    : `<div class="team-code"><span>ACCESO</span><strong>${pro?'Solo dueño':'PRO'}</strong></div>`;
+  const createForm=panelTeamCreateOpen&&isOwner&&pro?`<div class="team-form-card"><h3 style="margin:0 0 4px">Crear empleado</h3><p class="muted" style="margin:0 0 12px">PUNTO YA genera el código CR automáticamente.</p><div class="team-form-grid"><div class="field"><label>Nombre</label><input id="teamEmployeeName" maxlength="120" autocomplete="off" placeholder="Ej. Carlos"></div></div><strong style="display:block;margin-top:14px">Permisos</strong><div class="team-permission-grid">${panelTeamPermissionChecks('teamCreatePerm')}</div><div class="team-toolbar" style="margin-top:14px"><button class="btn primary" onclick="panelTeamCreateEmployee()">Crear empleado</button><button class="btn ghost" onclick="panelTeamCloseForms()">Cancelar</button></div></div>`:'';
+  const editForm=editing&&isOwner&&pro?`<div class="team-form-card"><h3 style="margin:0 0 4px">Editar ${esc(editing.display_name||'empleado')}</h3><p class="muted" style="margin:0 0 12px">Código actual: <strong>CR${Number(editing.code_number)}</strong></p><div class="team-form-grid"><div class="field"><label>Nombre</label><input id="teamEditName" maxlength="120" value="${esc(editing.display_name||'')}"></div></div><strong style="display:block;margin-top:14px">Permisos</strong><div class="team-permission-grid">${panelTeamPermissionChecks('teamEditPerm',editing.permissions||{})}</div><div class="team-toolbar" style="margin-top:14px"><button class="btn primary" onclick="panelTeamSaveEmployee('${editing.id}')">Guardar cambios</button><button class="btn ghost" onclick="panelTeamCloseForms()">Cancelar</button></div></div>`:'';
+  const employeeHtml=employees.length?employees.map(e=>{const labels=panelTeamPermissionLabels(e.permissions||{});return `<div class="team-employee-card"><div><div style="display:flex;align-items:center;gap:10px"><span class="team-avatar" style="width:42px;height:42px">${panelTeamInitial(e.display_name)}</span><div><h3>${esc(e.display_name||'Empleado')}</h3><small class="muted">Empleado · <strong>CR${Number(e.code_number)}</strong></small></div></div><div class="team-perms">${labels.length?labels.map(x=>`<span class="team-perm">${esc(x)}</span>`).join(''):'<span class="team-perm">Sin permisos operativos</span>'}</div></div><div class="team-card-actions">${isOwner&&pro?`<button class="btn ghost" onclick="panelTeamOpenEdit('${e.id}')">Editar</button><button class="btn ghost" onclick="panelTeamRegenerateCode('${e.id}')">Regenerar código</button><button class="btn danger" onclick="panelTeamDeleteEmployee('${e.id}')">Eliminar</button>`:''}</div></div>`}).join(''):`<div class="card empty">Todavía no tienes empleados. Cuando crees uno, PUNTO YA generará su código CR automáticamente.</div>`;
+  const adminHtml=admins.length?`<section class="section"><div class="team-section-head"><div><h2>Administración</h2><p>Usuarios con acceso administrativo por cuenta.</p></div></div><div class="team-employee-list">${admins.map(a=>`<div class="team-employee-card"><div style="display:flex;align-items:center;gap:10px"><span class="team-avatar">${panelTeamInitial(a.display_name||a.email)}</span><div><h3>${esc(a.display_name||a.email||'Administrador')}</h3><small class="muted">Administrador · cuenta vinculada</small></div></div></div>`).join('')}</div></section>`:'';
+  return shell(`<div class="hero"><div><h1>Equipo</h1><p>Administra quién puede trabajar en este negocio y qué puede hacer.</p></div>${pro?'<span class="pill pro">PRO</span>':'<span class="pill">FREE</span>'}</div><div class="team-owner-card"><span class="team-avatar">${panelTeamInitial(owner)}</span><div class="team-copy"><strong>${esc(owner)}</strong><small>Dueño · cuenta activa</small></div>${ownerCodeHtml}</div>${!pro?'<div class="notice section">La administración por código CR está disponible con PUNTO YA CR Pro.</div>':''}<div class="team-section-head"><div><h2>Empleados</h2><p>${employees.length} empleado${employees.length===1?'':'s'} registrado${employees.length===1?'':'s'} en este negocio.</p></div>${isOwner&&pro?`<button class="btn primary" onclick="panelTeamToggleCreate()">${panelTeamCreateOpen?'Cerrar':'Crear empleado'}</button>`:''}</div>${createForm}${editForm}<div id="teamStatus" class="team-status" hidden></div><div class="team-employee-list">${employeeHtml}</div>${adminHtml}<div class="team-note"><strong>Acceso protegido:</strong> los códigos CR solo funcionan dentro de este negocio. En un dispositivo nuevo, “Acceso de empleado” permanece oculto hasta que el dueño haya iniciado sesión una vez desde la App.</div>`);
+};
+
+window.panelTeamToggleCreate=function(){panelTeamEditingId='';panelTeamCreateOpen=!panelTeamCreateOpen;render()};
+window.panelTeamCloseForms=function(){panelTeamCreateOpen=false;panelTeamEditingId='';render()};
+window.panelTeamOpenEdit=function(id){panelTeamCreateOpen=false;panelTeamEditingId=id;render()};
+window.panelTeamCreateEmployee=async function(){
+  const name=document.getElementById('teamEmployeeName')?.value.trim()||'';
+  if(!name)return panelTeamStatus('Escribe el nombre del empleado.','error');
+  panelTeamStatus('Creando empleado…');
+  try{
+    const {data:rows,error}=await sb.rpc('create_business_employee',{p_business_id:business.id,p_display_name:name,p_permissions:panelTeamReadPermissions('teamCreatePerm')});
+    if(error)throw error;const row=Array.isArray(rows)?rows[0]:rows;
+    await panelTeamRefreshEmployees();panelTeamCreateOpen=false;panelTeamEditingId='';render();
+    setTimeout(()=>panelTeamStatus(`${name} fue creado con el código CR${Number(row?.code_number||0)}.`,'ok'),0);
+  }catch(e){console.error(e);panelTeamStatus(e?.message||'No se pudo crear el empleado.','error')}
+};
+window.panelTeamSaveEmployee=async function(id){
+  const name=document.getElementById('teamEditName')?.value.trim()||'';
+  if(!name)return panelTeamStatus('Escribe el nombre del empleado.','error');
+  panelTeamStatus('Guardando cambios…');
+  try{
+    const {error}=await sb.from('business_employees').update({display_name:name,permissions:panelTeamReadPermissions('teamEditPerm'),updated_at:new Date().toISOString()}).eq('business_id',business.id).eq('id',id);
+    if(error)throw error;await panelTeamRefreshEmployees();panelTeamEditingId='';render();setTimeout(()=>panelTeamStatus('Empleado actualizado.','ok'),0);
+  }catch(e){console.error(e);panelTeamStatus(e?.message||'No se pudo actualizar el empleado.','error')}
+};
+window.panelTeamRegenerateCode=async function(id){
+  const employee=data.employees.find(e=>e.id===id);if(!employee)return;
+  if(!confirm(`¿Generar un código nuevo para ${employee.display_name}? El código CR${Number(employee.code_number)} dejará de servir para nuevos ingresos.`))return;
+  panelTeamStatus('Generando código nuevo…');
+  try{
+    const {data:rows,error}=await sb.rpc('regenerate_employee_code',{p_business_id:business.id,p_employee_id:id});
+    if(error)throw error;const row=Array.isArray(rows)?rows[0]:rows;await panelTeamRefreshEmployees();render();setTimeout(()=>panelTeamStatus(`Nuevo código de ${employee.display_name}: CR${Number(row?.code_number||0)}.`,'ok'),0);
+  }catch(e){console.error(e);panelTeamStatus(e?.message||'No se pudo regenerar el código.','error')}
+};
+window.panelTeamDeleteEmployee=async function(id){
+  const employee=data.employees.find(e=>e.id===id);if(!employee)return;
+  if(!confirm(`¿Eliminar a ${employee.display_name}? El código CR${Number(employee.code_number)} dejará de funcionar.`))return;
+  panelTeamStatus('Eliminando empleado…');
+  try{
+    const {error}=await sb.from('business_employees').delete().eq('business_id',business.id).eq('id',id);if(error)throw error;
+    await panelTeamRefreshEmployees();render();setTimeout(()=>panelTeamStatus('Empleado eliminado. Sus ventas anteriores se conservan.','ok'),0);
+  }catch(e){console.error(e);panelTeamStatus(e?.message||'No se pudo eliminar el empleado.','error')}
 };
 
 init().catch(e=>{console.error(e);showMessage('No se pudo abrir el panel','Revisa la conexión y los permisos de Supabase.')});
