@@ -10957,5 +10957,76 @@ renderSettings=function(){v741RenderSettingsAuto();if(role==='owner')setTimeout(
 })();
 </script>
 
+
+<style id="pycr-v765-responsive-unified">
+/* =========================================================
+   PUNTO YA CR · v7.65 · Responsive unificado
+   Mantiene PC v7.64 aprobado y alinea Tablet/Móvil al Design System oficial.
+   ========================================================= */
+@media (max-width:1099px){
+  :root{
+    --bg:#F8FAFC;--surface:#FFFFFF;--text:#0F172A;--muted:#64748B;
+    --primary:#12B76A;--primary-dark:#0E9A5A;--primary-soft:#ECFDF3;
+    --line:#E2E8F0;--danger:#EF4444;--danger-soft:#FEF2F2;
+    --warning:#A15C00;--warning-soft:#FFF7E8;--shadow:0 5px 18px rgba(15,23,42,.035);--radius:16px;
+  }
+  html,body,#app{background:#F8FAFC;color:#0F172A;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  .shell{max-width:1040px}
+  .topbar{background:rgba(248,250,252,.96);border-bottom:1px solid rgba(226,232,240,.82);backdrop-filter:blur(14px)}
+  .brand h1{color:#0F172A;font-weight:700;letter-spacing:-.25px}.brand p{color:#64748B}
+  .badge{border:1px solid #E2E8F0;background:#fff;color:#475569}.badge.online{border-color:#ABEFC6;background:#ECFDF3;color:#067647}.badge.offline{border-color:#FECACA;background:#FEF2F2;color:#B42318}
+  .screen-title{margin:14px 0 14px}.screen-title h2{font-size:24px;line-height:1.12;font-weight:700;letter-spacing:-.45px;color:#0F172A}.screen-title p{font-size:14px;color:#64748B;line-height:1.45}
+  .panel,.row-card,.kpi,.product-card,.category-card,.table-card,.product-category-card,.legal-card,.service-kind-card,.provider-card,.profit-card,.inventory-summary-card{border-color:#E2E8F0!important;background:#fff!important;box-shadow:0 5px 18px rgba(15,23,42,.035)!important}
+  .panel,.row-card,.kpi,.product-card,.category-card,.table-card,.product-category-card,.legal-card,.profit-card{border-radius:16px!important}
+  .big-card{border-color:#E2E8F0;border-radius:16px;box-shadow:0 5px 18px rgba(15,23,42,.035);padding:16px 18px;min-height:80px}.big-card strong{font-size:15px;font-weight:700;color:#0F172A}.big-card small{font-size:12px;color:#64748B}.big-card.primary{background:#12B76A!important;border-color:#12B76A!important}.big-card.primary strong{font-size:16px}.big-card.primary small{color:#D1FADF}
+  .btn{min-height:48px;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:700;background:#F1F5F9;color:#334155}.btn.primary{background:#12B76A;color:#fff}.btn.primary:active{background:#0E9A5A}.btn.ghost{border:1px solid #E2E8F0;background:#fff}.btn.danger{background:#FEF2F2;color:#B42318}
+  .search,.field input,.field select,.field textarea{min-height:48px;border:1px solid #E2E8F0;border-radius:12px;background:#fff;color:#0F172A;font-size:14px;padding:11px 13px}.field label{font-size:11px;font-weight:600;color:#475569}.search:focus,.field input:focus,.field select:focus,.field textarea:focus{border-color:#12B76A;box-shadow:0 0 0 3px rgba(18,183,106,.10)}
+  .kpi{padding:14px}.kpi .muted,.kpi>span{font-size:11px;font-weight:600;color:#64748B}.kpi strong{font-size:20px;font-weight:700;color:#0F172A;margin-top:6px}
+  .row-card{padding:13px 14px}.row-head strong{color:#0F172A}.muted{color:#64748B}
+  .toolbar{gap:8px;margin-bottom:12px}
+  .qty button{border-color:#E2E8F0;border-radius:10px;background:#fff;color:#0F172A}
+  .pay-btn{min-height:52px;border-radius:12px;font-size:13px;font-weight:700}.pay-cash{background:#ECFDF3;color:#067647}.pay-sinpe{background:#EFF6FF;color:#1D4ED8}.pay-card{background:#F5F3FF;color:#6D28D9}.pay-credit{background:#FFF7E8;color:#A15C00}
+  .modal-backdrop{background:rgba(15,23,42,.48);backdrop-filter:blur(2px)}.modal{border:1px solid #E2E8F0;background:#fff}.modal h3{font-size:20px;font-weight:700;color:#0F172A}.modal p{color:#475569}
+  .offline-note{border:1px solid #FECACA;background:#FEF2F2;color:#B42318;border-radius:12px}
+  .empty{color:#64748B}
+}
+
+/* Tablet: misma identidad PC, controles táctiles y densidad intermedia. */
+@media (min-width:700px) and (max-width:1099px){
+  .shell{padding:16px 20px 112px}.topbar{margin:0 -20px 6px;padding:11px 20px 12px}
+  .brand-icon{width:40px;height:40px;border-radius:11px}.brand h1{font-size:20px}.brand p{font-size:12px}
+  .home-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.grid-products{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.form-grid>.full,.form-grid>.span-2{grid-column:1/-1}
+  .table-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.payment-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .bottom-nav{left:50%!important;right:auto!important;width:min(680px,calc(100% - 32px))!important;transform:translateX(-50%)!important;bottom:calc(12px + env(safe-area-inset-bottom))!important;min-height:68px!important;padding:6px!important;border:1px solid #E2E8F0!important;border-radius:22px!important;background:rgba(255,255,255,.97)!important;box-shadow:0 12px 30px rgba(15,23,42,.10)!important}
+  .bottom-nav button{min-height:54px!important;border-radius:16px!important;color:#64748B!important;font-size:12px!important}.bottom-nav button.active{background:#ECFDF3!important;color:#0E9A5A!important}
+  .bottom-nav .mobile-nav-icon .py-icon{width:21px;height:21px}.bottom-nav .mobile-nav-label{font-size:10px}
+  .modal{width:min(680px,calc(100% - 36px));border-radius:20px;padding:20px;align-self:center;max-height:86vh}.modal-backdrop{align-items:center;padding:18px}
+  .retail-product-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.service-simple-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+/* Móvil: tipografía compacta, objetivos táctiles de 48 px y jerarquía uniforme. */
+@media (max-width:699px){
+  .shell{padding-left:14px!important;padding-right:14px!important}.topbar{border-bottom:1px solid #E2E8F0!important}
+  .screen-title{margin:12px 0!important}.screen-title h2{font-size:22px!important;line-height:1.12!important;letter-spacing:-.35px!important}.screen-title p{font-size:13px!important;line-height:1.4!important;margin-top:5px!important}
+  #app .panel,#app .row-card,#app .kpi,#app .product-card,#app .category-card,#app .table-card,#app .product-category-card{border-radius:16px!important;padding:13px!important;box-shadow:0 4px 16px rgba(15,23,42,.03)!important}
+  #app .kpi-grid{gap:8px!important}#app .kpi{min-height:88px!important}#app .kpi strong{font-size:18px!important}
+  #app .toolbar{gap:7px!important}#app .toolbar .btn{min-height:44px!important;font-size:12px!important;padding:9px 11px!important}
+  #app .btn.full{min-height:48px!important}
+  #app .field input,#app .field select,#app .field textarea{min-height:48px!important;font-size:16px!important;border-radius:12px!important}
+  #app .field label{font-size:11px!important}.form-grid{gap:10px!important}
+  #app .category-card{min-height:72px!important;padding:13px 44px 13px 14px!important}.category-name{font-size:14px!important}.category-count{font-size:11px!important}.category-arrow{font-size:20px!important;right:14px!important}
+  #app .product-card{min-height:98px!important}.product-card strong{font-size:13px!important}.price{font-size:14px!important}
+  #app .row-card{padding:12px 13px!important}.row-head{gap:9px!important}.row-head strong{font-size:13px!important}.row-card .muted{font-size:11px!important;line-height:1.4!important}
+  #app .payment-grid{gap:8px!important}.pay-btn{min-height:50px!important;font-size:12px!important}
+  #app .profit-grid,#app .inventory-summary-grid{gap:8px!important}.profit-card strong,.inventory-summary-card strong{font-size:18px!important}
+  #app .legal-card{border-radius:16px!important;padding:14px!important}.legal-card strong{font-size:14px!important}.legal-card small{font-size:11px!important}
+  #modalRoot .modal:not(.sale-context-modal):not(.mobile-cart-modal){border-radius:24px 24px 0 0!important;padding:18px 15px calc(18px + env(safe-area-inset-bottom))!important}
+  #modalRoot .modal h3{font-size:20px!important;line-height:1.15!important}.modal-backdrop{padding:0!important;align-items:flex-end!important}
+  .m4-sale-head h2{font-size:24px!important;line-height:1.05!important}.m4-sale-head p{font-size:12px!important}.m4-products{gap:9px!important}.m4-product{min-height:120px!important;border-radius:16px!important;padding:13px!important}.m4-product strong{font-size:13px!important}.m4-product .m4-price{font-size:13px!important}.m4-search{height:48px!important;border-radius:12px!important}.m4-cat{min-height:38px!important;font-size:11.5px!important;padding:7px 12px!important}
+  .m3-kpi{border:1px solid #E2E8F0!important;box-shadow:0 4px 16px rgba(15,23,42,.03)!important}.m3-kpi strong{font-size:22px!important}.m3-quick{border:1px solid #E2E8F0!important;box-shadow:0 4px 16px rgba(15,23,42,.025)!important}
+}
+</style>
+
 </body>
 </html>

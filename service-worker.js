@@ -1,4 +1,4 @@
-const CACHE = 'punto-ya-cr-v7-64-pc-completo';
+const CACHE = 'punto-ya-cr-v7-65-responsive-unificado';
 
 const CORE = [
   './index.html',
