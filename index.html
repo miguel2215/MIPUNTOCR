@@ -1656,6 +1656,9 @@ const state = {
     ownerProCode: 1000,
     employeeId: "",
     employeeCode: "",
+    employeeDeviceToken: "",
+    employeeDeviceBusinessId: "",
+    employeeDeviceLinked: false,
     lastCloudBusinessId: "",
     oauthNoBusiness: false,
     fiscalOnboardingAsked: false,
@@ -2335,21 +2338,32 @@ async function pycrGetCaptchaToken() {
     document.body.appendChild(overlay);
     let settled = false;
     let timer = null;
+    let widgetId = null;
+    const cleanup = () => {
+      if (timer) clearTimeout(timer);
+      if (widgetId != null && window.turnstile?.remove) {
+        try { window.turnstile.remove(widgetId); } catch (_) {}
+      }
+      try { overlay.remove(); } catch (_) {}
+    };
     const finish = (fn, value) => {
       if (settled) return;
       settled = true;
-      if (timer) clearTimeout(timer);
-      try { overlay.remove(); } catch (_) {}
+      cleanup();
       fn(value);
     };
     overlay.querySelector('#pycrTurnstileCancel')?.addEventListener('click', () => finish(reject, new Error('Verificación cancelada.')));
     try {
-      window.turnstile.render('#pycrTurnstileHost', {
+      widgetId = window.turnstile.render('#pycrTurnstileHost', {
         sitekey: PYCR_TURNSTILE_SITE_KEY,
         theme: 'auto',
         size: 'flexible',
         callback: token => finish(resolve, token),
-        'error-callback': () => finish(reject, new Error('No se pudo completar la verificación de seguridad.')),
+        'error-callback': code => {
+          const c = String(code || '');
+          if (c.startsWith('110200')) return finish(reject, new Error('Turnstile no autoriza este dominio. Agrega el dominio actual en Cloudflare Turnstile.'));
+          finish(reject, new Error(`No se pudo completar la verificación de seguridad${c ? ` (${c})` : ''}.`));
+        },
         'expired-callback': () => finish(reject, new Error('La verificación venció. Intenta nuevamente.'))
       });
       timer = setTimeout(() => finish(reject, new Error('La verificación tardó demasiado. Intenta nuevamente.')), 120000);
@@ -2367,6 +2381,8 @@ let mpCloudMembership = null;
 let mpCloudAuthSubscription = null;
 let mpPasswordRecovery = false;
 let mpEmployeeLoginInProgress = false;
+// Solo vive en memoria: al recargar/cerrar la app, el empleado debe validar CR otra vez.
+let mpEmployeeSessionVerified = false;
 let mpNativeOauthReady = false;
 
 function isNativeApp() {
@@ -2512,7 +2528,9 @@ function cloudAuthErrorMessage(error) {
   if (msg.includes("código de invitación inválido") || msg.includes("codigo de invitacion invalido")) return "Código de invitación inválido o ya utilizado.";
   if (msg.includes("invitación venció") || msg.includes("invitacion vencio")) return "La invitación venció. Pide al dueño una nueva.";
   if (msg.includes("otro correo")) return "Ese código fue creado para otro correo.";
-  if (msg.includes("código de empleado incorrecto") || msg.includes("codigo de empleado incorrecto")) return "Código de empleado incorrecto.";
+  if (msg.includes("código de empleado incorrecto") || msg.includes("codigo de empleado incorrecto") || msg.includes("invalid_code")) return "Código de empleado incorrecto.";
+  if (msg.includes("demasiados intentos") || msg.includes("locked")) return error?.message || "Demasiados intentos. Espera antes de intentar de nuevo.";
+  if (msg.includes("dispositivo") && (msg.includes("autoriz") || msg.includes("vincul"))) return error?.message || "Este dispositivo no está autorizado para empleados.";
   if (msg.includes("anonymous") || msg.includes("anonymous sign-ins")) return "Activa el acceso anónimo en Supabase para usar códigos de empleado.";
   if (msg.includes("provider is not enabled") || msg.includes("unsupported provider")) return "Ese método de acceso todavía no está activado en Supabase.";
   if (msg.includes("fetch") || msg.includes("network")) return "No se pudo conectar con la nube. Revisa Internet.";
@@ -3119,6 +3137,15 @@ async function cloudHydrateSession(session) {
   const business = await cloudEnsureBusiness(mpCloudUser);
   if (!business) return { user: mpCloudUser, business: null };
   try { await cloudLoadPlanStatus(); } catch (error) { console.error("Plan Pro:", error); }
+  if (!mpCloudUser?.is_anonymous && role === "owner") {
+    const ownerCodeReady = Number(state.settings.ownerProCode) >= 1000 && Number(state.settings.ownerProCode) <= 9999;
+    const deviceReadyForBusiness = state.settings.employeeDeviceLinked &&
+      state.settings.employeeDeviceToken &&
+      state.settings.employeeDeviceBusinessId === mpCloudBusiness.id;
+    if (!deviceReadyForBusiness || !ownerCodeReady) {
+      try { await cloudPrepareEmployeeDevice(); } catch (error) { console.warn("Vinculación de dispositivo para empleados:", error?.message || error); }
+    }
+  }
   if (isProPlan()) {
     try { await cloudSyncCatalogClients({ silent: true }); } catch (error) { console.error("Catálogo inicial:", error); }
     try { await cloudSyncOperations({ silent: true }); } catch (error) { console.error("Operación inicial:", error); }
@@ -3139,7 +3166,23 @@ async function initCloudAuth() {
     const { data, error } = await mpCloud.auth.getSession();
     if (error) throw error;
 
-    if (data?.session) {
+    if (data?.session?.user?.is_anonymous) {
+      // Una sesión anónima persistida nunca reabre el negocio por sí sola.
+      // Inactivamos su membresía en servidor y exigimos CR nuevamente.
+      mpCloudSession = data.session;
+      mpCloudUser = data.session.user;
+      try { await mpCloud.rpc("end_employee_session"); }
+      catch (endError) { console.warn("No se pudo cerrar la membresía anterior de empleado:", endError?.message || endError); }
+      mpCloudBusiness = null;
+      mpCloudMembership = null;
+      mpEmployeeSessionVerified = false;
+      state.settings.sessionActive = false;
+      state.settings.employeeId = "";
+      state.settings.employeeCode = "";
+      state.settings.memberDisplayName = "";
+      role = "owner";
+      await put("settings", state.settings);
+    } else if (data?.session) {
       await cloudHydrateSession(data.session);
     } else if (navigator.onLine && state.settings.cloudLinked) {
       state.settings.sessionActive = false;
@@ -3161,7 +3204,12 @@ async function initCloudAuth() {
         }
 
         if (session?.user && ["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED", "INITIAL_SESSION"].includes(event)) {
-          if (mpEmployeeLoginInProgress && session.user?.is_anonymous) return;
+          if (session.user?.is_anonymous && mpEmployeeLoginInProgress) return;
+          if (session.user?.is_anonymous && !mpEmployeeSessionVerified) {
+            try { await mpCloud.rpc("end_employee_session"); }
+            catch (endError) { console.warn("Cierre preventivo de empleado:", endError?.message || endError); }
+            return;
+          }
           try {
             await cloudHydrateSession(session);
             if (db && !document.querySelector("#modalRoot")) render();
@@ -3172,6 +3220,7 @@ async function initCloudAuth() {
 
         if (event === "SIGNED_OUT") {
           mpCloudBusiness = null;
+          mpEmployeeSessionVerified = false;
           mpPasswordRecovery = false;
         }
       });
@@ -3371,7 +3420,9 @@ async function cloudLoadPlanStatus() {
     state.settings.planSource = row.plan_source || "free";
     state.settings.planPeriod = row.plan_period || "";
     state.settings.planExpiresAt = row.expires_at || "";
-    state.settings.ownerProCode = Number(row.owner_code || 1000);
+    if (!state.settings.employeeDeviceLinked) {
+      state.settings.ownerProCode = Number(row.owner_code || 1000);
+    }
     await put("settings", state.settings);
   }
   return row;
@@ -3387,28 +3438,111 @@ async function cloudRedeemPromoCode(code) {
   return Array.isArray(data) ? data[0] : data;
 }
 
+function pycrCreateDeviceToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function pycrEmployeeDeviceReady() {
+  return !!(
+    isProPlan() &&
+    state.settings.employeeDeviceLinked &&
+    state.settings.employeeDeviceToken &&
+    state.settings.employeeDeviceBusinessId
+  );
+}
+
+async function cloudPrepareEmployeeDevice() {
+  if (!initCloudClient() || !mpCloudBusiness?.id || !mpCloudUser) return false;
+  if (mpCloudUser?.is_anonymous || role !== "owner") return false;
+
+  const businessId = mpCloudBusiness.id;
+  let deviceToken = String(state.settings.employeeDeviceToken || "");
+  if (!deviceToken || state.settings.employeeDeviceBusinessId !== businessId) {
+    deviceToken = pycrCreateDeviceToken();
+  }
+
+  const deviceLabel = `${navigator.platform || "Dispositivo"} · ${navigator.userAgent || "Navegador"}`.slice(0, 180);
+  const { data, error } = await mpCloud.rpc("prepare_employee_device", {
+    p_business_id: businessId,
+    p_device_token: deviceToken,
+    p_device_label: deviceLabel
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.device_linked) throw new Error("No se pudo vincular este dispositivo para empleados.");
+
+  state.settings.employeeDeviceToken = deviceToken;
+  state.settings.employeeDeviceBusinessId = businessId;
+  state.settings.employeeDeviceLinked = true;
+  if (Number(row.owner_code) >= 1000 && Number(row.owner_code) <= 9999) {
+    state.settings.ownerProCode = Number(row.owner_code);
+  }
+  await put("settings", state.settings);
+  return true;
+}
+
 async function cloudEmployeeCodeLogin(codeNumber) {
   if (!initCloudClient()) throw new Error("No se pudo cargar Supabase.");
   if (!navigator.onLine) throw new Error("Necesitas Internet para ingresar como empleado.");
-  const businessId = state.settings.lastCloudBusinessId || state.settings.cloudBusinessId || (String(state.settings.localDataBusinessId || "").match(/^[0-9a-f-]{36}$/i) ? state.settings.localDataBusinessId : "");
-  if (!businessId) throw new Error("Este dispositivo no está vinculado a un negocio.");
+  if (!pycrEmployeeDeviceReady()) throw new Error("Este dispositivo no está autorizado para empleados. El dueño debe iniciar sesión primero.");
+
+  const code = Number(codeNumber);
+  if (!Number.isInteger(code) || code < 1000 || code > 9999) throw new Error("Código de empleado incorrecto.");
+
   mpEmployeeLoginInProgress = true;
   try {
+    let { data: sessionData, error: sessionError } = await mpCloud.auth.getSession();
+    if (sessionError) throw sessionError;
+    let session = sessionData?.session || null;
+
+    if (session?.user && !session.user.is_anonymous) {
+      throw new Error("Cierra la sesión del dueño antes de ingresar como empleado.");
+    }
+
+    if (!session?.user?.is_anonymous) {
+      const captchaToken = await pycrGetCaptchaToken();
+      const { data: anonymousData, error: anonymousError } = await mpCloud.auth.signInAnonymously({
+        options: { captchaToken, data: { account_kind: "employee_device" } }
+      });
+      if (anonymousError) throw anonymousError;
+      session = anonymousData?.session || null;
+      if (!session?.user?.is_anonymous) throw new Error("No se pudo iniciar la sesión segura de empleado.");
+    }
+
     const { data, error } = await mpCloud.rpc("employee_code_login", {
-      p_business_id: businessId,
-      p_code_number: Number(codeNumber)
+      p_device_token: state.settings.employeeDeviceToken,
+      p_code_number: code
     });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
-    if (row) {
-      state.settings.employeeId = row.employee_id || state.settings.employeeId || "";
-      state.settings.employeeCode = row.code_number || Number(codeNumber);
-      state.settings.memberDisplayName = row.display_name || state.settings.memberDisplayName || "Empleado";
-      state.settings.sessionActive = true;
-      state.settings.guestMode = false;
-      await put("settings", state.settings);
-      role = "employee";
+    if (!row?.ok) {
+      if (row?.status === "LOCKED") {
+        const seconds = Math.max(1, Number(row.retry_after_seconds || 60));
+        throw new Error(`Demasiados intentos. Espera ${seconds} segundos antes de intentar de nuevo.`);
+      }
+      if (row?.status === "PRO_REQUIRED") throw new Error("El acceso de empleados requiere PUNTO YA CR Pro activo.");
+      if (row?.status === "DEVICE_NOT_LINKED") throw new Error("Este dispositivo no está autorizado para empleados.");
+      throw new Error("Código de empleado incorrecto.");
     }
+
+    // La membresía se crea solo después de validar dispositivo + código.
+    // La marca de verificación vive solo en memoria para exigir CR tras cada reinicio.
+    mpEmployeeSessionVerified = true;
+    try {
+      await cloudHydrateSession(session);
+    } catch (hydrateError) {
+      mpEmployeeSessionVerified = false;
+      throw hydrateError;
+    }
+    state.settings.employeeId = row.employee_id || state.settings.employeeId || "";
+    state.settings.employeeCode = row.code_number || code;
+    state.settings.memberDisplayName = row.display_name || state.settings.memberDisplayName || "Empleado";
+    state.settings.sessionActive = true;
+    state.settings.guestMode = false;
+    await put("settings", state.settings);
+    role = "employee";
     return row;
   } finally {
     mpEmployeeLoginInProgress = false;
@@ -3427,12 +3561,14 @@ async function cloudLoadEmployees() {
 
 async function cloudCreateEmployee(displayName, permissions) {
   if (role !== "owner") throw new Error("Solo el dueño puede crear empleados.");
+  if (!mpCloudBusiness?.id) throw new Error("No se encontró el negocio activo.");
   const { data, error } = await mpCloud.rpc("create_business_employee", {
+    p_business_id: mpCloudBusiness.id,
     p_display_name: String(displayName || "").trim(),
     p_permissions: permissions || {}
   });
   if (error) throw error;
-  return data;
+  return Array.isArray(data) ? data[0] : data;
 }
 
 async function cloudUpdateEmployee(employeeId, changes) {
@@ -3460,6 +3596,12 @@ async function cloudDeleteEmployee(employeeId) {
 async function cloudLogoutOwner() {
   if (!mpCloud && !initCloudClient()) return;
   try {
+    const { data } = await mpCloud.auth.getSession();
+    const currentUser = data?.session?.user || mpCloudUser || null;
+    if (currentUser?.is_anonymous) {
+      try { await mpCloud.rpc("end_employee_session"); }
+      catch (endError) { console.warn("Cierre remoto de empleado:", endError?.message || endError); }
+    }
     await mpCloud.auth.signOut();
   } catch (error) {
     console.error("Supabase signOut:", error);
@@ -3468,6 +3610,7 @@ async function cloudLogoutOwner() {
   mpCloudUser = null;
   mpCloudBusiness = null;
   mpCloudMembership = null;
+  mpEmployeeSessionVerified = false;
 }
 
 async function cloudResendSignup(email) {
@@ -4451,11 +4594,12 @@ function accessSocialButtons(mode) {
 
 function renderAccessHome() {
   const canContinueGuest = !!(state.settings.guestMode && state.settings.onboardingComplete && state.settings.localDataBusinessId);
+  const canEmployeeAccess = pycrEmployeeDeviceReady();
   $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card">${brandHorizontal()}<p class="onboard-sub">Tu negocio, más simple</p><h2>¿Cómo quieres empezar?</h2><div class="choice-grid">
     ${canContinueGuest ? `<button class="btn primary full" onclick="continueGuestBusiness()">Continuar en este dispositivo</button>` : `<button class="btn primary full" onclick="startGuestBusiness()">Empezar sin cuenta</button>`}
     <button class="btn ghost full" onclick="showOwnerAccess('login')">Iniciar sesión</button>
     <button class="btn ghost full" onclick="showOwnerAccess('create')">Crear cuenta</button>
-    <button class="btn ghost full" onclick="startEmployeeAccess()">Acceso de empleado</button>
+    ${canEmployeeAccess ? `<button class="btn ghost full" onclick="startEmployeeAccess()">Acceso de empleado</button>` : ""}
   </div><div class="setup-note" style="margin-top:14px">Puedes empezar sin cuenta y trabajar offline. La sincronización completa, respaldo y varios dispositivos son funciones Pro.</div><p class="muted" style="font-size:12px;margin-top:12px">Al usar PUNTO YA CR aceptas los <button class="linkish" onclick="showTerms()">Términos</button> y la <button class="linkish" onclick="showPrivacyPolicy()">Política de privacidad</button>.</p></div></section>`;
 }
 window.renderAccessHome = renderAccessHome;
@@ -4810,9 +4954,8 @@ window.loginOwner = async () => {
 
 function renderEmployeeAccess() {
   employeeCodeBuffer = employeeCodeBuffer || "";
-  const linkedBusinessId = state.settings.lastCloudBusinessId || state.settings.cloudBusinessId || (String(state.settings.localDataBusinessId || "").match(/^[0-9a-f-]{36}$/i) ? state.settings.localDataBusinessId : "");
-  if (!linkedBusinessId) {
-    $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card"><button class="back-link" onclick="authBack('welcome')">‹ Volver</button>${brandHorizontal("brand-logo-horizontal compact")}<h2>Acceso de empleado</h2><p>Este dispositivo todavía no está vinculado a un negocio.</p><div class="setup-note">El Dueño debe iniciar sesión una vez en este dispositivo. Después los empleados podrán entrar solo con su código CR.</div></div></section>`;
+  if (!pycrEmployeeDeviceReady()) {
+    $("#app").innerHTML = `<section class="onboarding"><div class="onboard-card"><button class="back-link" onclick="authBack('welcome')">‹ Volver</button>${brandHorizontal("brand-logo-horizontal compact")}<h2>Acceso de empleado</h2><p>Este dispositivo todavía no está vinculado a un negocio.</p><div class="setup-note">El dueño debe iniciar sesión una vez en este dispositivo. Después los empleados podrán entrar solo con su código CR.</div></div></section>`;
     return;
   }
   $("#app").innerHTML = `<div class="lock-screen"><div class="lock-card employee-code-card"><button class="back-link" onclick="authBack('welcome')">‹ Volver</button><div class="lock-brand">${brandVertical("brand-logo-vertical")}</div><p>Ingresa tu código.</p><div class="employee-code-display"><span>CR</span><strong id="employeeCodeDigits">${employeeCodeBuffer ? "•".repeat(employeeCodeBuffer.length) : "____"}</strong></div><div class="pin-keypad">${[1,2,3,4,5,6,7,8,9].map(n => `<button onclick="employeeCodeKey('${n}')">${n}</button>`).join("")}<button class="key-delete" onclick="employeeCodeBackspace()">⌫</button><button onclick="employeeCodeKey('0')">0</button><button class="key-clear" onclick="employeeCodeClear()">×</button></div><div id="employeeCodeStatus" class="muted" style="text-align:center;margin-top:10px"></div></div></div>`;
@@ -4852,6 +4995,8 @@ window.logoutOwner = async () => {
   state.settings.sessionActive = false;
   state.settings.employeeId = "";
   state.settings.employeeCode = "";
+  state.settings.memberDisplayName = "";
+  state.settings.ownerProCode = 0;
   await put("settings", state.settings);
   clearInactivityTimer();
   locked = false;
@@ -4928,11 +5073,14 @@ window.connectCurrentBusinessToCloud = async () => {
 };
 
 window.employeeSessionLock = async () => {
-  state.settings.employeeId = "";
-  state.settings.employeeCode = "";
-  state.settings.memberDisplayName = "";
+  // Mantiene la sesión anónima, pero inactiva su membresía en servidor
+  // hasta que el empleado vuelva a validar su código CR.
+  mpEmployeeSessionVerified = false;
+  try { if (mpCloud) await mpCloud.rpc("end_employee_session"); }
+  catch (endError) { console.warn("Bloqueo remoto de empleado:", endError?.message || endError); }
+  state.settings.sessionActive = false;
   await put("settings", state.settings);
-  role = "owner";
+  role = "employee";
   locked = true;
   screen = "home";
   render();
@@ -8460,9 +8608,9 @@ function renderSettings() {
     ? `<div class="panel" style="margin-top:14px"><strong>${isProPlan()?"Nube Pro":"Cuenta conectada"}</strong><p class="muted">${s.email ? esc(s.email) : "Cuenta activa"}</p><p class="muted">${isProPlan()?"Ventas, clientes, caja, inventario, pedidos y respaldos se sincronizan con la nube.":"En Gratis, la operación se mantiene en este dispositivo. El catálogo público puede publicarse en línea; activa Pro para respaldo y varios dispositivos."}</p></div>`
     : `<div class="panel" style="margin-top:14px"><strong>Crear una cuenta</strong><p class="muted">Puedes seguir trabajando offline sin cuenta. Una cuenta permite publicar tu catálogo; Pro agrega respaldo y sincronización completa.</p><button class="btn primary" onclick="openCloudLink()">Crear cuenta</button></div>`;
   const securityPanel = (!s.guestMode && isProPlan())
-    ? `<div class="panel" style="margin-top:14px"><strong>Seguridad y acceso Pro</strong><p class="muted">El Dueño usa <strong>CR${Number(s.ownerProCode || 1000)}</strong>. Los empleados Pro usan sus propios códigos CR. No se utiliza PIN en modo Pro.</p><div class="toolbar"><button class="btn ghost" onclick="lockApp()">Bloquear</button><button class="btn danger" onclick="logoutOwner()">Cerrar sesión</button></div></div>`
+    ? `<div class="panel" style="margin-top:14px"><strong>Seguridad y acceso Pro</strong><p class="muted">El dueño usa <strong>CR${Number(s.ownerProCode || 1000)}</strong>. PUNTO YA genera códigos CR aleatorios y los vincula a este negocio. No se utiliza PIN en modo Pro.</p><div class="toolbar"><button class="btn ghost" onclick="lockApp()">Bloquear</button><button class="btn danger" onclick="logoutOwner()">Cerrar sesión</button></div></div>`
     : `<div class="panel" style="margin-top:14px"><strong>Seguridad y acceso</strong><p class="muted">${s.pinEnabled && hasLocalPin() ? "PIN protegido · PUNTO YA CR se bloquea automáticamente después de 5 minutos sin actividad." : "Configura un PIN para activar el bloqueo manual y el bloqueo automático por inactividad."}</p><div class="toolbar">${s.pinEnabled && hasLocalPin() ? `<button class="btn ghost" onclick="openPinSettings()">Cambiar PIN</button>` : `<button class="btn ghost" onclick="openPinSettings()">Configurar PIN</button>`}<button class="btn danger" onclick="logoutOwner()">Cerrar sesión</button></div></div>`;
-  const usersPanel = (s.cloudLinked && isProPlan()) ? `<div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>Empleados Pro</strong><p class="muted" style="margin:5px 0 0">Crea códigos CR1000, CR1001… y conoce quién realizó cada venta.</p></div><button class="btn primary" onclick="go('users')">Administrar empleados</button></div></div>` : "";
+  const usersPanel = (s.cloudLinked && isProPlan()) ? `<div class="panel" style="margin-top:14px"><div class="row-head"><div><strong>Empleados Pro</strong><p class="muted" style="margin:5px 0 0">PUNTO YA genera códigos CR aleatorios y registra quién realizó cada venta.</p></div><button class="btn primary" onclick="go('users')">Administrar empleados</button></div></div>` : "";
   const backupPanel = typeof renderBackupSettingsPanel === "function" ? renderBackupSettingsPanel() : "";
   const syncPanel = renderAdminSyncPanel();
 
@@ -8553,7 +8701,7 @@ function exportLocalData(){ const cleanSettings={...state.settings}; delete clea
 window.exportLocalData=exportLocalData;
 async function cloudRecordDeletionRequest(){ if(!mpCloud||!mpCloudUser||!mpCloudBusiness?.id) throw new Error("No se encontró una cuenta activa."); const now=new Date().toISOString(); const {error}=await mpCloud.from("audit_log").insert({business_id:mpCloudBusiness.id,user_id:mpCloudUser.id,action:"account_deletion_request",entity_type:"account",entity_id:mpCloudUser.id,old_data:null,new_data:{requested_at:now,email:mpCloudUser.email||state.settings.email||""}}); if(error) throw error; state.settings.deletionRequestedAt=now; await put("settings",state.settings); return now; }
 window.requestAccountDeletion=()=>{ const guest=state.settings.guestMode||!state.settings.cloudLinked; modal(`<h3>${guest?"Eliminar datos de este dispositivo":"Solicitar eliminación de cuenta"}</h3><div class="danger-zone"><p>${guest?"Se borrarán los datos locales de este negocio en este dispositivo.":"Se registrará una solicitud de eliminación para la cuenta y los datos asociados. La información local de este dispositivo también se borrará al confirmar."}</p><p><strong>Esta acción no se puede deshacer localmente.</strong></p></div><div class="field" style="margin-top:14px"><label>Escribe ELIMINAR para confirmar</label><input id="deleteAccountConfirm" autocomplete="off"></div><div class="toolbar"><button class="btn danger" onclick="confirmAccountDeletion()">Confirmar</button><button class="btn" onclick="closeModal()">Cancelar</button></div>`); };
-async function resetAfterDeletion(){ await resetLocalBusinessCache(); for(const name of ["settings"]) await clearStore(name); state.settings={...state.settings,businessName:"PUNTO YA CR",businessType:"food",businessId:"",ownerName:"",email:"",phone:"",whatsapp:"",sinpe:"",accountCreated:false,onboardingComplete:false,activated:false,activationUsed:false,sessionActive:false,pendingCloudConfirmation:false,cloudLinked:false,cloudUserId:"",cloudBusinessId:"",cloudRole:"owner",cloudPermissions:{},memberDisplayName:"",guestMode:false,localDataBusinessId:"",employeeId:"",employeeCode:"",planTier:"free",planSource:"free",planPeriod:"",planExpiresAt:"",ownerProCode:1000,ownerPin:"",ownerPinHash:"",ownerPinSalt:"",cashierPin:"",pinEnabled:false,passwordHash:"",activationCodeHash:"",pendingActivationCode:"",privacyAcceptedAt:"",termsAcceptedAt:"",deletionRequestedAt:"",catalogPublishedAt:"",lastCloudBusinessId:"",needsBusinessJoin:false,pendingInviteCode:"",oauthNoBusiness:false,fiscalOnboardingAsked:false,fiscalUsesEInvoice:false,fiscalLegalName:"",fiscalIdType:"01",fiscalId:"",fiscalEconomicActivityCode:"",fiscalEconomicActivityName:"",fiscalBranchCode:"001",fiscalTerminalCode:"00001",fiscalProvince:"",fiscalCanton:"",fiscalDistrict:"",fiscalOtherSigns:"",fiscalEmail:"",fiscalDefaultCondition:"01",fiscalDefaultPayment:"01",fiscalDefaultTaxRate:13,fiscalSetupUpdatedAt:""}; await put("settings",state.settings); role="owner";locked=false;authStep="welcome";screen="home"; }
+async function resetAfterDeletion(){ await resetLocalBusinessCache(); for(const name of ["settings"]) await clearStore(name); state.settings={...state.settings,businessName:"PUNTO YA CR",businessType:"food",businessId:"",ownerName:"",email:"",phone:"",whatsapp:"",sinpe:"",accountCreated:false,onboardingComplete:false,activated:false,activationUsed:false,sessionActive:false,pendingCloudConfirmation:false,cloudLinked:false,cloudUserId:"",cloudBusinessId:"",cloudRole:"owner",cloudPermissions:{},memberDisplayName:"",guestMode:false,localDataBusinessId:"",employeeId:"",employeeCode:"",employeeDeviceToken:"",employeeDeviceBusinessId:"",employeeDeviceLinked:false,planTier:"free",planSource:"free",planPeriod:"",planExpiresAt:"",ownerProCode:1000,ownerPin:"",ownerPinHash:"",ownerPinSalt:"",cashierPin:"",pinEnabled:false,passwordHash:"",activationCodeHash:"",pendingActivationCode:"",privacyAcceptedAt:"",termsAcceptedAt:"",deletionRequestedAt:"",catalogPublishedAt:"",lastCloudBusinessId:"",needsBusinessJoin:false,pendingInviteCode:"",oauthNoBusiness:false,fiscalOnboardingAsked:false,fiscalUsesEInvoice:false,fiscalLegalName:"",fiscalIdType:"01",fiscalId:"",fiscalEconomicActivityCode:"",fiscalEconomicActivityName:"",fiscalBranchCode:"001",fiscalTerminalCode:"00001",fiscalProvince:"",fiscalCanton:"",fiscalDistrict:"",fiscalOtherSigns:"",fiscalEmail:"",fiscalDefaultCondition:"01",fiscalDefaultPayment:"01",fiscalDefaultTaxRate:13,fiscalSetupUpdatedAt:""}; await put("settings",state.settings); role="owner";locked=false;authStep="welcome";screen="home"; }
 window.confirmAccountDeletion=async()=>{ if(String($("#deleteAccountConfirm")?.value||"").trim().toUpperCase()!=="ELIMINAR")return toast("Escribe ELIMINAR para confirmar."); const cloud=state.settings.cloudLinked&&!state.settings.guestMode; try{ if(cloud){ if(!navigator.onLine)return toast("Necesitas Internet para registrar la solicitud."); await cloudRecordDeletionRequest(); try{await cloudLogoutOwner();}catch(_){}} await resetAfterDeletion(); closeModal(); renderAccessHome(); toast(cloud?"Solicitud registrada y datos locales eliminados.":"Datos locales eliminados."); }catch(error){console.error(error);toast("No se pudo registrar la solicitud. Intenta nuevamente.");} };
 function renderLegal(){ const delLabel=state.settings.guestMode||!state.settings.cloudLinked?"Eliminar datos locales":"Solicitar eliminación de cuenta"; $("#app").innerHTML=shell(`<section class="screen-title"><h2>Legal y privacidad</h2><p>Controla tus datos y consulta las condiciones de PUNTO YA CR.</p></section><div class="legal-grid"><button class="legal-card" onclick="showPrivacyPolicy()"><strong>Política de privacidad</strong><small>Qué datos se usan, para qué y cómo se protegen.</small></button><button class="legal-card" onclick="showTerms()"><strong>Términos y condiciones</strong><small>Reglas de uso de la aplicación y responsabilidades del negocio.</small></button><button class="legal-card" onclick="exportLocalData()"><strong>Exportar mis datos</strong><small>Descarga una copia JSON de la información guardada en este dispositivo.</small></button><button class="legal-card" onclick="window.open('${publicLegalUrl("privacy")}','_blank','noopener,noreferrer')"><strong>Enlace público de privacidad</strong><small>Útil para la ficha de la app y para compartir la política fuera de PUNTO YA CR.</small></button><button class="legal-card" onclick="window.open('${publicLegalUrl("delete-account")}','_blank','noopener,noreferrer')"><strong>Enlace web para eliminar cuenta</strong><small>Permite iniciar una solicitud también desde el navegador.</small></button></div><div class="danger-zone" style="margin-top:14px"><strong>${delLabel}</strong><p class="muted">${state.settings.cloudLinked&&!state.settings.guestMode?"La solicitud en nube se registra para revisión y eliminación. Los datos locales se eliminan al confirmar.":"Borra la información local de este negocio en este dispositivo."}</p><button class="btn danger" onclick="requestAccountDeletion()">${delLabel}</button></div>`,"more"); }
 let publicDeletionBusiness=null, publicDeletionUser=null;
@@ -8664,14 +8812,14 @@ async function renderUsers() {
     toast("Empleados está disponible con PUNTO YA CR Pro.");
     return renderHome();
   }
-  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Empleados</h2><p>Crea accesos simples con código CR.</p></section><div class="panel"><div class="row-head"><div><strong>Equipo</strong><div class="muted">El Dueño usa CR1000. Los empleados reciben CR1001, CR1002…</div></div><button class="btn primary" onclick="openCreateEmployee()">Crear empleado</button></div><div id="employeeList" style="margin-top:14px"><div class="empty">Cargando empleados…</div></div></div>`, "users");
+  $("#app").innerHTML = shell(`<section class="screen-title"><h2>Empleados</h2><p>Crea accesos simples con código CR.</p></section><div class="panel"><div class="row-head"><div><strong>Equipo</strong><div class="muted">PUNTO YA genera códigos CR aleatorios para el dueño y cada empleado. Los códigos solo son válidos dentro de este negocio.</div></div><button class="btn primary" onclick="openCreateEmployee()">Crear empleado</button></div><div id="employeeList" style="margin-top:14px"><div class="empty">Cargando empleados…</div></div></div>`, "users");
   try {
     employeesCache = await cloudLoadEmployees();
     drawEmployeeList();
   } catch (error) {
     console.error(error);
     const el = $("#employeeList");
-    if (el) el.innerHTML = `<div class="empty">No se pudieron cargar los empleados. Revisa Internet y que hayas ejecutado el SQL de v7.17.</div>`;
+    if (el) el.innerHTML = `<div class="empty">No se pudieron cargar los empleados. Revisa Internet y la configuración de acceso de empleados.</div>`;
   }
 }
 window.renderUsers = renderUsers;
@@ -8703,7 +8851,7 @@ window.saveEmployee = async () => {
     const employee = await cloudCreateEmployee(name, teamReadPermissions("employeePerm"));
     closeModal();
     await renderUsers();
-    modal(`<h3>Empleado creado</h3><p><strong>${esc(name)}</strong> entra con este código:</p><div class="activation-code">CR${Number(employee?.code_number || 0)}</div><p class="muted">En la pantalla inicial toca <strong>Acceso de empleado</strong>. El CR ya aparece fijo; solo debe escribir los 4 números.</p><button class="btn primary full" onclick="closeModal()">Listo</button>`);
+    modal(`<h3>Empleado creado</h3><p><strong>${esc(name)}</strong> entra con este código:</p><div class="activation-code">CR${Number(employee?.code_number || 0)}</div><p class="muted">Después de cerrar la sesión del dueño, este dispositivo mostrará <strong>Acceso de empleado</strong>. El empleado solo escribe los 4 números.</p><button class="btn primary full" onclick="closeModal()">Listo</button>`);
   } catch (error) {
     console.error(error);
     toast(cloudAuthErrorMessage(error));
@@ -8765,7 +8913,12 @@ function renderLock() {
   const display = pro
     ? `<div class="employee-code-display"><span>CR</span><strong id="lockPinDisplay">____</strong></div>`
     : `<div class="pin-display" id="lockPinDisplay">____</div>`;
-  $("#app").innerHTML = `<div class="lock-screen"><div class="lock-card pin-pad-card"><div class="lock-brand">${brandVertical("brand-logo-vertical")}${pro ? `<div class="lock-pro-badge">${proBrandBadge()}</div>` : ""}</div><p>${pro ? "Ingresa tu código CR." : "Ingresa tu código."}</p>${display}<div class="pin-keypad">${[1,2,3,4,5,6,7,8,9].map(n => `<button onclick="lockPinKey('${n}')">${n}</button>`).join("")}<button class="key-delete" onclick="lockPinBackspace()">⌫</button><button onclick="lockPinKey('0')">0</button><button class="key-clear" onclick="lockPinClear()">×</button></div><div id="lockPinStatus" class="muted" style="text-align:center;margin-top:10px"></div></div></div>`;
+  const employeeSwitch = pro && role === "owner" && pycrEmployeeDeviceReady()
+    ? `<button class="btn ghost full" style="margin-top:12px" onclick="switchLockedOwnerToEmployee()">Acceso de empleado</button>`
+    : (pro && role === "employee"
+      ? `<button class="btn ghost full" style="margin-top:12px" onclick="exitEmployeeSession()">Salir de empleado</button>`
+      : "");
+  $("#app").innerHTML = `<div class="lock-screen"><div class="lock-card pin-pad-card"><div class="lock-brand">${brandVertical("brand-logo-vertical")}${pro ? `<div class="lock-pro-badge">${proBrandBadge()}</div>` : ""}</div><p>${pro ? "Ingresa tu código CR." : "Ingresa tu código."}</p>${display}<div class="pin-keypad">${[1,2,3,4,5,6,7,8,9].map(n => `<button onclick="lockPinKey('${n}')">${n}</button>`).join("")}<button class="key-delete" onclick="lockPinBackspace()">⌫</button><button onclick="lockPinKey('0')">0</button><button class="key-clear" onclick="lockPinClear()">×</button></div><div id="lockPinStatus" class="muted" style="text-align:center;margin-top:10px"></div>${employeeSwitch}</div></div>`;
 }
 function drawLockPin() {
   const len = 4;
@@ -8786,20 +8939,21 @@ window.unlock = async () => {
   if (Date.now() < pinLockoutUntil) { if(status) status.textContent=`Espera ${Math.ceil((pinLockoutUntil-Date.now())/1000)} s antes de intentar de nuevo.`; lockPinBuffer=""; return drawLockPin(); }
   if (proCodeMode()) {
     const n = Number(p);
-    if (n === Number(state.settings.ownerProCode || 1000)) {
-      role = "owner";
-      state.settings.employeeId = ""; state.settings.employeeCode = ""; state.settings.memberDisplayName = "";
-      await put("settings", state.settings);
-      locked = false; lockPinBuffer = ""; lastActivityAt = Date.now(); return render();
+    if (role === "owner") {
+      if (n === Number(state.settings.ownerProCode || 0)) {
+        locked = false; lockPinBuffer = ""; lastActivityAt = Date.now(); return render();
+      }
+      if (status) status.textContent = "Código incorrecto.";
+      lockPinBuffer = ""; return drawLockPin();
     }
     try {
       if (status) status.textContent = "Verificando…";
       const row = await cloudEmployeeCodeLogin(n);
-      if (!row) throw new Error("Código incorrecto");
+      if (!row?.ok) throw new Error("Código incorrecto");
       locked = false; lockPinBuffer = ""; lastActivityAt = Date.now(); return render();
     } catch (error) {
       console.error(error);
-      if (status) status.textContent = "Código incorrecto.";
+      if (status) status.textContent = cloudAuthErrorMessage(error);
       lockPinBuffer = ""; return drawLockPin();
     }
   }
@@ -8811,6 +8965,47 @@ window.unlock = async () => {
   else if (status) status.textContent = "Código incorrecto.";
   lockPinBuffer = ""; drawLockPin();
 };
+window.switchLockedOwnerToEmployee = async () => {
+  try {
+    if (!pycrEmployeeDeviceReady()) return toast("Este dispositivo no está vinculado para empleados.");
+    await cloudLogoutOwner();
+    state.settings.sessionActive = false;
+    state.settings.employeeId = "";
+    state.settings.employeeCode = "";
+    state.settings.memberDisplayName = "";
+    state.settings.ownerProCode = 0;
+    await put("settings", state.settings);
+    role = "owner";
+    locked = false;
+    employeeCodeBuffer = "";
+    authStep = "employee";
+    renderOnboarding();
+  } catch (error) {
+    console.error(error);
+    toast(cloudAuthErrorMessage(error));
+  }
+};
+
+window.exitEmployeeSession = async () => {
+  try {
+    await cloudLogoutOwner();
+  } catch (error) {
+    console.warn("Cierre de sesión de empleado:", error?.message || error);
+  }
+  state.settings.sessionActive = false;
+  state.settings.employeeId = "";
+  state.settings.employeeCode = "";
+  state.settings.memberDisplayName = "";
+  state.settings.cloudRole = "owner";
+  state.settings.cloudPermissions = {};
+  await put("settings", state.settings);
+  role = "owner";
+  locked = false;
+  screen = "home";
+  authStep = "welcome";
+  renderAccessHome();
+};
+
 function pyInitSwipeToClose(root){
   if(!root || !window.matchMedia?.("(max-width: 699px)").matches) return;
   const sheet=root.querySelector(".modal");

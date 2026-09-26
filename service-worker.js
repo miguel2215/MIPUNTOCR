@@ -1,4 +1,4 @@
-const CACHE = 'punto-ya-cr-v7-62-turnstile-auth-v1';
+const CACHE = 'punto-ya-cr-v7-63-employee-access';
 
 const CORE = [
   './index.html',
@@ -81,12 +81,16 @@ async function cacheFirst(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
 
-  const response = await fetch(request);
-  if (response && (response.ok || response.type === 'opaque') && !response.redirected) {
-    const copy = response.clone();
-    caches.open(CACHE).then(cache => cache.put(request, copy)).catch(() => null);
+  try {
+    const response = await fetch(request);
+    if (response && (response.ok || response.type === 'opaque') && !response.redirected) {
+      const copy = response.clone();
+      caches.open(CACHE).then(cache => cache.put(request, copy)).catch(() => null);
+    }
+    return response;
+  } catch (_) {
+    return new Response('', { status: 503, statusText: 'Offline' });
   }
-  return response;
 }
 
 async function refreshNavigation(request, shellKey) {
